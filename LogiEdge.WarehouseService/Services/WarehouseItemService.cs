@@ -1,6 +1,7 @@
 ﻿using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace LogiEdge.WarehouseService.Services
 {
@@ -12,13 +13,30 @@ namespace LogiEdge.WarehouseService.Services
         {
             this.warehouseDbContextFactory = warehouseDbContextFactory;
         }
+
+        public async Task<Item> AddNewItem(Item item)
+        {
+            WarehouseDbContext dbContext = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            EntityEntry<Item> entry = await dbContext.CurrentItems.AddAsync(item);
+
+            return entry.Entity;
+        }
         
         public async IAsyncEnumerable<Item> GetItemsForCustomerAsync(string customerPrefix, bool includePastItems = false)
         {
             WarehouseDbContext dbContext = await warehouseDbContextFactory.CreateDbContextAsync();
 
-            IQueryable<Item> items = dbContext.Items
-                .Where(x => includePastItems || (x.ShippedOn == null))
+            IQueryable<Item> items = dbContext.CurrentItems
+                .Where(x => x.Id.CustomerPrefix == customerPrefix);
+
+            foreach (Item item in items)
+                yield return item;
+
+            if (!includePastItems)
+                yield break;
+
+            items = dbContext.HistoricItems
                 .Where(x => x.Id.CustomerPrefix == customerPrefix);
 
             foreach (Item item in items)
@@ -26,20 +44,20 @@ namespace LogiEdge.WarehouseService.Services
         }
 
         /// <summary>
-        /// Gets the transactions for the specified item ordered from oldest transaction to newest.
+        /// Gets the states over time for the specified item ordered from oldest to newest.
         /// </summary>
         /// <param name="itemId">The item to get the transactions for</param>
         /// <returns>Returns an IAsyncEnumerable yielding the transactions ordered from oldest to newest.</returns>
-        public async IAsyncEnumerable<ItemState> GetStatesOfItem(ItemId itemId)
+        public async IAsyncEnumerable<ItemState> GetStatesOfItemAsync(ItemId itemId)
         {
             WarehouseDbContext dbContext = await warehouseDbContextFactory.CreateDbContextAsync();
 
-            IOrderedQueryable<ItemState> transactions = dbContext.HistoricItemStates
+            IOrderedQueryable<ItemState> itemStates = dbContext.ItemStates
                 .Where(x => x.ItemId.Equals(itemId))
-                .OrderBy(x => x.TransactionDate);
+                .OrderBy(x => x.Date);
 
-            foreach (ItemTransaction transaction in transactions)
-                yield return transaction;
+            foreach (ItemState state in itemStates)
+                yield return state;
         }
     }
 }

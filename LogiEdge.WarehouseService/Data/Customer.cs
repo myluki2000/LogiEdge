@@ -6,11 +6,9 @@ using System.Threading.Tasks;
 
 namespace LogiEdge.WarehouseService.Data
 {
-    public class ItemState
+    public class Customer
     {
         public Guid Id { get; set; }
-        public required ItemId ItemId { get; set; }
-        public required DateTime Date { get; set; }
-        public required string Location { get; set; }
+        public required string Abbreviation { get; set; }
     }
 }
