@@ -9,7 +9,7 @@ namespace LogiEdge.WarehouseService.Services
     {
         private readonly IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory;
 
-        internal WarehouseItemService(IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory)
+        public WarehouseItemService(IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory)
         {
             this.warehouseDbContextFactory = warehouseDbContextFactory;
         }

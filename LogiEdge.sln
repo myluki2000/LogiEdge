@@ -11,6 +11,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Shared", "LogiEdge
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.WarehouseService", "LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj", "{F1FF9ED7-2139-48C9-A66C-B416B790CA84}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.CustomerService", "LogiEdge.CustomerService\LogiEdge.CustomerService.csproj", "{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.CustomerManagement", "LogiEdge.CustomerManagement\LogiEdge.CustomerManagement.csproj", "{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{F1FF9ED7-2139-48C9-A66C-B416B790CA84}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F1FF9ED7-2139-48C9-A66C-B416B790CA84}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F1FF9ED7-2139-48C9-A66C-B416B790CA84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

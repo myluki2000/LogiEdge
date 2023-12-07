@@ -5,13 +5,18 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using LogiEdge.Shared;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LogiEdge.Warehouse
 {
     public class WarehouseModuleConfiguration : IServiceModuleConfiguration
     {
-        public void RegisterServices(IServiceCollection services)
+        public void RegisterServices(WebApplicationBuilder builder)
+        {
+        }
+
+        public void OnAppBuilt(WebApplication app)
         {
         }
 

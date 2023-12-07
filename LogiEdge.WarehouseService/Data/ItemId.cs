@@ -1,15 +1,18 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace LogiEdge.WarehouseService.Data
 {
-    public struct ItemId
+    [Owned]
+    public class ItemId
     {
-        public string CustomerPrefix;
-        public int Id;
+        public string CustomerPrefix { get; set; }
+        public int Id { get; set; }
 
         public bool Equals(ItemId other)
         {

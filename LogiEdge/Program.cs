@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Reflection;
 using LogiEdge.Areas.Identity;
+using LogiEdge.CustomerManagement;
+using LogiEdge.CustomerService;
 using LogiEdge.Data;
 using LogiEdge.Shared;
 using LogiEdge.Warehouse;
@@ -23,7 +25,7 @@ namespace LogiEdge
             // Add services to the container.
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(connectionString));
+                options.UseNpgsql(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
             builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
                 .AddEntityFrameworkStores<ApplicationDbContext>();
@@ -33,18 +35,20 @@ namespace LogiEdge
             builder.Services.AddSingleton<WeatherForecastService>();
 
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
-            
+
             // modules
             List<IServiceModuleConfiguration> modules = new()
             {
                 new WarehouseModuleConfiguration(),
-                new WarehouseServiceModuleConfiguration()
+                new WarehouseServiceModuleConfiguration(),
+                new CustomerManagementModuleConfiguration(),
+                new CustomerServiceModuleConfiguration()
             };
 
             // add services of modules
             foreach (IServiceModuleConfiguration module in modules)
             {
-                module.RegisterServices(builder.Services);
+                module.RegisterServices(builder);
             }
 
             // build app
@@ -52,6 +56,11 @@ namespace LogiEdge
 
             // add modules to our module list stored as a singleton service
             app.Services.GetService<ServiceModuleConfigurationCollection>()!.AddRange(modules);
+
+            foreach (IServiceModuleConfiguration module in modules)
+            {
+                module.OnAppBuilt(app);
+            }
 
             // add module assemblies
 

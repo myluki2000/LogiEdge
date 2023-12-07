@@ -1,0 +1,51 @@
+﻿@page "/customer/create"
+@using LogiEdge.CustomerService.Data;
+@using LogiEdge.CustomerService.Services;
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Text.RegularExpressions;
+
+@inject CustomerManagementService customerService;
+@inject NavigationManager navManager;
+
+<h3>CreateCustomer</h3>
+
+<label>Customer Name:</label>
+<InputText @bind-Value="customerName"></InputText>
+
+<label>Customer Abbreviation</label>
+<InputText @bind-Value="customerAbbreviation"></InputText>
+
+<button @onclick="CreateNewCustomer">Create</button>
+<button href="/customer">Cancel</button>
+
+<p style="color:red;">@feedback</p>
+
+@code {
+    private string? customerName;
+    private string? customerAbbreviation;
+
+    private string feedback = string.Empty;
+
+    private void CreateNewCustomer()
+    {
+        if(customerName == null || customerAbbreviation == null)
+        {
+            feedback = "Customer needs to have both an abbreviation and a name!";
+            return;
+        }
+
+        if (Regex.IsMatch(customerAbbreviation, @"^[A-Z]+$"))
+        {
+            feedback = "Abbreviation must only contain uppercase letters!";
+        }
+
+        customerService.CreateCustomer(new Customer()
+            {
+                Abbreviation = customerAbbreviation,
+                Name = customerName
+            });
+
+        feedback = "New customer created successfully!";
+        navManager.NavigateTo("/customer");
+    }
+}

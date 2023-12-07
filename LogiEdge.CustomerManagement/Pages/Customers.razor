@@ -1,0 +1,22 @@
+﻿@page "/customer"
+
+@using LogiEdge.CustomerService.Data;
+@using LogiEdge.CustomerService.Services;
+@inject CustomerManagementService customerService;
+
+<h3>Customers</h3>
+
+<ul>
+    @foreach(Customer customer in customerService.GetCustomers())
+    {
+        <li>@customer.Name [@customer.Abbreviation]</li>
+    }
+</ul>
+
+<button onclick="CreateCustomer">Create New Customer</button>
+
+@code {
+    private void CreateCustomer() {
+
+    }
+}

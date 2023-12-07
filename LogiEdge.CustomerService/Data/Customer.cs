@@ -1,14 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LogiEdge.WarehouseService.Data
+namespace LogiEdge.CustomerService.Data
 {
     public class Customer
     {
+        [Key]
         public Guid Id { get; set; }
+        public required string Name { get; set; }
         public required string Abbreviation { get; set; }
     }
 }
