@@ -11,9 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Shared", "LogiEdge
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.WarehouseService", "LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj", "{F1FF9ED7-2139-48C9-A66C-B416B790CA84}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.CustomerService", "LogiEdge.CustomerService\LogiEdge.CustomerService.csproj", "{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.CustomerService", "LogiEdge.CustomerService\LogiEdge.CustomerService.csproj", "{BC06F03C-B0C1-47C5-8D1D-075FE1FC421B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.CustomerManagement", "LogiEdge.CustomerManagement\LogiEdge.CustomerManagement.csproj", "{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.CustomerManagement", "LogiEdge.CustomerManagement\LogiEdge.CustomerManagement.csproj", "{CBC3D3F5-74AF-4EBF-B162-B70F111DED6F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

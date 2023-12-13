@@ -16,7 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
     <ProjectReference Include="..\LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj" />
   </ItemGroup>
 

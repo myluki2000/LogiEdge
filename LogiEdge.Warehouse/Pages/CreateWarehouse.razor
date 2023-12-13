@@ -1,0 +1,57 @@
+﻿@page "/warehouses/create"
+
+@using LogiEdge.WarehouseService.Services
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WarehouseService.Data
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject WarehouseManagementService WarehouseService;
+@inject CustomerManagementService CustomerService;
+
+@code {
+    private string customerAbbreviation = string.Empty;
+    private List<string> additionalProperties = new();
+    private List<string> additionalPropertiesTypes = new();
+
+    private void CreateNewWarehouse()
+    {
+        WarehouseService.CreateWarehouse(new Warehouse()
+            {
+                Customer = CustomerService.GetCustomerByAbbreviation(customerAbbreviation),
+                AdditionalProperties = additionalProperties,
+                AdditionalPropertiesTypes = additionalPropertiesTypes
+            });
+    }
+}
+
+<h3>Create New Warehouse</h3>
+
+<label>Select Customer:</label>
+
+<InputSelect @bind-Value="customerAbbreviation">
+    <option value="" disabled selected hidden>Select a customer...</option>
+    @foreach (Customer customer in CustomerService.GetCustomers())
+    {
+        <option value="@customer.Abbreviation">@customer.Name [@customer.Abbreviation]</option>
+    }
+</InputSelect>
+
+<table>
+    <tr>
+        <th>Property Name</th>
+        <th>Property Type</th>
+    </tr>
+
+    @for (int i = 0; i < additionalProperties.Count; i++)
+    {
+        int index = i;
+        <tr>
+            <td><InputText @bind-Value="additionalProperties[index]"></InputText></td>
+            <td><InputText @bind-Value="additionalPropertiesTypes[index]"></InputText></td>
+        </tr>
+    }
+</table>
+<button @onclick="() => { additionalProperties.Add(string.Empty); additionalPropertiesTypes.Add(string.Empty); }">Add Additional Property</button>
+<br />
+<button @onclick="CreateNewWarehouse">Create Warehouse</button>

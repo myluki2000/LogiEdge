@@ -10,15 +10,8 @@ using System.Threading.Tasks;
 
 namespace LogiEdge.CustomerService.Services
 {
-    public class CustomerManagementService
+    public class CustomerManagementService(IDbContextFactory<CustomerDbContext> dbContextFactory)
     {
-        private readonly IDbContextFactory<CustomerDbContext> dbContextFactory;
-
-        public CustomerManagementService(IDbContextFactory<CustomerDbContext> dbContextFactory)
-        {
-            this.dbContextFactory = dbContextFactory;
-        }
-
         public IEnumerable<Customer> GetCustomers()
         {
             CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
@@ -26,11 +19,22 @@ namespace LogiEdge.CustomerService.Services
             return dbContext.Customers.ToList();
         }
 
+        public Customer GetCustomerByAbbreviation(string abbreviation)
+        {
+            abbreviation = abbreviation.ToUpper();
+
+            CustomerDbContext context = dbContextFactory.CreateDbContext();
+
+            return context.Customers.First(x => x.Abbreviation == abbreviation);
+        }
+
         public Customer CreateCustomer(Customer customer)
         {
             CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
 
             EntityEntry<Customer> entity = dbContext.Customers.Add(customer);
+
+            dbContext.SaveChanges();
 
             return entity.Entity;
         }

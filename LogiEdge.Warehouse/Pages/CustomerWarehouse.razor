@@ -1,0 +1,17 @@
+﻿@page "/warehouse/{customerAbbreviation}"
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Services
+
+@inject CustomerManagementService CustomerService;
+
+@code {
+    [Parameter]
+    public required string CustomerAbbreviation { get; set; }
+    public Customer Customer => CustomerService.GetCustomerByAbbreviation(CustomerAbbreviation);
+}
+
+<h3>Warehouse for @Customer.Name</h3>
+
+<table>
+    
+</table>

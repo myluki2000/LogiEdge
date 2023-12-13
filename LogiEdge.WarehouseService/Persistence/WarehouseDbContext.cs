@@ -11,6 +11,7 @@ namespace LogiEdge.WarehouseService.Persistence
 {
     public class WarehouseDbContext : DbContext
     {
+        public required DbSet<Warehouse> Warehouses { get; init; }
         public required DbSet<Item> CurrentItems { get; init; }
         public required DbSet<Item> HistoricItems { get; init; }
         public required DbSet<ItemState> ItemStates { get; init; }

@@ -39,10 +39,10 @@ namespace LogiEdge
             // modules
             List<IServiceModuleConfiguration> modules = new()
             {
+                new CustomerManagementModuleConfiguration(),
+                new CustomerServiceModuleConfiguration(),
                 new WarehouseModuleConfiguration(),
                 new WarehouseServiceModuleConfiguration(),
-                new CustomerManagementModuleConfiguration(),
-                new CustomerServiceModuleConfiguration()
             };
 
             // add services of modules

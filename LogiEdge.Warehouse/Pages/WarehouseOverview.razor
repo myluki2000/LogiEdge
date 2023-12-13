@@ -1,18 +1,25 @@
-﻿@page "/warehouse"
+﻿@page "/warehouses"
 @using LogiEdge.CustomerService.Data;
 @using LogiEdge.CustomerService.Services;
+@using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Services;
 
-@inject CustomerManagementService customerManagement;
-@inject WarehouseItemService warehouse;
+@inject CustomerManagementService CustomerService;
+@inject WarehouseManagementService WarehouseService;
 
 <h3>Warehouse Overview</h3>
 
 <ul>
-    @{
-        foreach (Customer customer in customerManagement.GetCustomers())
-        {
-            <li>@customer.Name <i>[@customer.Abbreviation]</i></li>
-        }
+    @foreach (Customer customer in CustomerService.GetCustomers())
+    {
+        <li>
+            @customer.Name [@customer.Abbreviation]<br/>
+            @foreach (Warehouse warehouse in WarehouseService.GetWarehousesForCustomer(customer))
+            {
+                <ul>
+                    <li>@warehouse.Id</li>
+                </ul>
+            }
+        </li>
     }
 </ul>

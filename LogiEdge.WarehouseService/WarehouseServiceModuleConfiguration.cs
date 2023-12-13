@@ -13,15 +13,21 @@ namespace LogiEdge.WarehouseService
     {
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+            string connectionString = builder.Configuration.GetConnectionString("WarehouseConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-            builder.Services.AddDbContextFactory<WarehouseDbContext>(options => options.UseNpgsql(connectionString));
-            builder.Services.AddSingleton<WarehouseItemService>();
+            builder.Services.AddDbContextFactory<WarehouseDbContext>(options =>
+            {
+                options.UseNpgsql(connectionString);
+                options.EnableDetailedErrors();
+                options.EnableSensitiveDataLogging();
+            });
+            builder.Services.AddSingleton<WarehouseManagementService>();
         }
 
         public void OnAppBuilt(WebApplication app)
         {
+            app.Services.GetService<IDbContextFactory<WarehouseDbContext>>()!.CreateDbContext().Database.EnsureDeleted();
             app.Services.GetService<IDbContextFactory<WarehouseDbContext>>()!.CreateDbContext().Database.EnsureCreated();
         }
 

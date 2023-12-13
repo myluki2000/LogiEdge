@@ -15,12 +15,13 @@ namespace LogiEdge.CustomerService
 
         public void OnAppBuilt(WebApplication app)
         {
+            app.Services.GetService<IDbContextFactory<CustomerDbContext>>()!.CreateDbContext().Database.EnsureDeleted();
             app.Services.GetService<IDbContextFactory<CustomerDbContext>>()!.CreateDbContext().Database.EnsureCreated();
         }
 
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+            string connectionString = builder.Configuration.GetConnectionString("CustomersConnection") 
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
            
             builder.Services.AddDbContextFactory<CustomerDbContext>(options => options.UseNpgsql(connectionString));

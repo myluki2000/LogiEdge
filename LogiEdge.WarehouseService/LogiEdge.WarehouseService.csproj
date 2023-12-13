@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
     <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
   </ItemGroup>
 

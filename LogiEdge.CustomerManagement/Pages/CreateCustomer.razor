@@ -1,24 +1,11 @@
-﻿@page "/customer/create"
+﻿@page "/customers/create"
 @using LogiEdge.CustomerService.Data;
 @using LogiEdge.CustomerService.Services;
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Text.RegularExpressions;
 
-@inject CustomerManagementService customerService;
-@inject NavigationManager navManager;
-
-<h3>CreateCustomer</h3>
-
-<label>Customer Name:</label>
-<InputText @bind-Value="customerName"></InputText>
-
-<label>Customer Abbreviation</label>
-<InputText @bind-Value="customerAbbreviation"></InputText>
-
-<button @onclick="CreateNewCustomer">Create</button>
-<button href="/customer">Cancel</button>
-
-<p style="color:red;">@feedback</p>
+@inject CustomerManagementService CustomerService;
+@inject NavigationManager NavManager;
 
 @code {
     private string? customerName;
@@ -28,7 +15,7 @@
 
     private void CreateNewCustomer()
     {
-        if(customerName == null || customerAbbreviation == null)
+        if (customerName == null || customerAbbreviation == null)
         {
             feedback = "Customer needs to have both an abbreviation and a name!";
             return;
@@ -39,13 +26,27 @@
             feedback = "Abbreviation must only contain uppercase letters!";
         }
 
-        customerService.CreateCustomer(new Customer()
-            {
-                Abbreviation = customerAbbreviation,
-                Name = customerName
-            });
+        CustomerService.CreateCustomer(new Customer()
+        {
+            Abbreviation = customerAbbreviation,
+            Name = customerName
+        });
 
         feedback = "New customer created successfully!";
-        navManager.NavigateTo("/customer");
+        NavManager.NavigateTo("/customers");
     }
 }
+
+<h3>CreateCustomer</h3>
+
+<label>Customer Name:</label>
+<InputText @bind-Value="customerName"></InputText>
+<br />
+<label>Customer Abbreviation:</label>
+<InputText @bind-Value="customerAbbreviation"></InputText>
+<br />
+
+<button @onclick="CreateNewCustomer">Create</button>
+<button href="/customer">Cancel</button>
+
+<p style="color:red;">@feedback</p>
