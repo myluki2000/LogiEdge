@@ -24,6 +24,12 @@
         if (Regex.IsMatch(customerAbbreviation, @"^[A-Z]+$"))
         {
             feedback = "Abbreviation must only contain uppercase letters!";
+            return;
+        }
+
+        if(CustomerService.GetCustomerByAbbreviation(customerAbbreviation) != null) {
+            feedback = "A customer with the specified abbreviation already exists! Abbreviations must be unique!";
+            return;
         }
 
         CustomerService.CreateCustomer(new Customer()

@@ -1,0 +1,23 @@
+﻿@page "/warehouse/{warehouseId}"
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WarehouseService.Services
+@using LogiEdge.WarehouseService.Data
+
+@inject CustomerManagementService CustomerService;
+@inject WarehouseManagementService WarehouseService;
+
+@code {
+    [Parameter]
+    public required Guid WarehouseId { get; set; }
+}
+
+@{
+    Warehouse warehouse = WarehouseService.GetWarehouseById(WarehouseId);
+}
+
+<h3>Warehouse <i>@warehouse.Name</i> for @warehouse.Customer.Name</h3>
+
+<table>
+    
+</table>

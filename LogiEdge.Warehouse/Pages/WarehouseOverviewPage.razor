@@ -17,7 +17,7 @@
             @foreach (Warehouse warehouse in WarehouseService.GetWarehousesForCustomer(customer))
             {
                 <ul>
-                    <li>@warehouse.Id</li>
+                    <li>@warehouse.Name <i>[@warehouse.Id]</i>:</li>
                 </ul>
             }
         </li>

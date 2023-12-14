@@ -19,13 +19,13 @@ namespace LogiEdge.CustomerService.Services
             return dbContext.Customers.ToList();
         }
 
-        public Customer GetCustomerByAbbreviation(string abbreviation)
+        public Customer? GetCustomerByAbbreviation(string abbreviation)
         {
             abbreviation = abbreviation.ToUpper();
 
             CustomerDbContext context = dbContextFactory.CreateDbContext();
 
-            return context.Customers.First(x => x.Abbreviation == abbreviation);
+            return context.Customers.FirstOrDefault(x => x.Abbreviation == abbreviation);
         }
 
         public Customer CreateCustomer(Customer customer)

@@ -11,7 +11,8 @@ namespace LogiEdge.WarehouseService.Data
     public class Warehouse
     {
         [Key]
-        public int Id { get; set; }
+        public Guid Id { get; set; }
+        public required string Name { get; set; }
 
         public required Customer Customer { get; set; }
 

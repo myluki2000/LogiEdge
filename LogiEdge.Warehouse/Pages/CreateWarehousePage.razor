@@ -11,14 +11,45 @@
 
 @code {
     private string customerAbbreviation = string.Empty;
+    private string warehouseName = string.Empty;
     private List<string> additionalProperties = new();
     private List<string> additionalPropertiesTypes = new();
 
+    private string feedback = string.Empty;
+
     private void CreateNewWarehouse()
     {
+        Customer? customer = CustomerService.GetCustomerByAbbreviation(customerAbbreviation);
+
+        if(customer == null)
+        {
+            feedback = "Could not find the selected customer. Make sure it exists!";
+            return;
+        }
+
+        if(string.IsNullOrEmpty(warehouseName))
+        {
+            feedback = "A name must be set for the warehouse!";
+            return;
+        }
+
+        if(additionalProperties.Any(x => string.IsNullOrEmpty(x)))
+        {
+            feedback = "Cannot create a customer which has an empty additional property!";
+            return;
+        }
+
+        if(additionalPropertiesTypes.Any(x => string.IsNullOrEmpty(x)))
+        {
+            feedback = "A property type must be set for all additional properties!";
+            return;
+        }
+
+
         WarehouseService.CreateWarehouse(new Warehouse()
             {
-                Customer = CustomerService.GetCustomerByAbbreviation(customerAbbreviation),
+                Customer = customer,
+                Name = warehouseName,
                 AdditionalProperties = additionalProperties,
                 AdditionalPropertiesTypes = additionalPropertiesTypes
             });
@@ -37,6 +68,10 @@
     }
 </InputSelect>
 
+<label>Warehouse Name:</label>
+<InputText @bind-Value="warehouseName"></InputText>
+<br />
+
 <table>
     <tr>
         <th>Property Name</th>
@@ -53,5 +88,6 @@
     }
 </table>
 <button @onclick="() => { additionalProperties.Add(string.Empty); additionalPropertiesTypes.Add(string.Empty); }">Add Additional Property</button>
+<p style="color:red;">@feedback</p>
 <br />
 <button @onclick="CreateNewWarehouse">Create Warehouse</button>

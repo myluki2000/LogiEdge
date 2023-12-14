@@ -31,6 +31,12 @@ namespace LogiEdge.WarehouseService.Services
             return context.Warehouses.Where(x => x.Customer == customer);
         }
 
+        public Warehouse? GetWarehouseById(Guid id)
+        {
+            WarehouseDbContext context = warehouseDbContextFactory.CreateDbContext();
+            return context.Warehouses.FirstOrDefault(x => x.Id == id);
+        }
+
         public Item AddNewItem(Item item)
         {
             WarehouseDbContext context = warehouseDbContextFactory.CreateDbContext();
