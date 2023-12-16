@@ -11,6 +11,7 @@ namespace LogiEdge.WarehouseService.Data
         public Guid Id { get; set; }
         public required Item ItemId { get; set; }
         public required DateTime Date { get; set; }
+        public required Warehouse Warehouse { get; set; }
         public required string Location { get; set; }
     }
 }
