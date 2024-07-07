@@ -20,9 +20,6 @@ namespace LogiEdge.WarehouseService.Data
         public required List<string> AdditionalProperties { get; set; }
         public required List<string> AdditionalPropertiesTypes { get; set; }
 
-        public required List<Item> CurrentItems { get; init; }
-        public required List<Item> HistoricItems { get; init; }
-
         public IEnumerable<(string propertyName, string typeName)> GetAdditionalPropertiesWithTypes()
         {
             return AdditionalProperties.Zip(AdditionalPropertiesTypes);

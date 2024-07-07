@@ -13,6 +13,10 @@ namespace LogiEdge.WarehouseService.Persistence
     {
         public required DbSet<Warehouse> Warehouses { get; init; }
 
+        public required DbSet<Item> CurrentItems { get; init; }
+        public required DbSet<Item> HistoricItems { get; init; }
+        public required DbSet<ItemState> ItemStates { get; init; }
+
         public WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : base(options) { }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
