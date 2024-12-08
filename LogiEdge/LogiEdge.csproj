@@ -19,7 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
     <ProjectReference Include="..\LogiEdge.CustomerManagement\LogiEdge.CustomerManagement.csproj" />
+    <ProjectReference Include="..\LogiEdge.ExcelImporterService\LogiEdge.ExcelImporterService.csproj" />
     <ProjectReference Include="..\LogiEdge.Warehouse\LogiEdge.Warehouse.csproj" />
   </ItemGroup>
 

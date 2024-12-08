@@ -1,11 +1,15 @@
 ﻿using System.Reflection;
+using LogiEdge.CustomerService.Persistence;
 using LogiEdge.Shared;
 using LogiEdge.WarehouseService.Persistence;
 using LogiEdge.WarehouseService.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace LogiEdge.WarehouseService
 {
@@ -13,7 +17,7 @@ namespace LogiEdge.WarehouseService
     {
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string connectionString = builder.Configuration.GetConnectionString("WarehouseConnection")
+            string connectionString = builder.Configuration.GetConnectionString("DatabaseConnection")
                 ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
             builder.Services.AddDbContextFactory<WarehouseDbContext>(options =>
@@ -27,8 +31,9 @@ namespace LogiEdge.WarehouseService
 
         public void OnAppBuilt(WebApplication app)
         {
-            app.Services.GetService<IDbContextFactory<WarehouseDbContext>>()!.CreateDbContext().Database.EnsureDeleted();
-            app.Services.GetService<IDbContextFactory<WarehouseDbContext>>()!.CreateDbContext().Database.EnsureCreated();
+            using WarehouseDbContext dbContext =
+                app.Services.GetService<IDbContextFactory<WarehouseDbContext>>()!.CreateDbContext();
+            dbContext.Database.Migrate();
         }
 
         public Assembly Assembly => typeof(WarehouseServiceModuleConfiguration).Assembly;

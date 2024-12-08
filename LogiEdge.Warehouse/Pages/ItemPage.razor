@@ -1,0 +1,73 @@
+﻿@page "/item/{ItemId}"
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
+
+@code {
+    [Parameter]
+    public required string ItemId { get; init; }
+}
+
+@{
+    WarehouseDbContext warehouseDbContext = WarehouseDbContextFactory.CreateDbContext();
+    Item item = warehouseDbContext.Items
+        .Include(x => x.Customer)
+        .Include(x => x.Warehouse)
+        .Include(x => x.ItemStates)
+        .First(x => x.Id == Guid.Parse(ItemId));
+}
+
+<h3>ItemPage</h3>
+
+<table>
+    <tr>
+        <th>Id</th>
+        <td>@item.Id</td>
+    </tr>
+    <tr>
+        <th>Warehouse</th>
+        <td>@item.Warehouse.Name</td>
+    </tr>
+    <tr>
+        <th>Customer</th>
+        <td>@item.Customer.Name</td>
+    </tr>
+    <tr>
+        <th>ItemNumber</th>
+        <td>@item.ItemNumber</td>
+    </tr>
+    <tr>
+        <th>Comments</th>
+        <td>@item.Comments</td>
+    </tr>
+</table>
+
+<h4>Additional Properties</h4>
+
+<table>
+    @foreach (string propertyName in item.Warehouse.AdditionalProperties)
+    {
+        string propertyValue = item.AdditionalProperties.RootElement.GetProperty(propertyName).GetString();
+        <tr>
+            <th>@propertyName</th>
+            <td>@propertyValue</td>
+        </tr>
+    }
+</table>
+
+<h4>Item States:</h4>
+@foreach (ItemState state in item.ItemStates)
+{
+    <table>
+        <tr>
+            <th>Date</th>
+            <td>@state.Date</td>
+        </tr>
+        <tr>
+            <th>Location</th>
+            <td>@state.Location</td>
+        </tr>
+    </table>
+}

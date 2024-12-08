@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LogiEdge.CustomerService.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -13,38 +15,40 @@ namespace LogiEdge.WarehouseService.Data
 {
     public class Item : IDisposable
     {
-        public ItemId Id { get; set; }
+        [Key]
+        public Guid Id { get; set; }
 
-        public JsonDocument? AdditionalProperties { get; set; }
+        [ForeignKey("Customer")]
+        public required Guid CustomerId { get; set; }
+        public Customer Customer { get; set; } = null!;
+
+        public required Guid WarehouseId { get; set; }
+        public Warehouse Warehouse { get; set; } = null!;
+
+        public required string ItemNumber { get; set; }
+
+        public JsonDocument? AdditionalProperties { get; set; } = null;
 
         public string Comments { get; set; } = string.Empty;
 
-        public required List<ItemState> ItemStates;
+        public List<ItemState> ItemStates = new();
+
+        public bool InWarehouse
+        {
+            get
+            {
+                if (ItemStates.Count == 0)
+                    return false;
+
+                string location = ItemStates.MaxBy(x => x.Date).Location;
+                bool inWarehouse = location != SpecialLocations.PRE_ARRIVAL && location != SpecialLocations.SHIPPED;
+                return inWarehouse;
+            }
+        }
 
         public void Dispose()
         {
             AdditionalProperties?.Dispose();
-        }
-
-        public static void CreateModel(ModelBuilder modelBuilder)
-        {
-            EntityTypeBuilder<Item> entityBuilder = modelBuilder.Entity<Item>();
-
-            entityBuilder.OwnsOne(x => x.Id, p =>
-            {
-                PropertyInfo[] properties = p.OwnedEntityType.ClrType.GetProperties();
-
-                foreach (PropertyInfo property in properties)
-                {
-                    Type propertyType = property.PropertyType;
-
-                    p.Property(propertyType, property.Name).HasColumnName(property.Name);
-
-                    entityBuilder.Property(propertyType, "Key_" + property.Name).HasColumnName(property.Name);
-                }
-
-                entityBuilder.HasKey(properties.Select(x => "Key_" + x.Name).ToArray());
-            });
         }
     }
 }

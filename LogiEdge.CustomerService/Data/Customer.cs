@@ -10,7 +10,7 @@ namespace LogiEdge.CustomerService.Data
 {
     public class Customer
     {
-        [Key]
+        [Key] public Guid Id { get; set; }
         public required string Abbreviation { get; set; }
         public required string Name { get; set; }
     }

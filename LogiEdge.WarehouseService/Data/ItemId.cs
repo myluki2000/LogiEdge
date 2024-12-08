@@ -8,11 +8,17 @@ using System.Threading.Tasks;
 
 namespace LogiEdge.WarehouseService.Data
 {
-    [Owned]
+    /*[Owned]
     public class ItemId
     {
-        public string CustomerPrefix { get; set; }
-        public int Id { get; set; }
+        public string CustomerPrefix { get; }
+        public int Id { get; }
+
+        public ItemId(string customerPrefix, int id)
+        {
+            CustomerPrefix = customerPrefix;
+            Id = id;
+        }
 
         public bool Equals(ItemId other)
         {
@@ -38,5 +44,5 @@ namespace LogiEdge.WarehouseService.Data
         {
             return !left.Equals(right);
         }
-    }
+    }*/
 }

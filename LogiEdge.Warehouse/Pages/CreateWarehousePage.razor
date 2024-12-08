@@ -4,13 +4,14 @@
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.CustomerService.Services
 @using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
 
-@inject WarehouseManagementService WarehouseService;
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
 @inject CustomerManagementService CustomerService;
 
 @code {
-    private string customerAbbreviation = string.Empty;
     private string warehouseName = string.Empty;
     private List<string> additionalProperties = new();
     private List<string> additionalPropertiesTypes = new();
@@ -19,13 +20,7 @@
 
     private void CreateNewWarehouse()
     {
-        Customer? customer = CustomerService.GetCustomerByAbbreviation(customerAbbreviation);
-
-        if(customer == null)
-        {
-            feedback = "Could not find the selected customer. Make sure it exists!";
-            return;
-        }
+        WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
 
         if(string.IsNullOrEmpty(warehouseName))
         {
@@ -46,27 +41,17 @@
         }
 
 
-        WarehouseService.CreateWarehouse(new Warehouse()
-            {
-                Customer = customer,
-                Name = warehouseName,
-                AdditionalProperties = additionalProperties,
-                AdditionalPropertiesTypes = additionalPropertiesTypes
-            });
+        Warehouse newWarehouse = new Warehouse()
+        {
+            Name = warehouseName,
+            AdditionalProperties = additionalProperties,
+            AdditionalPropertiesTypes = additionalPropertiesTypes
+        };
+        newWarehouse = warehouseDb.Warehouses.Add(newWarehouse).Entity;
     }
 }
 
 <h3>Create New Warehouse</h3>
-
-<label>Select Customer:</label>
-
-<InputSelect @bind-Value="customerAbbreviation">
-    <option value="" disabled selected hidden>Select a customer...</option>
-    @foreach (Customer customer in CustomerService.GetCustomers())
-    {
-        <option value="@customer.Abbreviation">@customer.Name [@customer.Abbreviation]</option>
-    }
-</InputSelect>
 
 <label>Warehouse Name:</label>
 <InputText @bind-Value="warehouseName"></InputText>

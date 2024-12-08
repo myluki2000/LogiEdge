@@ -1,0 +1,48 @@
+﻿@page "/Settings"
+
+@using Microsoft.EntityFrameworkCore
+@using LogiEdge.Data
+@using Microsoft.EntityFrameworkCore.Internal
+@using Microsoft.IdentityModel.Tokens
+@using LogiEdge.BaseService.Persistence
+
+@code {
+    private string NewKeyName { get; set; } = "";
+
+    private void AddNewKey()
+    {
+        using ApplicationDbContext dbContext = DbContextFactory.CreateDbContext();
+        if (!string.IsNullOrEmpty(NewKeyName)) {
+            dbContext.Settings.Add(new SettingsEntry(NewKeyName, ""));
+            NewKeyName = "";
+            dbContext.SaveChanges();
+        }
+    }
+}
+<h3>Settings</h3>
+
+@inject IDbContextFactory<ApplicationDbContext> DbContextFactory;
+@{
+    ApplicationDbContext dbContext = DbContextFactory.CreateDbContext();
+}
+
+<table>
+    <thead>
+    <tr>
+        <th>Key</th>
+        <th>Value</th>
+    </tr>
+    </thead>
+    <tbody>
+        @foreach (SettingsEntry entry in dbContext.Settings)
+        {
+            <tr>
+                <td>@entry.Key</td>
+                <td><InputText @bind-Value="@entry.Value" @onblur="() => dbContext.SaveChanges()"></InputText></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<InputText @bind-Value="NewKeyName"></InputText>
+<button @onclick="AddNewKey">Add New Key</button>

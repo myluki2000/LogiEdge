@@ -1,23 +1,48 @@
-﻿@page "/warehouse/{warehouseId}"
+﻿@page "/warehouse/{WarehouseId}"
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.CustomerService.Services
 @using LogiEdge.WarehouseService.Services
 @using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
 
 @inject CustomerManagementService CustomerService;
-@inject WarehouseManagementService WarehouseService;
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
 
 @code {
     [Parameter]
-    public required Guid WarehouseId { get; set; }
+    public required string WarehouseId { get; set; }
 }
 
 @{
-    Warehouse warehouse = WarehouseService.GetWarehouseById(WarehouseId);
+    WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
+    Warehouse warehouse = warehouseDb.Warehouses
+        .Include(w => w.Items)
+        .ThenInclude(i => i.ItemStates)
+        .FirstOrDefault(x => x.Id == Guid.Parse(WarehouseId));
 }
 
-<h3>Warehouse <i>@warehouse.Name</i> for @warehouse.Customer.Name</h3>
+<h3>Warehouse <i>@warehouse.Name</i></h3>
+<p>Containing <i>@warehouse.Items.Count(x => x.InWarehouse)</i> items.</p>
 
 <table>
-    
+    <thead>
+    <tr>
+        <th>ItemId</th>
+        <th>Count</th>
+        @foreach (string property in warehouse.AdditionalProperties)
+        {
+            <th>@property</th>
+        }
+    </tr>
+    </thead>
+    <tbody>
+        @foreach (IGrouping<string, Item> group in warehouse.Items.Where(x => x.InWarehouse).OrderBy(x => x.ItemStates.MinBy(y => y.Date).Date).GroupBy(x => x.ItemNumber))
+        {
+            <tr>
+                <td><a href="/warehouse/@warehouse.Id/items-by-itemnumber/@group.Key">@group.Key</a></td>
+                <td style="text-align: right;">@group.Count()</td>
+            </tr>
+        }
+    </tbody>
 </table>

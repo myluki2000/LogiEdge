@@ -1,0 +1,22 @@
+{
+	"FolderPath": "./Resources/TestShippedAndArrived",
+	"DayOffset": 0,
+	"InventoryFileMatchingOptions": [
+		{
+			"CustomerName": "ExampleCustomer",
+			"WarehouseName": "ExampleWarehouse",
+			"FileName": "list.xlsx",
+			"WorkSheet": "Lagerplätze",
+			"Columns": {
+				"Artikel": 0,
+				"Einlagerdatum": 1,
+				"Stellplatz": 3,
+				"Anz. Pal.": 2
+			},
+			"IdentifyingColumns": [
+				"Artikel",
+				"Einlagerdatum"
+			]
+		}
+	]
+}

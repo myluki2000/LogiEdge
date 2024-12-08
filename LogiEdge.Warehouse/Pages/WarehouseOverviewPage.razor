@@ -1,25 +1,23 @@
-﻿@page "/warehouses"
+﻿@page "/warehouse"
 @using LogiEdge.CustomerService.Data;
 @using LogiEdge.CustomerService.Services;
 @using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services;
+@using Microsoft.EntityFrameworkCore
 
 @inject CustomerManagementService CustomerService;
-@inject WarehouseManagementService WarehouseService;
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
 
 <h3>Warehouse Overview</h3>
 
+@{
+    WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
+}
+
 <ul>
-    @foreach (Customer customer in CustomerService.GetCustomers())
+    @foreach (Warehouse warehouse in warehouseDb.Warehouses)
     {
-        <li>
-            @customer.Name [@customer.Abbreviation]<br/>
-            @foreach (Warehouse warehouse in WarehouseService.GetWarehousesForCustomer(customer))
-            {
-                <ul>
-                    <li>@warehouse.Name <i>[@warehouse.Id]</i>:</li>
-                </ul>
-            }
-        </li>
+        <li><a href="/warehouse/@warehouse.Id">@warehouse.Name <i>[@warehouse.Id]</i></a></li>
     }
 </ul>

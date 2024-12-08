@@ -1,0 +1,32 @@
+﻿@page "/warehouse/{WarehouseId}/items-by-property/{PropertyName}/{PropertyValue}"
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+<h3>Items by Property</h3>
+
+@code {
+    [Parameter]
+    public required string WarehouseId { get; set; }
+    [Parameter]
+    public required string PropertyName { get; set; }
+    [Parameter]
+    public required string PropertyValue { get; set; }
+}
+
+@{
+    WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
+    Warehouse? warehouse = warehouseDb.Warehouses
+        .Include(w => w.Items.Where(it => it.AdditionalProperties.RootElement.GetProperty(PropertyName).GetString() == PropertyValue))
+        .ThenInclude(i => i.ItemStates)
+        .FirstOrDefault(x => x.Id == Guid.Parse(WarehouseId));
+
+    if (warehouse == null)
+    {
+        <p>Warehouse with ID @WarehouseId not found.</p>
+        return;
+    }
+}
+
+<h3>Warehouse <i>@warehouse.Name</i></h3>

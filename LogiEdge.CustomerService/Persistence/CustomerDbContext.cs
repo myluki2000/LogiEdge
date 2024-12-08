@@ -10,7 +10,7 @@ namespace LogiEdge.CustomerService.Persistence
 {
     public class CustomerDbContext : DbContext
     {
-        public required DbSet<Customer> Customers { get; init; }
+        public DbSet<Customer> Customers { get; init; }
 
         public CustomerDbContext(DbContextOptions<CustomerDbContext> options) : base(options) { }
     }

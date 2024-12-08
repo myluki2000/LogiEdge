@@ -1,0 +1,14 @@
+services:
+  logiedge-db:
+    image: postgres:alpine
+    restart: always
+    volumes:
+      - logiedge-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=logiedge
+    ports:
+      - "5432:5432"
+volumes:
+  logiedge-data:

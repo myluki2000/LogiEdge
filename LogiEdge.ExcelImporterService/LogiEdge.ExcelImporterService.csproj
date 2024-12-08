@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.102.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
+    <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
+    <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
+    <ProjectReference Include="..\LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj" />
+  </ItemGroup>
+
+</Project>

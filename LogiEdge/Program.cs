@@ -1,9 +1,12 @@
 using System.Diagnostics;
 using System.Reflection;
 using LogiEdge.Areas.Identity;
+using LogiEdge.BaseService;
 using LogiEdge.CustomerManagement;
 using LogiEdge.CustomerService;
+using LogiEdge.CustomerService.Persistence;
 using LogiEdge.Data;
+using LogiEdge.ExcelImporterService;
 using LogiEdge.Shared;
 using LogiEdge.Warehouse;
 using LogiEdge.WarehouseService;
@@ -23,12 +26,13 @@ namespace LogiEdge
             var builder = WebApplication.CreateBuilder(args);
 
             // Add services to the container.
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseNpgsql(connectionString));
+            var appIdentityConnectionString = builder.Configuration.GetConnectionString("AppIdentityConnection") 
+                                              ?? throw new InvalidOperationException("Connection string 'AppIdentityConnection' not found.");
+            builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+                options.UseNpgsql(appIdentityConnectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
             builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
-                .AddEntityFrameworkStores<ApplicationDbContext>();
+                .AddEntityFrameworkStores<AppIdentityDbContext>();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
@@ -39,10 +43,12 @@ namespace LogiEdge
             // modules
             List<IServiceModuleConfiguration> modules = new()
             {
+                new BaseServiceModuleConfiguration(),
                 new CustomerManagementModuleConfiguration(),
                 new CustomerServiceModuleConfiguration(),
                 new WarehouseModuleConfiguration(),
                 new WarehouseServiceModuleConfiguration(),
+                new ExcelImporterServiceModuleConfiguration()
             };
 
             // add services of modules

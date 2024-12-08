@@ -3,9 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.Data
 {
-    public class ApplicationDbContext : IdentityDbContext
+    public class AppIdentityDbContext : IdentityDbContext
     {
-        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        public AppIdentityDbContext(DbContextOptions<AppIdentityDbContext> options)
             : base(options)
         {
         }
