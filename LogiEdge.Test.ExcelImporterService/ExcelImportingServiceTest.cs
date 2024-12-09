@@ -70,6 +70,10 @@ namespace LogiEdge.Test.ExcelImporterService
             Assert.All(matchingItems2, x => Assert.Equal(new DateTime(2022, 1, 27).ToUniversalTime(), x.Date));
         }
 
+        /// <summary>
+        /// Tests new items arriving and other items shipping between 2 versions of the file. Also tests what happens if
+        /// an item has a arrival date which is in the future, after the date of the file.
+        /// </summary>
         [Fact]
         public void TestShippedAndArrived()
         {

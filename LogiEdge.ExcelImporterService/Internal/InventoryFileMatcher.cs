@@ -16,9 +16,11 @@ namespace LogiEdge.ExcelImporterService.Internal
     {
         public string FolderPath { get; set; }
         public InventoryFileMatchingOptions MatchingOptions { get; set; }
+        public DateTime FileDay { get; set; }
 
         public InventoryFileMatcher(string folderPath, DateTime day, InventoryFileMatchingOptions options)
         {
+            FileDay = day;
             FolderPath = folderPath;
             MatchingOptions = options;
         }
@@ -92,11 +94,18 @@ namespace LogiEdge.ExcelImporterService.Internal
                         case InventoryFileMatchingOptions.ColumnType.ENTRY_DATE:
                             try
                             {
-                                item.EntryDate = DateTime.SpecifyKind(
+                                DateTime parsedDate = DateTime.SpecifyKind(
                                     (value.IsBlank || value.IsText && value.GetText().Trim() == "")
                                         ? DateTime.MinValue
                                         : value.GetDateTime(),
-                                    DateTimeKind.Local).ToUniversalTime();
+                                    DateTimeKind.Local);
+
+                                if (parsedDate > FileDay)
+                                {
+                                    parsedDate = FileDay;
+                                }
+                                
+                                item.EntryDate = parsedDate.ToUniversalTime();
                             }
                             catch(InvalidCastException)
                             {
