@@ -18,7 +18,7 @@
     WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
     Warehouse? warehouse = warehouseDb.Warehouses
         .Include(w => w.Items.Where(it => it.ItemNumber == ItemNumber))
-        .ThenInclude(i => i.ItemStates)
+        .ThenInclude(i => i.ItemStates.OrderByDescending(x => x.Date).Take(1))
         .FirstOrDefault(x => x.Id == Guid.Parse(WarehouseId));
 
     if (warehouse == null)
@@ -28,18 +28,4 @@
     }
 }
 
-<div style="display: flex; flex-wrap: wrap;">
-@foreach (Item item in warehouse.Items)
-{
-    <div style="border-style: solid; margin: 8px; padding: 8px; flex: 0 0 0px; min-width: 350px;">
-        <h4>@item.ItemNumber</h4>
-        <h5>States:</h5>
-        <ul>
-            @foreach (ItemState state in item.ItemStates.OrderBy(state => state.Date))
-            {
-                <li>@state.Date - @state.Location</li>
-            }
-        </ul>
-    </div>
-}
-</div>
+<WarehouseItemTableComponent Items="@warehouse.Items"></WarehouseItemTableComponent>
