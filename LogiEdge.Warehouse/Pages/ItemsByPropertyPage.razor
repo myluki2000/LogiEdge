@@ -1,11 +1,11 @@
 ﻿@page "/warehouse/{WarehouseId}/items-by-property"
 @using System.Text.Json
 @using System.Text.Json.Nodes
+@using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
-@using Microsoft.Extensions.Primitives
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject NavigationManager NavigationManager
 
@@ -26,6 +26,7 @@
         NavigationManager.LocationChanged += (sender, args) => StateHasChanged();
     }
 
+    private static readonly List<string> baseProperties = [nameof(Item.ItemNumber), nameof(Item.Comments)];
 }
 
 @{
@@ -38,6 +39,13 @@
 
     WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
 
+    // parse url params which are not additional properties but "base properties" we store directly
+    // as a DB column instead of as JSON
+    Dictionary<string, string> baseParams = queryParameters
+        .PopWhere(param => baseProperties.Contains(param.Key))
+        .ToDictionary();
+
+
     // create a json document which contains the properties we want to filter for
     JsonObject jsonFilter = new();
     foreach (KeyValuePair<string, string> queryParam in queryParameters)
@@ -49,7 +57,9 @@
     // get items for which the additional properties contain the specified filter json properties
     Warehouse? warehouse = warehouseDb.Warehouses
         .Include(w => w.Items
-            .Where(it => EF.Functions.JsonContains(it.AdditionalProperties, jsonFilterDoc)))
+            .Where(it => !baseParams.ContainsKey(nameof(Item.ItemNumber)) || it.ItemNumber == baseParams[nameof(Item.ItemNumber)])
+            .Where(it => !baseParams.ContainsKey(nameof(Item.Comments)) || it.Comments == baseParams[nameof(Item.Comments)])
+            .Where(it => queryParameters.Count == 0 || EF.Functions.JsonContains(it.AdditionalProperties, jsonFilterDoc)))
         .ThenInclude(it => it.ItemStates)
         .FirstOrDefault(x => x.Id == Guid.Parse(WarehouseId));
 

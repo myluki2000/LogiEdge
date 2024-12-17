@@ -7,32 +7,32 @@
 
 <table>
     <thead>
-    <tr>
-        <th>ID</th>
-        <th>Item Number</th>
-        <th>Location</th>
-        <th>Comments</th>
-        @foreach (JsonProperty property in Items.FirstOrDefault()?.AdditionalProperties.RootElement.EnumerateObject() ?? [])
-        {
-            <th>@property.Name</th>
-        }
-    </tr>
-    </thead>
-    <tbody>
-    @foreach(Item item in Items)
-    {
         <tr>
-            <td>@item.Id</td>
-            <td>@item.ItemNumber</td>
-            <td>
-                @item.ItemStates.MaxBy(x => x.Date).Location
-            </td>
-            <td>@item.Comments</td>
-            @foreach (JsonProperty property in item.AdditionalProperties.RootElement.EnumerateObject())
+            <th>ID</th>
+            <th>Item Number</th>
+            <th>Location</th>
+            <th>Comments</th>
+            @foreach (JsonProperty property in Items.FirstOrDefault()?.AdditionalProperties.RootElement.EnumerateObject() ?? [])
             {
-                <td><a href="/warehouse/@(item.WarehouseId)/items-by-property?@(property.Name)=@(property.Value)">@property.Value</a></td>
+                <th>@property.Name</th>
             }
         </tr>
-    }
+    </thead>
+    <tbody>
+        @foreach (Item item in Items)
+        {
+            <tr>
+                <td><a href="/item/@item.Id">@item.Id</a></td>
+                <td><a href="/warehouse/@(item.WarehouseId)/items-by-property?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
+                <td>
+                    @item.ItemStates.MaxBy(x => x.Date).Location
+                </td>
+                <td>@item.Comments</td>
+                @foreach (JsonProperty property in item.AdditionalProperties.RootElement.EnumerateObject())
+                {
+                    <td><a href="/warehouse/@(item.WarehouseId)/items-by-property?@(property.Name)=@(property.Value)">@property.Value</a></td>
+                }
+            </tr>
+        }
     </tbody>
 </table>
