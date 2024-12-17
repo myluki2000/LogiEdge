@@ -25,13 +25,14 @@ namespace LogiEdge.WarehouseService.Data
         public required Guid WarehouseId { get; set; }
         public Warehouse Warehouse { get; set; } = null!;
 
+        [MaxLength(64)]
         public required string ItemNumber { get; set; }
 
         public JsonDocument AdditionalProperties { get; set; } = JsonDocument.Parse("{}");
 
         public string Comments { get; set; } = string.Empty;
 
-        public List<ItemState> ItemStates = new();
+        public List<ItemState> ItemStates = [];
 
         public bool InWarehouse
         {
@@ -40,7 +41,7 @@ namespace LogiEdge.WarehouseService.Data
                 if (ItemStates.Count == 0)
                     return false;
 
-                string location = ItemStates.MaxBy(x => x.Date).Location;
+                string location = ItemStates.MaxBy(x => x.Date)!.Location;
                 bool inWarehouse = location != SpecialLocations.PRE_ARRIVAL && location != SpecialLocations.SHIPPED;
                 return inWarehouse;
             }
