@@ -16,10 +16,15 @@
 
 @{
     WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
-    Warehouse warehouse = warehouseDb.Warehouses
+    Warehouse? warehouse = warehouseDb.Warehouses
         .Include(w => w.Items)
         .ThenInclude(i => i.ItemStates)
         .FirstOrDefault(x => x.Id == Guid.Parse(WarehouseId));
+
+    if(warehouse == null)     {
+        <p>Warehouse with ID @WarehouseId not found.</p>
+        return;
+    }
 }
 
 <h3>Warehouse <i>@warehouse.Name</i></h3>
@@ -37,7 +42,7 @@
     </tr>
     </thead>
     <tbody>
-        @foreach (IGrouping<string, Item> group in warehouse.Items.Where(x => x.InWarehouse).OrderBy(x => x.ItemStates.MinBy(y => y.Date).Date).GroupBy(x => x.ItemNumber))
+        @foreach (IGrouping<string, Item> group in warehouse.Items.Where(x => x.InWarehouse).OrderBy(x => x.ItemStates.MinBy(y => y.Date)!.Date).GroupBy(x => x.ItemNumber))
         {
             <tr>
                 <td><a href="/warehouse/@warehouse.Id/items-by-property?ItemNumber=@group.Key">@group.Key</a></td>
