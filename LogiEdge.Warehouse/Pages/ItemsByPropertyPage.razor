@@ -1,8 +1,13 @@
-﻿@page "/warehouse/{WarehouseId}/items-by-property/{PropertyName}/{PropertyValue}"
+﻿@page "/warehouse/{WarehouseId}/items-by-property"
+@using System.Text.Json
+@using System.Text.Json.Nodes
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
+@using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.Extensions.Primitives
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@inject NavigationManager NavigationManager
 
 <h3>Items by Property</h3>
 
@@ -13,13 +18,39 @@
     public required string PropertyName { get; set; }
     [Parameter]
     public required string PropertyValue { get; set; }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        NavigationManager.LocationChanged += (sender, args) => StateHasChanged();
+    }
+
 }
 
 @{
+    // get the query parameters
+    Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+    // we only allow each param to be specified once, so pick the first value
+    Dictionary<string, string> queryParameters = QueryHelpers.ParseQuery(uri.Query)
+        .Where(x => x.Value.Count > 0)
+        .ToDictionary(x => x.Key, x => x.Value.First())!;
+
     WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
+
+    // create a json document which contains the properties we want to filter for
+    JsonObject jsonFilter = new();
+    foreach (KeyValuePair<string, string> queryParam in queryParameters)
+    {
+        jsonFilter[queryParam.Key] = queryParam.Value;
+    }
+    JsonDocument jsonFilterDoc = jsonFilter.Deserialize<JsonDocument>()!;
+
+    // get items for which the additional properties contain the specified filter json properties
     Warehouse? warehouse = warehouseDb.Warehouses
-        .Include(w => w.Items.Where(it => it.AdditionalProperties.RootElement.GetProperty(PropertyName).GetString() == PropertyValue))
-        .ThenInclude(i => i.ItemStates)
+        .Include(w => w.Items
+            .Where(it => EF.Functions.JsonContains(it.AdditionalProperties, jsonFilterDoc)))
+        .ThenInclude(it => it.ItemStates)
         .FirstOrDefault(x => x.Id == Guid.Parse(WarehouseId));
 
     if (warehouse == null)

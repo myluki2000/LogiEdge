@@ -29,6 +29,12 @@ namespace LogiEdge.ExcelImporterService.Internal
         {
             public string ItemNumber { get; set; } = "";
             public DateTime EntryDate { get; set; }
+
+            /// <summary>
+            /// If the imported spreadsheet stores exit dates of items instead of just removing the row,
+            /// this property can be used to store the exit date.
+            /// </summary>
+            public DateTime? ExitDate { get; set; } = null;
             public string StorageLocation { get; set; } = "";
             public Dictionary<string, string> AdditionalProperties { get; init; } = new();
         }
@@ -54,6 +60,9 @@ namespace LogiEdge.ExcelImporterService.Internal
                 bool found = false;
                 for (int i = 1; i <= tableRange.ColumnCount(); i++)
                 {
+                    if (!tableRange.Row(1).Cell(i).Value.IsText)
+                        continue;
+
                     string actualColumnName = tableRange.Row(1).Cell(i).Value.GetText();
                     if (actualColumnName.Trim() == columnName)
                     {
@@ -79,7 +88,8 @@ namespace LogiEdge.ExcelImporterService.Internal
 
                 InventoryItem item = new();
 
-                int itemCount = 0;
+                // if we don't have an item count column in the spreadsheet, assume that each row is exactly one item
+                int itemCount = 1;
 
                 foreach ((string columnName, InventoryFileMatchingOptions.ColumnType columnType) in MatchingOptions.Columns)
                 {
@@ -135,13 +145,37 @@ namespace LogiEdge.ExcelImporterService.Internal
 
                             break;
                         case InventoryFileMatchingOptions.ColumnType.STORAGE_LOCATION:
-                            if (!value.IsText)
-                                item.StorageLocation = "?";
-                            else
-                                item.StorageLocation = value.GetText();
+                            item.StorageLocation = !value.IsText ? "?" : value.GetText();
                             break;
                         case InventoryFileMatchingOptions.ColumnType.OTHER:
-                            item.AdditionalProperties[columnName] = value.GetText();
+                            if(value.IsText)
+                                item.AdditionalProperties[columnName] = value.GetText();
+                            else if (value.IsNumber)
+                                item.AdditionalProperties[columnName] = value.GetNumber().ToString(CultureInfo.InvariantCulture);
+                            else
+                                throw new Exception("Could not parse additional property in Excel file.");
+                            break;
+                        case InventoryFileMatchingOptions.ColumnType.EXIT_DATE:
+                            try
+                            {
+                                DateTime parsedDate = DateTime.SpecifyKind(
+                                    (value.IsBlank || value.IsText && value.GetText().Trim() == "")
+                                        ? DateTime.MinValue
+                                        : value.GetDateTime(),
+                                    DateTimeKind.Local);
+
+                                if (parsedDate > FileDay)
+                                {
+                                    parsedDate = FileDay;
+                                }
+
+                                item.ExitDate = parsedDate.ToUniversalTime();
+                            }
+                            catch (InvalidCastException)
+                            {
+                                item.ExitDate = null;
+                            }
+
                             break;
                     }
                 }

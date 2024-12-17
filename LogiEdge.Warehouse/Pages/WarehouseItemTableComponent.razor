@@ -1,4 +1,5 @@
-﻿@using LogiEdge.WarehouseService.Data
+﻿@using System.Text.Json
+@using LogiEdge.WarehouseService.Data
 @code {
     [Parameter]
     public required IEnumerable<Item> Items { get; set; }
@@ -10,6 +11,11 @@
         <th>ID</th>
         <th>Item Number</th>
         <th>Location</th>
+        <th>Comments</th>
+        @foreach (JsonProperty property in Items.FirstOrDefault()?.AdditionalProperties.RootElement.EnumerateObject() ?? [])
+        {
+            <th>@property.Name</th>
+        }
     </tr>
     </thead>
     <tbody>
@@ -21,6 +27,11 @@
             <td>
                 @item.ItemStates.MaxBy(x => x.Date).Location
             </td>
+            <td>@item.Comments</td>
+            @foreach (JsonProperty property in item.AdditionalProperties.RootElement.EnumerateObject())
+            {
+                <td><a href="/warehouse/@(item.WarehouseId)/items-by-property?@(property.Name)=@(property.Value)">@property.Value</a></td>
+            }
         </tr>
     }
     </tbody>

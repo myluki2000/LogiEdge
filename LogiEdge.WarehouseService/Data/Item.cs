@@ -27,7 +27,7 @@ namespace LogiEdge.WarehouseService.Data
 
         public required string ItemNumber { get; set; }
 
-        public JsonDocument? AdditionalProperties { get; set; } = null;
+        public JsonDocument AdditionalProperties { get; set; } = JsonDocument.Parse("{}");
 
         public string Comments { get; set; } = string.Empty;
 

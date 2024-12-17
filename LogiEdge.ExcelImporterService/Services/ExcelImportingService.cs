@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using LogiEdge.BaseService.Persistence;
 using LogiEdge.CustomerService.Data;
@@ -88,31 +90,49 @@ namespace LogiEdge.ExcelImporterService.Services
                 {
                     string dayDirName = Path.GetFileName(dayDirPath);
                     DateTime day = DateTime.ParseExact(dayDirName, "yyyy-MM-dd", CultureInfo.InvariantCulture).ToUniversalTime();
-                
+
                     InventoryFileMatcher matcher = new(dayDirPath, day, options);
-                    
+
                     List<InventoryFileMatcher.InventoryItem> items = matcher.Process();
 
                     if (firstEntry)
                     {
                         // just straight up save the items for the first entry of the backup
-                        foreach (dynamic item in items)
+                        foreach (InventoryFileMatcher.InventoryItem item in items)
                         {
-                            warehouse.Items.Add(new Item()
+                            Item itemEntity = new()
                             {
                                 ItemNumber = item.ItemNumber,
                                 CustomerId = customer.Id,
                                 WarehouseId = warehouse.Id,
-                                ItemStates = new List<ItemState>()
-                                {
+                                ItemStates = [
                                     new ItemState()
                                     {
                                         Date = item.EntryDate,
                                         Warehouse = warehouse,
                                         Location = item.StorageLocation,
                                     }
-                                }
-                            });
+                                ]
+                            };
+
+                            JsonObject jsonObj = new();
+                            foreach (KeyValuePair<string, string> property in item.AdditionalProperties)
+                            {
+                                jsonObj[property.Key] = property.Value;
+                            }
+                            itemEntity.AdditionalProperties = jsonObj.Deserialize<JsonDocument>();
+
+                            if (item.ExitDate != null)
+                            {
+                                itemEntity.ItemStates.Add(new ItemState()
+                                {
+                                    Date = item.ExitDate.Value,
+                                    Warehouse = warehouse,
+                                    Location = SpecialLocations.SHIPPED,
+                                });
+                            }
+
+                            warehouse.Items.Add(itemEntity);
                         }
 
                         firstEntry = false;
@@ -122,7 +142,7 @@ namespace LogiEdge.ExcelImporterService.Services
                         // for the other ones we'll have to match them with the existing entries in the DB to find
                         // out which items were moved
 
-                        List<Guid> unchangedItemIds = new();
+                        List<Guid> unchangedItemIds = [];
 
                         // firstly, remove all items from our new list which have stayed the same from last time
                         items.RemoveAll(x => warehouse.Items
@@ -130,15 +150,15 @@ namespace LogiEdge.ExcelImporterService.Services
                             .Any(y =>
                         {
                             // we can't use an item which has already been "occupied" by another unchanged item
-                            if(unchangedItemIds.Contains(y.Id))
+                            if (unchangedItemIds.Contains(y.Id))
                                 return false;
 
-                            // if the item number is different, it's not the same item
-                            if(!IsInventoryItemMatchingEntity(options, x, y))
+                            // if the item number (or other matching properties) are different, it's not the same item
+                            if (!IsInventoryItemMatchingEntity(options, x, y))
                                 return false;
 
-                            // if the item number is the same, but the location is different, it might be the same item which was moved
-                            // or a different item; we don't know yet - handle it later
+                            // if the item properties match, but the location is different, it might be the same item
+                            // which was moved, or a different item; we don't know yet - handle it later
                             if (y.ItemStates.OrderBy(state => state.Date).Last().Location != x.StorageLocation)
                                 return false;
 
@@ -146,47 +166,79 @@ namespace LogiEdge.ExcelImporterService.Services
                             return true;
                         }));
 
-                        List<Item> itemsToAdd = new();
+                        List<Item> itemsToAdd = [];
 
                         items.ForEach(x =>
                         {
                             // see if an existing item exists, which matches the current item, is in the warehouse, not one of the unchanged items
                             // we've already accounted for, and which has not already been "used" for another moved item (i.e. no item state from today)
                             Item? existingItem = warehouse.Items.FirstOrDefault(y =>
-                                IsInventoryItemMatchingEntity(options, x, y) 
-                                && y.InWarehouse 
-                                && !unchangedItemIds.Contains(y.Id) 
+                                IsInventoryItemMatchingEntity(options, x, y)
+                                && y.InWarehouse
+                                && !unchangedItemIds.Contains(y.Id)
                                 && y.ItemStates.Select(st => st.Date).Max() < day);
 
                             if (existingItem == null)
                             {
                                 // if we have no existing item, this is a newly stored item
-                                itemsToAdd.Add(new Item()
+                                Item itemEntity = new()
                                 {
                                     ItemNumber = x.ItemNumber,
                                     CustomerId = customer.Id,
                                     WarehouseId = warehouse.Id,
-                                    ItemStates = new List<ItemState>()
-                                    {
+                                    ItemStates = [
                                         new ItemState()
                                         {
                                             Date = x.EntryDate,
                                             Warehouse = warehouse,
                                             Location = x.StorageLocation,
                                         }
-                                    }
-                                });
-                             
+                                    ]
+                                };
+
+                                JsonObject jsonObj = new();
+                                foreach (KeyValuePair<string, string> property in x.AdditionalProperties)
+                                {
+                                    jsonObj[property.Key] = property.Value;
+                                }
+                                itemEntity.AdditionalProperties = jsonObj.Deserialize<JsonDocument>();
+
+                                if (x.ExitDate != null)
+                                {
+                                    itemEntity.ItemStates.Add(new ItemState()
+                                    {
+                                        Date = x.ExitDate.Value,
+                                        Warehouse = warehouse,
+                                        Location = SpecialLocations.SHIPPED,
+                                    });
+                                }
+
+                                itemsToAdd.Add(itemEntity);
+
                             }
                             else
                             {
-                                // otherwise we have an item which was moved, so add a new item state to it
-                                existingItem.ItemStates.Add(new ItemState()
+                                // otherwise we have an item which was moved (or exited the warehouse, if the spreadsheet
+                                // doesn't remove items when they exit the warehouse but instead has an exit date column),
+                                // so add a new item state to it
+                                if (x.ExitDate != null)
                                 {
-                                    Date = day,
-                                    Warehouse = warehouse,
-                                    Location = x.StorageLocation,
-                                });
+                                    existingItem.ItemStates.Add(new ItemState()
+                                    {
+                                        Date = x.ExitDate.Value,
+                                        Warehouse = warehouse,
+                                        Location = SpecialLocations.SHIPPED,
+                                    });
+                                }
+                                else
+                                {
+                                    existingItem.ItemStates.Add(new ItemState()
+                                    {
+                                        Date = day,
+                                        Warehouse = warehouse,
+                                        Location = x.StorageLocation,
+                                    });
+                                }
                             }
                         });
 

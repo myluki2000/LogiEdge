@@ -28,7 +28,8 @@ namespace LogiEdge.ExcelImporterService.Data
             ENTRY_DATE,
             ITEM_COUNT,
             STORAGE_LOCATION,
-            OTHER
+            OTHER,
+            EXIT_DATE,
         }
     }
 }
