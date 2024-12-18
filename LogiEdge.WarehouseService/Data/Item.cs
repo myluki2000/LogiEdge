@@ -35,7 +35,7 @@ namespace LogiEdge.WarehouseService.Data
         [FilterableProperty]
         public string Comments { get; set; } = string.Empty;
 
-        public List<ItemState> ItemStates = [];
+        public List<ItemState> ItemStates { get; set; } = [];
 
         public bool InWarehouse
         {
