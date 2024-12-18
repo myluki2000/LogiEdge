@@ -161,7 +161,7 @@
 }
 else
 {
-    List<IGrouping<object, Item>> itemGroups;
+    List<IGrouping<object?, Item>> itemGroups;
     if (basePropInfos.Any(pi => pi.Name == groupByProperty))
     {
         MemberExpression propertyExpression = Expression.Property(itemParameterExpression, groupByProperty);
@@ -208,7 +208,7 @@ else
         // build the property comparison expression and chain call it
         MemberExpression statePropertyExpression = Expression.Property(firstCallExpression, groupByProperty);
 
-        Expression<Func<Item, object>> keySelectorLambda = Expression.Lambda<Func<Item, object>>(statePropertyExpression, itemParameterExpression);
+        Expression<Func<Item, object?>> keySelectorLambda = Expression.Lambda<Func<Item, object?>>(statePropertyExpression, itemParameterExpression);
 
         itemGroups = itemsQueryable
             .AsQueryable()
@@ -216,8 +216,10 @@ else
     }
     else
     {
-        itemGroups = null;
-        // TODO
+        itemGroups = itemsQueryable
+            .AsQueryable()
+            .GroupBy(it => (object?)it.AdditionalProperties.RootElement.GetProperty(groupByProperty).GetString())
+            .ToList();
     }
 
     <WarehouseGroupedItemTableComponent ItemGroups="@itemGroups" GroupByPropertyName="@groupByProperty"></WarehouseGroupedItemTableComponent>
