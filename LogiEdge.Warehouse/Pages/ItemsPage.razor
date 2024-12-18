@@ -26,6 +26,7 @@
     private static readonly ParameterExpression itemParameterExpression = Expression.Parameter(typeof(Item), "it");
     private static readonly MethodInfo jsonContainsMethod = typeof(NpgsqlJsonDbFunctionsExtensions)
         .GetMethod(nameof(NpgsqlJsonDbFunctionsExtensions.JsonContains), [typeof(DbFunctions), typeof(JsonDocument), typeof(JsonDocument)])!;
+    private static readonly ParameterExpression itemStateParameterExpression = Expression.Parameter(typeof(ItemState), "st");
 
     private static Expression GenerateTypeConvertingConstantExpression(MemberExpression memberExpression, KeyValuePair<string, string> param)
     {
@@ -98,7 +99,6 @@
     // construct an expression to filter for the item state properties passed as query params
     foreach (KeyValuePair<string, string> param in stateParams)
     {
-        ParameterExpression itemStateParameterExpression = Expression.Parameter(typeof(ItemState), "st");
         MemberExpression propertyExpression = Expression.Property(itemStateParameterExpression, param.Key);
         BinaryExpression equalityExpression = Expression.Equal(
             propertyExpression,
