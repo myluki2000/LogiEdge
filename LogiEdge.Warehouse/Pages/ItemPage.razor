@@ -16,6 +16,7 @@
     Item item = warehouseDbContext.Items
         .Include(x => x.Customer)
         .Include(x => x.ItemStates)
+        .ThenInclude(st => st.Warehouse)
         .First(x => x.Id == Guid.Parse(ItemId));
 }
 
@@ -66,7 +67,7 @@
         </tr>
         <tr>
             <th>Warehouse</th>
-            <td>@state.Warehouse.Name</td>
+            <td>@(state.Warehouse.Name)</td>
         </tr>
     </table>
 }

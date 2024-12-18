@@ -6,14 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <ItemGroup>
-    <None Remove="Pages\WarehouseItemTableComponent.razor.css" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Pages\WarehouseItemTableComponent.razor.css" />
-  </ItemGroup>
-
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />
