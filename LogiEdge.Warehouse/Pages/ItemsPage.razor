@@ -83,7 +83,8 @@
         .Select(param => param.Value)
         .FirstOrDefault();
 
-    IQueryable<Item> itemsQueryable = warehouseDb.Items;
+    IQueryable<Item> itemsQueryable = warehouseDb.Items
+        .Include(it => it.Customer);
 
     // construct an expression to filter for the base item properties passed as query params
     foreach (KeyValuePair<string, string> param in baseParams)
