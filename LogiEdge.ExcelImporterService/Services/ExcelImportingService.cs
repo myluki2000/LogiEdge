@@ -121,7 +121,7 @@ namespace LogiEdge.ExcelImporterService.Services
                             }
                             itemEntity.AdditionalProperties = jsonObj.Deserialize<JsonDocument>();
 
-                            if (item.ExitDate != null)
+                            if (item.ExitDate.HasValue)
                             {
                                 itemEntity.ItemStates.Add(new ItemState()
                                 {
@@ -145,7 +145,7 @@ namespace LogiEdge.ExcelImporterService.Services
 
                         // firstly, remove all items from our new list which have stayed the same from last time
                         items.RemoveAll(x => warehouse.Items
-                            .Where(y => y.InWarehouse)
+                            .Where(y => y.InWarehouse == x.InWarehouse)
                             .Any(y =>
                         {
                             // we can't use an item which has already been "occupied" by another unchanged item
@@ -158,7 +158,7 @@ namespace LogiEdge.ExcelImporterService.Services
 
                             // if the item properties match, but the location is different, it might be the same item
                             // which was moved, or a different item; we don't know yet - handle it later
-                            if (y.ItemStates.OrderBy(state => state.Date).Last().Location != x.StorageLocation)
+                            if (y.ItemStates.OrderBy(state => state.Date).Last().Location != (x.ExitDate.HasValue ? SpecialLocations.SHIPPED : x.StorageLocation))
                                 return false;
 
                             unchangedItemIds.Add(y.Id);
@@ -201,7 +201,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                 }
                                 itemEntity.AdditionalProperties = jsonObj.Deserialize<JsonDocument>();
 
-                                if (x.ExitDate != null)
+                                if (x.ExitDate.HasValue)
                                 {
                                     itemEntity.ItemStates.Add(new ItemState()
                                     {
@@ -219,7 +219,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                 // otherwise we have an item which was moved (or exited the warehouse, if the spreadsheet
                                 // doesn't remove items when they exit the warehouse but instead has an exit date column),
                                 // so add a new item state to it
-                                if (x.ExitDate != null)
+                                if (x.ExitDate.HasValue)
                                 {
                                     existingItem.ItemStates.Add(new ItemState()
                                     {

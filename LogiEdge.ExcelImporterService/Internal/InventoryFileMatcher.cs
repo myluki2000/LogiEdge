@@ -37,6 +37,8 @@ namespace LogiEdge.ExcelImporterService.Internal
             public DateTime? ExitDate { get; set; } = null;
             public string StorageLocation { get; set; } = "";
             public Dictionary<string, string> AdditionalProperties { get; init; } = new();
+
+            public bool InWarehouse => ExitDate == null;
         }
 
         public List<InventoryItem> Process()
@@ -84,7 +86,7 @@ namespace LogiEdge.ExcelImporterService.Internal
                 {
                     continue;
                 }
-                    
+
 
                 InventoryItem item = new();
 
@@ -114,21 +116,21 @@ namespace LogiEdge.ExcelImporterService.Internal
                                 {
                                     parsedDate = FileDay;
                                 }
-                                
+
                                 item.EntryDate = parsedDate.ToUniversalTime();
                             }
-                            catch(InvalidCastException)
+                            catch (InvalidCastException)
                             {
                                 item.EntryDate = DateTime.MinValue.ToUniversalTime();
                             }
 
                             break;
                         case InventoryFileMatchingOptions.ColumnType.ITEM_COUNT:
-                            
+
                             if (value.IsNumber)
                             {
                                 itemCount = (int)value.GetNumber();
-                            } 
+                            }
                             else if (value.IsText)
                             {
                                 string stringValue = value.GetText()
@@ -148,7 +150,7 @@ namespace LogiEdge.ExcelImporterService.Internal
                             item.StorageLocation = !value.IsText ? "?" : value.GetText();
                             break;
                         case InventoryFileMatchingOptions.ColumnType.OTHER:
-                            if(value.IsText)
+                            if (value.IsText)
                                 item.AdditionalProperties[columnName] = value.GetText();
                             else if (value.IsNumber)
                                 item.AdditionalProperties[columnName] = value.GetNumber().ToString(CultureInfo.InvariantCulture);
@@ -158,18 +160,17 @@ namespace LogiEdge.ExcelImporterService.Internal
                         case InventoryFileMatchingOptions.ColumnType.EXIT_DATE:
                             try
                             {
-                                DateTime parsedDate = DateTime.SpecifyKind(
+                                DateTime? parsedDate =
                                     (value.IsBlank || value.IsText && value.GetText().Trim() == "")
-                                        ? DateTime.MinValue
-                                        : value.GetDateTime(),
-                                    DateTimeKind.Local);
+                                        ? null
+                                        : DateTime.SpecifyKind(value.GetDateTime(), DateTimeKind.Local);
 
-                                if (parsedDate > FileDay)
+                                if (parsedDate.HasValue && parsedDate.Value > FileDay)
                                 {
                                     parsedDate = FileDay;
                                 }
 
-                                item.ExitDate = parsedDate.ToUniversalTime();
+                                item.ExitDate = parsedDate?.ToUniversalTime();
                             }
                             catch (InvalidCastException)
                             {
