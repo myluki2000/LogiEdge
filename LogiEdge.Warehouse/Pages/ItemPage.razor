@@ -15,7 +15,6 @@
     WarehouseDbContext warehouseDbContext = WarehouseDbContextFactory.CreateDbContext();
     Item item = warehouseDbContext.Items
         .Include(x => x.Customer)
-        .Include(x => x.Warehouse)
         .Include(x => x.ItemStates)
         .First(x => x.Id == Guid.Parse(ItemId));
 }
@@ -26,10 +25,6 @@
     <tr>
         <th>Id</th>
         <td>@item.Id</td>
-    </tr>
-    <tr>
-        <th>Warehouse</th>
-        <td>@item.Warehouse.Name</td>
     </tr>
     <tr>
         <th>Customer</th>
@@ -68,6 +63,10 @@
         <tr>
             <th>Location</th>
             <td>@state.Location</td>
+        </tr>
+        <tr>
+            <th>Warehouse</th>
+            <td>@state.Warehouse.Name</td>
         </tr>
     </table>
 }

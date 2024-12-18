@@ -23,14 +23,14 @@
         {
             <tr>
                 <td><a href="/item/@item.Id">@item.Id</a></td>
-                <td><a href="/warehouse/@(item.WarehouseId)/items-by-property?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
+                <td><a href="/items?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
                 <td>
                     @item.ItemStates.MaxBy(x => x.Date).Location
                 </td>
                 <td>@item.Comments</td>
                 @foreach (JsonProperty property in item.AdditionalProperties.RootElement.EnumerateObject())
                 {
-                    <td><a href="/warehouse/@(item.WarehouseId)/items-by-property?@(property.Name)=@(property.Value)">@property.Value</a></td>
+                    <td><a href="/items?@(property.Name)=@(property.Value)">@property.Value</a></td>
                 }
             </tr>
         }

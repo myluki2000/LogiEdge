@@ -27,4 +27,8 @@
     <ProjectReference Include="..\LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Pages\Customer\" />
+  </ItemGroup>
+
 </Project>

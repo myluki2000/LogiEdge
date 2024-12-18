@@ -1,0 +1,129 @@
+﻿@page "/items"
+@using System.Linq.Expressions
+@using System.Reflection
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using LogiEdge.Shared
+@using LogiEdge.Shared.Utility
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@inject NavigationManager NavigationManager
+
+<h3>Items by Property</h3>
+
+@code {
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        NavigationManager.LocationChanged += (sender, args) => StateHasChanged();
+    }
+
+    private static readonly ParameterExpression itemParameterExpression = Expression.Parameter(typeof(Item), "it");
+    private static readonly MethodInfo jsonContainsMethod = typeof(NpgsqlJsonDbFunctionsExtensions)
+        .GetMethod(nameof(NpgsqlJsonDbFunctionsExtensions.JsonContains), [typeof(DbFunctions), typeof(JsonDocument), typeof(JsonDocument)])!;
+}
+
+@{
+    // get the query parameters
+    Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+    // we only allow each param to be specified once, so pick the first value
+    Dictionary<string, string> queryParameters = QueryHelpers.ParseQuery(uri.Query)
+        .Where(x => x.Value.Count > 0)
+        .ToDictionary(x => x.Key, x => x.Value.First())!;
+
+    WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
+
+    // parse url params which are not additional properties but "base properties" we store directly
+    // as a DB column instead of as JSON
+    IEnumerable<PropertyInfo> basePropInfos = typeof(Item)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)));
+    Dictionary<string, string> baseParams = queryParameters
+        .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key))
+        .ToDictionary();
+
+    // do the same not for base params, but for item state params
+    IEnumerable<PropertyInfo> statePropInfos = typeof(ItemState)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)));
+    Dictionary<string, string> stateParams = queryParameters
+        .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key))
+        .ToDictionary();
+
+    // an "at" date can be passed as a URL parameter to define for what point in time the item state params should be matched
+    DateTime? atParam = queryParameters
+        .PopWhere(param => param.Key == "at")
+        .Select(param => DateTime.Parse(param.Value))
+        .Cast<DateTime?>()
+        .FirstOrDefault();
+
+    // create a json document which contains the properties we want to filter for
+    JsonObject jsonFilter = new();
+    foreach (KeyValuePair<string, string> queryParam in queryParameters)
+    {
+        jsonFilter[queryParam.Key] = queryParam.Value;
+    }
+    JsonDocument jsonFilterDoc = jsonFilter.Deserialize<JsonDocument>()!;
+
+    IQueryable<Item> itemsQueryable = warehouseDb.Items;
+
+    // construct an expression to filter for the base item properties passed as query params
+    foreach (KeyValuePair<string, string> param in baseParams)
+    {
+        BinaryExpression equalityExpression = Expression.Equal(
+            Expression.Property(itemParameterExpression, param.Key),
+            Expression.Constant(param.Value));
+        Expression<Func<Item, bool>> lambda = Expression.Lambda<Func<Item, bool>>(equalityExpression, itemParameterExpression);
+        itemsQueryable = itemsQueryable.Where(lambda);
+    }
+
+    // construct an expression to filter for the item state properties passed as query params
+    foreach (KeyValuePair<string, string> param in stateParams)
+    {
+        var itemStateParameterExpression = Expression.Parameter(typeof(ItemState), "st");
+        BinaryExpression equalityExpression = Expression.Equal(
+            Expression.Property(itemStateParameterExpression, param.Key),
+            Expression.Constant(param.Value));
+        Expression<Func<ItemState, bool>> lambda = Expression.Lambda<Func<ItemState, bool>>(equalityExpression, itemStateParameterExpression);
+
+        if (atParam.HasValue)
+        {
+            itemsQueryable = itemsQueryable.Where(it => it.ItemStates
+                .AsQueryable()
+                .Where(st => st.Date < atParam.Value)
+                .OrderByDescending(st => st.Date)
+                .Take(1)
+                .Where(lambda)
+                .Any());
+        }
+        else
+        {
+            itemsQueryable = itemsQueryable.Where(it => it.ItemStates
+                .AsQueryable()
+                .OrderByDescending(st => st.Date)
+                .Take(1)
+                .Where(lambda)
+                .Any());
+        }
+    }
+
+    // if any AdditionalProperties query params have been specified, construct an expression to filter for those
+    if (queryParameters.Count > 0)
+    {
+        MethodCallExpression callJsonContainsExpression = Expression.Call(
+            jsonContainsMethod,
+            Expression.Constant(EF.Functions),
+            Expression.Property(itemParameterExpression, nameof(Item.AdditionalProperties)),
+            Expression.Constant(jsonFilterDoc));
+        Expression<Func<Item, bool>> lambda = Expression.Lambda<Func<Item, bool>>(callJsonContainsExpression, itemParameterExpression);
+        itemsQueryable = itemsQueryable.Where(lambda);
+    }
+
+    List<Item> items = itemsQueryable.Include(it => it.ItemStates).ToList();
+}
+
+<WarehouseItemTableComponent Items="@items"></WarehouseItemTableComponent>

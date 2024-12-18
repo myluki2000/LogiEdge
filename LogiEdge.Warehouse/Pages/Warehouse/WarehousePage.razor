@@ -45,7 +45,7 @@
         @foreach (IGrouping<string, Item> group in warehouse.Items.Where(x => x.InWarehouse).OrderBy(x => x.ItemStates.MinBy(y => y.Date)!.Date).GroupBy(x => x.ItemNumber))
         {
             <tr>
-                <td><a href="/warehouse/@warehouse.Id/items-by-property?ItemNumber=@group.Key">@group.Key</a></td>
+                <td><a href="/items?ItemNumber=@group.Key">@group.Key</a></td>
                 <td style="text-align: right;">@group.Count()</td>
             </tr>
         }

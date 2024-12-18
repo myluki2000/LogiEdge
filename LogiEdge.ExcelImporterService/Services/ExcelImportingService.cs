@@ -104,12 +104,11 @@ namespace LogiEdge.ExcelImporterService.Services
                             {
                                 ItemNumber = item.ItemNumber,
                                 CustomerId = customer.Id,
-                                WarehouseId = warehouse.Id,
                                 ItemStates = [
                                     new ItemState()
                                     {
                                         Date = item.EntryDate,
-                                        Warehouse = warehouse,
+                                        WarehouseId = warehouse.Id,
                                         Location = item.StorageLocation,
                                     }
                                 ]
@@ -127,7 +126,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                 itemEntity.ItemStates.Add(new ItemState()
                                 {
                                     Date = item.ExitDate.Value,
-                                    Warehouse = warehouse,
+                                    WarehouseId = warehouse.Id,
                                     Location = SpecialLocations.SHIPPED,
                                 });
                             }
@@ -185,12 +184,11 @@ namespace LogiEdge.ExcelImporterService.Services
                                 {
                                     ItemNumber = x.ItemNumber,
                                     CustomerId = customer.Id,
-                                    WarehouseId = warehouse.Id,
                                     ItemStates = [
                                         new ItemState()
                                         {
                                             Date = x.EntryDate,
-                                            Warehouse = warehouse,
+                                            WarehouseId = warehouse.Id,
                                             Location = x.StorageLocation,
                                         }
                                     ]
@@ -208,7 +206,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                     itemEntity.ItemStates.Add(new ItemState()
                                     {
                                         Date = x.ExitDate.Value,
-                                        Warehouse = warehouse,
+                                        WarehouseId = warehouse.Id,
                                         Location = SpecialLocations.SHIPPED,
                                     });
                                 }
@@ -226,7 +224,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                     existingItem.ItemStates.Add(new ItemState()
                                     {
                                         Date = x.ExitDate.Value,
-                                        Warehouse = warehouse,
+                                        WarehouseId = warehouse.Id,
                                         Location = SpecialLocations.SHIPPED,
                                     });
                                 }
@@ -235,7 +233,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                     existingItem.ItemStates.Add(new ItemState()
                                     {
                                         Date = day,
-                                        Warehouse = warehouse,
+                                        WarehouseId = warehouse.Id,
                                         Location = x.StorageLocation,
                                     });
                                 }
@@ -249,7 +247,7 @@ namespace LogiEdge.ExcelImporterService.Services
                             itemToRemove.ItemStates.Add(new ItemState()
                             {
                                 Date = day,
-                                Warehouse = warehouse,
+                                WarehouseId = warehouse.Id,
                                 Location = SpecialLocations.SHIPPED,
                             });
                         }
