@@ -29,11 +29,11 @@
     </tr>
     <tr>
         <th>Customer</th>
-        <td>@item.Customer.Name</td>
+        <td><a href="/items?CustomerId=@(item.CustomerId)">@item.Customer.Name</a></td>
     </tr>
     <tr>
         <th>ItemNumber</th>
-        <td>@item.ItemNumber</td>
+        <td><a href="/items?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
     </tr>
     <tr>
         <th>Comments</th>
@@ -48,7 +48,7 @@
     {
         <tr>
             <th>@property.Name</th>
-            <td>@property.Value.GetString()</td>
+            <td><a href="/items?@(property.Name)=@(property.Value.ToString())">@property.Value.GetString()</a></td>
         </tr>
     }
 </table>
@@ -67,7 +67,7 @@
         </tr>
         <tr>
             <th>Warehouse</th>
-            <td>@(state.Warehouse.Name)</td>
+            <td><a href="/items?WarehouseId=@(state.WarehouseId)">@state.Warehouse.Name</a></td>
         </tr>
     </table>
 }

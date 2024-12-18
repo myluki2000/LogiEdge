@@ -26,6 +26,20 @@
     private static readonly ParameterExpression itemParameterExpression = Expression.Parameter(typeof(Item), "it");
     private static readonly MethodInfo jsonContainsMethod = typeof(NpgsqlJsonDbFunctionsExtensions)
         .GetMethod(nameof(NpgsqlJsonDbFunctionsExtensions.JsonContains), [typeof(DbFunctions), typeof(JsonDocument), typeof(JsonDocument)])!;
+
+    private static Expression GenerateTypeConvertingConstantExpression(MemberExpression memberExpression, KeyValuePair<string, string> param)
+    {
+        object convertedParam = memberExpression.Type switch
+        {
+            { } t when t == typeof(int) => int.Parse(param.Value),
+            { } t when t == typeof(decimal) => decimal.Parse(param.Value),
+            { } t when t == typeof(DateTime) => DateTime.Parse(param.Value),
+            { } t when t == typeof(Guid) => Guid.Parse(param.Value),
+            _ => param.Value
+        };
+
+        return Expression.Constant(convertedParam);
+    }
 }
 
 @{
@@ -68,22 +82,15 @@
         .Select(param => param.Value)
         .FirstOrDefault();
 
-    // create a json document which contains the properties we want to filter for
-    JsonObject jsonFilter = new();
-    foreach (KeyValuePair<string, string> queryParam in queryParameters)
-    {
-        jsonFilter[queryParam.Key] = queryParam.Value;
-    }
-    JsonDocument jsonFilterDoc = jsonFilter.Deserialize<JsonDocument>()!;
-
     IQueryable<Item> itemsQueryable = warehouseDb.Items;
 
     // construct an expression to filter for the base item properties passed as query params
     foreach (KeyValuePair<string, string> param in baseParams)
     {
+        MemberExpression propertyExpression = Expression.Property(itemParameterExpression, param.Key);
         BinaryExpression equalityExpression = Expression.Equal(
-            Expression.Property(itemParameterExpression, param.Key),
-            Expression.Constant(param.Value));
+            propertyExpression,
+            GenerateTypeConvertingConstantExpression(propertyExpression, param));
         Expression<Func<Item, bool>> lambda = Expression.Lambda<Func<Item, bool>>(equalityExpression, itemParameterExpression);
         itemsQueryable = itemsQueryable.Where(lambda);
     }
@@ -92,10 +99,14 @@
     foreach (KeyValuePair<string, string> param in stateParams)
     {
         ParameterExpression itemStateParameterExpression = Expression.Parameter(typeof(ItemState), "st");
+        MemberExpression propertyExpression = Expression.Property(itemStateParameterExpression, param.Key);
         BinaryExpression equalityExpression = Expression.Equal(
-            Expression.Property(itemStateParameterExpression, param.Key),
-            Expression.Constant(param.Value));
-        Expression<Func<ItemState, bool>> lambda = Expression.Lambda<Func<ItemState, bool>>(equalityExpression, itemStateParameterExpression);
+            propertyExpression,
+            GenerateTypeConvertingConstantExpression(propertyExpression, param));
+        Expression<Func<ItemState, bool>> lambda = Expression.Lambda<Func<ItemState, bool>>(
+            equalityExpression,
+            itemStateParameterExpression
+        );
 
         if (atParam.HasValue)
         {
@@ -121,6 +132,15 @@
     // if any AdditionalProperties query params have been specified, construct an expression to filter for those
     if (queryParameters.Count > 0)
     {
+        // create a json document which contains the properties we want to filter for
+        JsonObject jsonFilter = new();
+        foreach (KeyValuePair<string, string> queryParam in queryParameters)
+        {
+            jsonFilter[queryParam.Key] = queryParam.Value;
+        }
+        JsonDocument jsonFilterDoc = jsonFilter.Deserialize<JsonDocument>()!;
+
+        // call the JsonContains function with the json filter document we built
         MethodCallExpression callJsonContainsExpression = Expression.Call(
             jsonContainsMethod,
             Expression.Constant(EF.Functions),

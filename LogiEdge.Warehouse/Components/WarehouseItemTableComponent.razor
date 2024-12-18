@@ -9,6 +9,7 @@
     <thead class="table-primary">
         <tr>
             <th>ID</th>
+            <th>Customer</th>
             <th>Item Number</th>
             <th>Location</th>
             <th>Comments</th>
@@ -23,6 +24,7 @@
         {
             <tr>
                 <td><a href="/item/@item.Id">@item.Id</a></td>
+                <td><a href="/items?CustomerId=@(item.CustomerId)">@item.Customer.Name</a></td>
                 <td><a href="/items?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
                 <td>
                     @item.ItemStates.MaxBy(x => x.Date).Location
