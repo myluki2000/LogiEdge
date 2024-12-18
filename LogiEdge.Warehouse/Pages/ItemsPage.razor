@@ -157,7 +157,7 @@
 @if (groupByProperty == null)
 {
     List<Item> items = itemsQueryable.Include(it => it.ItemStates).ToList();
-    <WarehouseItemTableComponent Items="@items"></WarehouseItemTableComponent>
+    <WarehouseItemTableComponent Items="@items" AtDate="atParam"></WarehouseItemTableComponent>
 }
 else
 {
@@ -181,7 +181,7 @@ else
         );
 
         // build the where call expression and call it on the "it.ItemStates" property
-        Expression<Func<ItemState, bool>> dateWhereLambda = st => st.Date < atParam.Value;
+        Expression<Func<ItemState, bool>> dateWhereLambda = st => st.Date <= atParam.Value;
         MethodCallExpression whereCallExpression = Expression.Call(
             typeof(Queryable),
             nameof(Queryable.Where),
