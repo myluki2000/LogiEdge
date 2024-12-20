@@ -81,9 +81,6 @@ namespace LogiEdge.ExcelImporterService.Services
                     }).Entity;
                 }
 
-                // before starting, remove all the existing items from the DB. We're generating it from scratch
-                warehouse.Items.Clear();
-
                 // loop through all the days we have in the Excel backup
                 bool firstEntry = true;
                 foreach (string dayDirPath in Directory.GetDirectories(config.FolderPath))
