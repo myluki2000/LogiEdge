@@ -293,7 +293,7 @@
                 }
 
                 <span class="btn-filter-remove material-symbols-rounded" 
-                      @onclick="() => RemoveQueryParamAndNavigate(propInfo.Name)" 
+                      @onclick="() => { RemoveQueryParamAndNavigate(propInfo.Name); badgeEditingParamName = null; }" 
                       @onclick:stopPropagation="true">
                     close
                 </span>
