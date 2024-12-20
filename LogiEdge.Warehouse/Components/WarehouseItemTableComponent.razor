@@ -2,11 +2,12 @@
 @using LogiEdge.WarehouseService.Data
 @code {
     [Parameter]
-    public required IEnumerable<Item> Items { get; set; }
+    public required IList<Item> Items { get; set; }
     [Parameter]
     public DateTime? AtDate { get; set; }
 }
 
+<span>Showing @Items.Count items.</span>
 <table class="table table-striped table-hover">
     <thead class="table-primary">
         <tr>

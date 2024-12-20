@@ -37,6 +37,8 @@ namespace LogiEdge.WarehouseService.Data
 
         public List<ItemState> ItemStates { get; set; } = [];
 
+        // TODO: This property should probably be removed because it does not account for the fact that we might be
+        // inspecting the item at a different point in time
         public bool InWarehouse
         {
             get

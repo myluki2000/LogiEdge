@@ -2,11 +2,12 @@
 @using LogiEdge.WarehouseService.Data
 @code {
     [Parameter]
-    public required List<IGrouping<object, Item>> ItemGroups { get; set; }
+    public required IList<IGrouping<object, Item>> ItemGroups { get; set; }
     [Parameter]
     public required string GroupByPropertyName { get; set; }
 }
 
+<span>Showing @ItemGroups.Count item groups.</span>
 <table class="table table-striped table-hover">
     <thead class="table-primary">
     <tr>

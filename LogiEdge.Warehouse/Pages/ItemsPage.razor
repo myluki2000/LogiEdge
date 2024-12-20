@@ -3,6 +3,7 @@
 @using System.Reflection
 @using System.Text.Json
 @using System.Text.Json.Nodes
+@using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared
 @using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
@@ -10,6 +11,7 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.Warehouse.Components
+@using Microsoft.AspNetCore.Components.Forms
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject NavigationManager NavigationManager
 
@@ -20,6 +22,7 @@
     {
         base.OnInitialized();
 
+        // necessary to refresh the page if the query parameters change
         NavigationManager.LocationChanged += (sender, args) => StateHasChanged();
     }
 
@@ -41,6 +44,38 @@
 
         return Expression.Constant(convertedParam);
     }
+
+    public static string GetPageUrlWithParams(IReadOnlyDictionary<string, string>? queryParams = null)
+    {
+        const string BASE_PATH = "/items";
+        if (queryParams == null || !queryParams.Any())
+        {
+            return BASE_PATH;
+        }
+
+        string queryString = string.Join("&", queryParams
+            .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
+            .Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+
+        return $"{BASE_PATH}?{queryString}";
+    }
+
+    private void RemoveQueryParamAndNavigate(string key)
+    {
+        // Create a copy of the current query parameters
+        Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        Dictionary<string, string?> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query)
+            .Where(p => p.Key != key) // Exclude the key to remove
+            .ToDictionary(p => p.Key, string? (p) => p.Value.ToString());
+
+        // Build the updated URL
+        Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
+        string newQueryString = QueryHelpers.AddQueryString(baseUri, updatedQueryParameters);
+
+        // Navigate to the updated URL
+        NavigationManager.NavigateTo(newQueryString);
+    }
 }
 
 @{
@@ -55,17 +90,19 @@
 
     // parse url params which are not additional properties but "base properties" we store directly
     // as a DB column instead of as JSON
-    IEnumerable<PropertyInfo> basePropInfos = typeof(Item)
+    List<PropertyInfo> basePropInfos = typeof(Item)
         .GetProperties()
-        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)));
+        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)))
+        .ToList();
     Dictionary<string, string> baseParams = queryParameters
         .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key))
         .ToDictionary();
 
     // do the same not for base params, but for item state params
-    IEnumerable<PropertyInfo> statePropInfos = typeof(ItemState)
+    List<PropertyInfo> statePropInfos = typeof(ItemState)
         .GetProperties()
-        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)));
+        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)))
+        .ToList();
     Dictionary<string, string> stateParams = queryParameters
         .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key))
         .ToDictionary();
@@ -77,14 +114,28 @@
         .Cast<DateTime?>()
         .FirstOrDefault();
 
+    // a "showShipped=bool" param can be passed to define if items that have already been shipped at that point in time should be shown
+    bool showShipped = queryParameters
+        .PopWhere(param => param.Key == "showShipped")
+        .Select(param => bool.Parse(param.Value))
+        .FirstOrDefault();
+
     // a "groupby" param can be passed specifying a property the results should be grouped by
     string? groupByProperty = queryParameters
         .PopWhere(param => param.Key == "groupBy")
         .Select(param => param.Value)
         .FirstOrDefault();
 
+    // construct the db query
     IQueryable<Item> itemsQueryable = warehouseDb.Items
         .Include(it => it.Customer);
+
+    if (!showShipped)
+    {
+        itemsQueryable = atParam.HasValue 
+            ? itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First(st => st.Date <= atParam).Location != SpecialLocations.SHIPPED) 
+            : itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First().Location != SpecialLocations.SHIPPED);
+    }
 
     // construct an expression to filter for the base item properties passed as query params
     foreach (KeyValuePair<string, string> param in baseParams)
@@ -154,9 +205,45 @@
 
 }
 
+
+<div>
+    <span>Default Views:</span>
+    @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
+    {
+        <a
+        class="badge rounded-pill"
+        href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
+            Customer: @customer.Name
+        </a>
+    }
+</div>
+<div>
+    <span>My Views:</span>
+</div>
+
+<div>
+    <span>Filter By:</span>
+    @foreach (PropertyInfo propInfo in basePropInfos)
+    {
+        string? paramValue = baseParams.GetValueOrDefault(propInfo.Name);
+        <span class="filter-badge badge rounded-pill">
+            <span>@propInfo.Name</span>
+            @if (paramValue != null)
+            {
+                <span>=</span><span>@paramValue</span>
+                <span class="btn-filter-remove material-symbols-rounded" @onclick="() => RemoveQueryParamAndNavigate(propInfo.Name)">
+                    close
+                </span>
+            }
+        </span>
+    }
+</div>
+
 @if (groupByProperty == null)
 {
-    List<Item> items = itemsQueryable.Include(it => it.ItemStates).ToList();
+    List<Item> items = itemsQueryable
+        .Include(it => it.ItemStates)
+        .ToList();
     <WarehouseItemTableComponent Items="@items" AtDate="atParam"></WarehouseItemTableComponent>
 }
 else
