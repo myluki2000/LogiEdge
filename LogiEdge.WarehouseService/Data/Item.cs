@@ -32,7 +32,6 @@ namespace LogiEdge.WarehouseService.Data
 
         public JsonDocument AdditionalProperties { get; set; } = JsonDocument.Parse("{}");
 
-        [FilterableProperty]
         public string Comments { get; set; } = string.Empty;
 
         public List<ItemState> ItemStates { get; set; } = [];
