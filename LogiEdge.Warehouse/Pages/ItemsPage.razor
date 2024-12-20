@@ -5,6 +5,7 @@
 @using System.Text.Json.Nodes
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared
+@using LogiEdge.Shared.Attributes
 @using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
@@ -12,6 +13,7 @@
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.Warehouse.Components
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Primitives
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject NavigationManager NavigationManager
 
@@ -79,14 +81,13 @@
         NavigationManager.NavigateTo(newQueryString);
     }
 
-    private void AddOrInsertQueryParamAndNavigate(string key, string value)
+    private void AddOrInsertQueryParamAndNavigate(string key, params string[] values)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        Dictionary<string, string?> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query)
-            .ToDictionary(p => p.Key, string? (p) => p.Value.ToString());
+        Dictionary<string, StringValues> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query);
 
-        updatedQueryParameters[key] = value;
+        updatedQueryParameters[key] = values;
 
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -97,7 +98,7 @@
         NavigationManager.NavigateTo(newQueryString);
     }
 
-    private string? GetQueryParamValue(string key)
+    private StringValues GetQueryParamValue(string key)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -114,11 +115,42 @@
     // get the query parameters
     Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
     // we only allow each param to be specified once, so pick the first value
-    Dictionary<string, string> queryParameters = QueryHelpers.ParseQuery(uri.Query)
+    Dictionary<string, StringValues> queryParameters = QueryHelpers.ParseQuery(uri.Query)
         .Where(x => x.Value.Count > 0)
-        .ToDictionary(x => x.Key, x => x.Value.First())!;
+        .ToDictionary();
 
     WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
+
+    // get a list of column property names which are allowed
+    List<string> allowedPropertyColumns = typeof(Item)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+        .Select(p => p.Name)
+        .ToList();
+    allowedPropertyColumns.AddRange(typeof(ItemState)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+        .Select(p => p.Name));
+
+    // get the column parameters. Here, we allow specifying the "column" parameter multiple times
+    // to display multiple columns
+    List<string> columnsToDisplay = queryParameters
+        .PopWhere(x => x.Key == "col")
+        .SelectMany(x => x.Value.ToList())
+        .OfType<string>()
+        .ToList();
+    // if no columns to display are specified, show some sane default columns
+    if (columnsToDisplay.Count == 0)
+    {
+        columnsToDisplay = [
+            nameof(Item.Id),
+            nameof(Item.Customer),
+            nameof(ItemState.Warehouse),
+            nameof(ItemState.Location),
+        ];
+    }
+
+    OrderedDictionary<string, bool> displayPropertyColumns = new(allowedPropertyColumns.Select(x => new KeyValuePair<string, bool>(x, columnsToDisplay.Contains(x))));
 
     // parse url params which are not additional properties but "base properties" we store directly
     // as a DB column instead of as JSON
@@ -127,8 +159,8 @@
         .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)))
         .ToList();
     Dictionary<string, string> baseParams = queryParameters
-        .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key))
-        .ToDictionary();
+        .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
+        .ToDictionary(x => x.Key, x => x.Value.First()!);
 
     // do the same not for base params, but for item state params
     List<PropertyInfo> statePropInfos = typeof(ItemState)
@@ -136,26 +168,26 @@
         .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)))
         .ToList();
     Dictionary<string, string> stateParams = queryParameters
-        .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key))
-        .ToDictionary();
+        .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
+        .ToDictionary(x => x.Key, x => x.Value.First()!);
 
     // an "at" date can be passed as a URL parameter to define for what point in time the item state params should be matched
     DateTime? atParam = queryParameters
-        .PopWhere(param => param.Key == "at")
-        .Select(param => DateTime.Parse(param.Value))
+        .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
+        .Select(param => DateTime.Parse(param.Value.First()!))
         .Cast<DateTime?>()
         .FirstOrDefault();
 
     // a "showShipped=bool" param can be passed to define if items that have already been shipped at that point in time should be shown
     bool showShipped = queryParameters
-        .PopWhere(param => param.Key == "showShipped")
-        .Select(param => bool.Parse(param.Value))
+        .PopWhere(param => param.Key == "showShipped" && param.Value.Count > 0)
+        .Select(param => bool.Parse(param.Value.First()!))
         .FirstOrDefault();
 
     // a "groupby" param can be passed specifying a property the results should be grouped by
     string? groupByProperty = queryParameters
         .PopWhere(param => param.Key == "groupBy")
-        .Select(param => param.Value)
+        .Select(param => param.Value.FirstOrDefault())
         .FirstOrDefault();
 
     // construct the db query
@@ -218,9 +250,12 @@
     {
         // create a json document which contains the properties we want to filter for
         JsonObject jsonFilter = new();
-        foreach (KeyValuePair<string, string> queryParam in queryParameters)
+        foreach (KeyValuePair<string, StringValues> queryParam in queryParameters)
         {
-            jsonFilter[queryParam.Key] = queryParam.Value;
+            if(queryParam.Value.Count == 0)
+                continue;
+
+            jsonFilter[queryParam.Key] = queryParam.Value.First();
         }
         JsonDocument jsonFilterDoc = jsonFilter.Deserialize<JsonDocument>()!;
 
@@ -259,7 +294,7 @@
         @code {
         private void EditParamBadge(string paramName)
         {
-            badgeFilterInputValue = GetQueryParamValue(paramName) ?? "";
+            badgeFilterInputValue = GetQueryParamValue(paramName).FirstOrDefault() ?? "";
             badgeEditingParamName = paramName;
         }
 
@@ -307,7 +342,12 @@
     List<Item> items = itemsQueryable
         .Include(it => it.ItemStates)
         .ToList();
-    <WarehouseItemTableComponent Items="@items" AtDate="atParam"></WarehouseItemTableComponent>
+    <WarehouseItemTableComponent Items="@items"
+                                 AtDate="atParam"
+                                 PropertyColumns="displayPropertyColumns"
+                                 DisplayedPropertyColumnsChanged='properties => 
+                                    AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray())'>
+    </WarehouseItemTableComponent>
 }
 else
 {

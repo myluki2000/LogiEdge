@@ -1,50 +1,106 @@
-﻿@using System.Text.Json
+﻿
+@using System.Reflection
+@using System.Text.Json
+@using System.Collections.Generic
+@using System.Collections.Specialized
 @using LogiEdge.WarehouseService.Data
+@using Microsoft.AspNetCore.Components.Forms
 @code {
     [Parameter]
     public required IList<Item> Items { get; set; }
     [Parameter]
     public DateTime? AtDate { get; set; }
+    [Parameter]
+    public required OrderedDictionary<string, bool> PropertyColumns { get; set; }
+    [Parameter]
+    public EventCallback<OrderedDictionary<string, bool>> DisplayedPropertyColumnsChanged { get; set; }
+
+    private OrderedDictionary<string, bool>? modalPropertyColumns = null;
+}
+
+@{
+    modalPropertyColumns ??= new(PropertyColumns);
 }
 
 <span>Showing @Items.Count items.</span>
 <table class="table table-striped table-hover">
     <thead class="table-primary">
-        <tr>
-            <th>ID</th>
-            <th>Customer</th>
-            <th>Item Number</th>
-            <th>Location</th>
-            <th>Comments</th>
-            @foreach (JsonProperty property in Items.FirstOrDefault()?.AdditionalProperties.RootElement.EnumerateObject() ?? [])
-            {
-                <th>@property.Name</th>
-            }
-        </tr>
+    <tr>
+        @foreach ((string propertyName, bool _) in PropertyColumns.Where(x => x.Value))
+        {
+            <th style="line-height: 24px;">
+                <span style="vertical-align: bottom;">@propertyName</span>
+                    
+                @if (propertyName == PropertyColumns.Last(x => x.Value).Key)
+                {
+                    // button to select which columns to show
+                    <button type="button" 
+                            class="btn btn-primary" 
+                            style="float: right; height: 24px; width: 24px; padding: 0;"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modal-column-select">
+                        <span class="material-symbols-rounded" style="font-size: 16px;">
+                            splitscreen_vertical_add
+                        </span>
+                    </button>
+                }
+            </th>
+        }
+    </tr>
     </thead>
     <tbody>
-        @foreach (Item item in Items)
-        {
-            ItemState? itemState = item.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date);
+    @foreach (Item item in Items)
+    {
+        ItemState? itemState = item.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date);
 
-            // if there is no item state before the given date that means the item wasn't in the warehouse at this
-            // point in time, so skip it
-            if(itemState == null)
-                continue;
+        // if there is no item state before the given date that means the item wasn't in the warehouse at this
+        // point in time, so skip it
+        if (itemState == null)
+            continue;
 
-            <tr>
-                <td><a href="/item/@item.Id">@item.Id</a></td>
-                <td><a href="/items?CustomerId=@(item.CustomerId)">@item.Customer.Name</a></td>
-                <td><a href="/items?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
-                <td>
-                    @itemState.Location
-                </td>
-                <td>@item.Comments</td>
-                @foreach (JsonProperty property in item.AdditionalProperties.RootElement.EnumerateObject())
+        <tr>
+            @foreach (string propertyName in PropertyColumns.Where(x => x.Value).Select(x => x.Key))
+            {
+                object? propertyValue = null;
+                PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+                    
+                if (itemProperty != null)
                 {
-                    <td><a href="/items?@(property.Name)=@(property.Value)">@property.Value</a></td>
+                    propertyValue = itemProperty.GetValue(item);
                 }
-            </tr>
-        }
+                else
+                {
+                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
+                    propertyValue = stateProperty?.GetValue(itemState);
+                }
+
+                <td>@(propertyValue?.ToString() ?? "null")</td>
+            }
+        </tr>
+    }
     </tbody>
 </table>
+
+<div class="modal" id="modal-column-select" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select columns to display</h5>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close"
+                        @onclick="() => DisplayedPropertyColumnsChanged.InvokeAsync(modalPropertyColumns)">
+                </button>
+            </div>
+            <div class="modal-body">
+                @foreach (string propertyName in modalPropertyColumns.Keys)
+                {
+                    <InputCheckbox @bind-Value="modalPropertyColumns[propertyName]"/>
+                    <label>@propertyName</label>
+                    <br/>
+                }
+            </div>
+        </div>
+    </div>
+</div>

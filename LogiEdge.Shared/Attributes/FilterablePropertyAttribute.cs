@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LogiEdge.Shared
+namespace LogiEdge.Shared.Attributes
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class FilterablePropertyAttribute : Attribute

@@ -1,11 +1,5 @@
-﻿using LogiEdge.Shared;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
+using LogiEdge.Shared.Attributes;
 
 namespace LogiEdge.WarehouseService.Data
 {
@@ -23,9 +17,11 @@ namespace LogiEdge.WarehouseService.Data
         [FilterableProperty]
         public required Guid WarehouseId { get; set; }
 
+        [DisplayColumnProperty]
         public Warehouse Warehouse { get; set; } = null!;
 
         [FilterableProperty]
+        [DisplayColumnProperty]
         [MaxLength(32)]
         public required string Location { get; set; }
     }
