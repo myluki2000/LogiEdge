@@ -26,6 +26,8 @@
         NavigationManager.LocationChanged += (sender, args) => StateHasChanged();
     }
 
+    private string? badgeEditingParamName = null;
+
     private static readonly ParameterExpression itemParameterExpression = Expression.Parameter(typeof(Item), "it");
     private static readonly MethodInfo jsonContainsMethod = typeof(NpgsqlJsonDbFunctionsExtensions)
         .GetMethod(nameof(NpgsqlJsonDbFunctionsExtensions.JsonContains), [typeof(DbFunctions), typeof(JsonDocument), typeof(JsonDocument)])!;
@@ -76,6 +78,36 @@
         // Navigate to the updated URL
         NavigationManager.NavigateTo(newQueryString);
     }
+
+    private void AddOrInsertQueryParamAndNavigate(string key, string value)
+    {
+        // Create a copy of the current query parameters
+        Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        Dictionary<string, string?> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query)
+            .ToDictionary(p => p.Key, string? (p) => p.Value.ToString());
+
+        updatedQueryParameters[key] = value;
+
+        // Build the updated URL
+        Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
+        string newQueryString = QueryHelpers.AddQueryString(baseUri, updatedQueryParameters);
+
+        // Navigate to the updated URL
+        NavigationManager.NavigateTo(newQueryString);
+    }
+
+    private string? GetQueryParamValue(string key)
+    {
+        // Create a copy of the current query parameters
+        Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        return QueryHelpers.ParseQuery(currentUri.Query)
+            .FirstOrDefault(p => p.Key == key)
+            .Value
+            .FirstOrDefault();
+    }
+
+    private string badgeFilterInputValue = "";
 }
 
 @{
@@ -132,8 +164,8 @@
 
     if (!showShipped)
     {
-        itemsQueryable = atParam.HasValue 
-            ? itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First(st => st.Date <= atParam).Location != SpecialLocations.SHIPPED) 
+        itemsQueryable = atParam.HasValue
+            ? itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First(st => st.Date <= atParam).Location != SpecialLocations.SHIPPED)
             : itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First().Location != SpecialLocations.SHIPPED);
     }
 
@@ -210,9 +242,8 @@
     <span>Default Views:</span>
     @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
     {
-        <a
-        class="badge rounded-pill"
-        href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
+        <a class="badge rounded-pill"
+           href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
             Customer: @customer.Name
         </a>
     }
@@ -225,13 +256,45 @@
     <span>Filter By:</span>
     @foreach (PropertyInfo propInfo in basePropInfos)
     {
+        @code {
+        private void EditParamBadge(string paramName)
+        {
+            badgeFilterInputValue = GetQueryParamValue(paramName) ?? "";
+            badgeEditingParamName = paramName;
+        }
+
+        private void EditParamBadgeOnKeyDown(KeyboardEventArgs e)
+        {
+            if (e.Key != "Enter" || badgeEditingParamName == null)
+                return;
+
+            AddOrInsertQueryParamAndNavigate(badgeEditingParamName, badgeFilterInputValue);
+            badgeEditingParamName = null;
+            badgeFilterInputValue = "";
+        }
+    }
         string? paramValue = baseParams.GetValueOrDefault(propInfo.Name);
-        <span class="filter-badge badge rounded-pill">
+        <span class="filter-badge badge rounded-pill" 
+              @onclick="() => EditParamBadge(propInfo.Name)">
             <span>@propInfo.Name</span>
-            @if (paramValue != null)
+            @if (paramValue != null || propInfo.Name == badgeEditingParamName)
             {
-                <span>=</span><span>@paramValue</span>
-                <span class="btn-filter-remove material-symbols-rounded" @onclick="() => RemoveQueryParamAndNavigate(propInfo.Name)">
+                if (propInfo.Name == badgeEditingParamName)
+                {
+                    <span>=</span>
+                    <InputText @bind-Value="badgeFilterInputValue" 
+                               @onkeyup="EditParamBadgeOnKeyDown" />
+                }
+                else
+                {
+                    <span>=</span>
+
+                    <span>@paramValue</span>
+                }
+
+                <span class="btn-filter-remove material-symbols-rounded" 
+                      @onclick="() => RemoveQueryParamAndNavigate(propInfo.Name)" 
+                      @onclick:stopPropagation="true">
                     close
                 </span>
             }
