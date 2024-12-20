@@ -1,4 +1,23 @@
 @import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
+@font-face {
+    font-family: 'Material Symbols Rounded';
+    font-style: normal;
+    src: url('/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff');
+}
+
+.material-symbols-rounded {
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px; /* Preferred icon size */
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+}
 
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
