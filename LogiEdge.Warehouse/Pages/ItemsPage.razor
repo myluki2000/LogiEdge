@@ -68,9 +68,9 @@
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        Dictionary<string, string?> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query)
+        Dictionary<string, StringValues> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query)
             .Where(p => p.Key != key) // Exclude the key to remove
-            .ToDictionary(p => p.Key, string? (p) => p.Value.ToString());
+            .ToDictionary();
 
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
