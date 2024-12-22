@@ -352,6 +352,7 @@
 {
     List<Item> items = itemsQueryable
         .Include(it => it.ItemStates)
+        .ThenInclude(st => st.Warehouse)
         .ToList();
     <WarehouseItemTableComponent Items="@items"
                                  AtDate="atParam"
