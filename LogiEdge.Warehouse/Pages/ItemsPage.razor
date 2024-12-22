@@ -64,7 +64,7 @@
         return $"{BASE_PATH}?{queryString}";
     }
 
-    private void RemoveQueryParamsAndNavigate(params string[] keys)
+    public void RemoveQueryParamsAndNavigate(params string[] keys)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -81,12 +81,12 @@
         NavigationManager.NavigateTo(newQueryString);
     }
 
-    private void RemoveQueryParamAndNavigate(string key)
+    public void RemoveQueryParamAndNavigate(string key)
     {
         RemoveQueryParamsAndNavigate(key);
     }
 
-    private void AddOrInsertQueryParamsAndNavigate(IEnumerable<(string key, string[] values)> newQueryParams)
+    public void AddOrInsertQueryParamsAndNavigate(IEnumerable<(string key, string[] values)> newQueryParams)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -106,12 +106,12 @@
         NavigationManager.NavigateTo(newQueryString);
     }
 
-    private void AddOrInsertQueryParamAndNavigate(string key, params string[] values)
+    public void AddOrInsertQueryParamAndNavigate(string key, params string[] values)
     {
         AddOrInsertQueryParamsAndNavigate([(key, values)]);
     }
 
-    private StringValues GetQueryParamValue(string key)
+    public StringValues GetQueryParamValue(string key)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -379,19 +379,12 @@
         .Include(it => it.ItemStates)
         .ThenInclude(st => st.Warehouse)
         .ToList();
-    <WarehouseItemTableComponent Items="@items"
+    <WarehouseItemTableComponent Parent="@this"
+                                 Items="@items"
                                  AtDate="atParam"
                                  PropertyColumns="displayPropertyColumns"
                                  SortByColumn="@sortByProperty"
-                                 SortOrderDescending="@orderDescending"
-                                 DisplayedPropertyColumnsChangeRequested='properties =>
-                                     AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray())'
-                                 SortOrderChangeRequested='(ValueTuple<string?, bool> data) => {
-                                    if(data.Item1 != null)
-                                        AddOrInsertQueryParamsAndNavigate([("sortBy", [data.Item1]), ("orderDescending", [data.Item2.ToString()])]);
-                                    else
-                                        RemoveQueryParamsAndNavigate("sortBy", "orderDescending");
-                                 }'>
+                                 SortOrderDescending="@orderDescending">
     </WarehouseItemTableComponent>
 }
 else

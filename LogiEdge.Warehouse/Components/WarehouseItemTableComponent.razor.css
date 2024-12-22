@@ -9,3 +9,13 @@
         font-size: 16px;
         line-height: 24px;
     }
+
+td a {
+    color: black;
+    text-decoration: none;
+}
+
+td a:hover {
+    color: blue;
+    text-decoration: underline;
+}

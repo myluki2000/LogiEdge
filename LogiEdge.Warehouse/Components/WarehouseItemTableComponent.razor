@@ -4,6 +4,7 @@
 @using System.Collections.Specialized
 @using System.Linq.Expressions
 @using LogiEdge.CustomerService.Data
+@using LogiEdge.Warehouse.Pages
 @using LogiEdge.WarehouseService.Data
 @using Microsoft.AspNetCore.Components.Forms
 @code {
@@ -25,15 +26,36 @@
     public bool SortOrderDescending { get; set; } = false;
 
     [Parameter]
-    public EventCallback<OrderedDictionary<string, bool>> DisplayedPropertyColumnsChangeRequested { get; set; }
-
-    [Parameter]
-    public EventCallback<(string? sortByColumn, bool sortDescending)> SortOrderChangeRequested { get; set; }
+    public required ItemsPage Parent { get; set; }
 
     private OrderedDictionary<string, bool>? modalPropertyColumns = null;
     private List<DraggableList<string>.ListItem> propertyListItems = [];
 
-    private RenderFragment<(string propertyName, object? propertyValue)> propertyRenderFragment = (ValueTuple<string, object?> data) =>
+    private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
+
+    private void BtnSortClicked(string? columnName)
+    {
+        // sort the column in ascending order if it is not already sorted by it
+        bool descending = (SortByColumn == columnName) && !SortOrderDescending;
+
+        if (columnName != null)
+            Parent.AddOrInsertQueryParamsAndNavigate([("sortBy", [columnName]), ("orderDescending", [descending.ToString()])]);
+        else
+            Parent.RemoveQueryParamsAndNavigate("sortBy", "orderDescending");
+    }
+
+    private void BtnCloseModalClicked()
+    {
+        OrderedDictionary<string, bool> properties = new((modalPropertyColumns ?? [])
+            .OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList());
+        Parent.AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray());
+    }
+}
+
+@{
+    modalPropertyColumns ??= new OrderedDictionary<string, bool>(PropertyColumns);
+
+    propertyRenderFragment = (ValueTuple<string, object?> data) =>
     {
         (string propertyName, object? propertyValue) = data;
 
@@ -44,26 +66,26 @@
         {
             case nameof(Item.Customer):
                 Customer c = (Customer)propertyValue;
-                return @<td>@c.Name</td>;
+                return @<td>
+                           <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("CustomerId", c.Id.ToString())'>
+                               @c.Name
+                           </a>
+                       </td>;
             case nameof(ItemState.Warehouse):
                 Warehouse w = (Warehouse)propertyValue;
-                return @<td>@w.Name</td>;
+                return @<td>
+                           <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("WarehouseId", w.Id.ToString())'>
+                               @w.Name
+                           </a>
+                       </td>;
             default:
-                return @<td>@(propertyValue.ToString())</td>;
+                return @<td>
+                           <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
+                               @(propertyValue.ToString())
+                           </a>
+                       </td>;
         }
     };
-
-    private void BtnSortClicked(string columnName)
-    {
-        // sort the column in ascending order if it is not already sorted by it
-        bool descending = (SortByColumn == columnName) && !SortOrderDescending;
-
-        SortOrderChangeRequested.InvokeAsync((columnName, descending));
-    }
-}
-
-@{
-    modalPropertyColumns ??= new(PropertyColumns);
 }
 
 <span>Showing @Items.Count items.</span>
@@ -191,9 +213,7 @@
                         class="btn-close"
                         data-bs-dismiss="modal"
                         aria-label="Close"
-                        @onclick="() => DisplayedPropertyColumnsChangeRequested.InvokeAsync(
-                            new OrderedDictionary<string, bool>(
-                                modalPropertyColumns.OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList()))">
+                        @onclick="BtnCloseModalClicked">
                 </button>
             </div>
             <div class="modal-body">
