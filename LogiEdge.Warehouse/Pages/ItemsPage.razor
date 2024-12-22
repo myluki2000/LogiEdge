@@ -64,13 +64,38 @@
         return $"{BASE_PATH}?{queryString}";
     }
 
-    private void RemoveQueryParamAndNavigate(string key)
+    private void RemoveQueryParamsAndNavigate(params string[] keys)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         Dictionary<string, StringValues> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query)
-            .Where(p => p.Key != key) // Exclude the key to remove
+            .Where(p => !keys.Contains(p.Key)) // Exclude the keys to remove
             .ToDictionary();
+
+        // Build the updated URL
+        Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
+        string newQueryString = QueryHelpers.AddQueryString(baseUri, updatedQueryParameters);
+
+        // Navigate to the updated URL
+        NavigationManager.NavigateTo(newQueryString);
+    }
+
+    private void RemoveQueryParamAndNavigate(string key)
+    {
+        RemoveQueryParamsAndNavigate(key);
+    }
+
+    private void AddOrInsertQueryParamsAndNavigate(IEnumerable<(string key, string[] values)> newQueryParams)
+    {
+        // Create a copy of the current query parameters
+        Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        Dictionary<string, StringValues> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query);
+
+        foreach ((string key, string[] values) in newQueryParams)
+        {
+            updatedQueryParameters[key] = values;
+        }
 
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -83,19 +108,7 @@
 
     private void AddOrInsertQueryParamAndNavigate(string key, params string[] values)
     {
-        // Create a copy of the current query parameters
-        Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        Dictionary<string, StringValues> updatedQueryParameters = QueryHelpers.ParseQuery(currentUri.Query);
-
-        updatedQueryParameters[key] = values;
-
-        // Build the updated URL
-        Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
-        string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
-        string newQueryString = QueryHelpers.AddQueryString(baseUri, updatedQueryParameters);
-
-        // Navigate to the updated URL
-        NavigationManager.NavigateTo(newQueryString);
+        AddOrInsertQueryParamsAndNavigate([(key, values)]);
     }
 
     private StringValues GetQueryParamValue(string key)
@@ -144,9 +157,10 @@
     {
         columnsToDisplay = [
             nameof(Item.Id),
-            nameof(Item.Customer),
-            nameof(ItemState.Warehouse),
-            nameof(ItemState.Location),
+    nameof(Item.Customer),
+    nameof(Item.ItemNumber),
+    nameof(ItemState.Warehouse),
+    nameof(ItemState.Location),
         ];
     }
 
@@ -154,7 +168,7 @@
 
     foreach (string columnName in columnsToDisplay)
     {
-        if(allowedPropertyColumns.Contains(columnName))
+        if (allowedPropertyColumns.Contains(columnName))
             displayPropertyColumns.Add(columnName, true);
     }
 
@@ -199,6 +213,18 @@
     string? groupByProperty = queryParameters
         .PopWhere(param => param.Key == "groupBy")
         .Select(param => param.Value.FirstOrDefault())
+        .FirstOrDefault();
+
+    // a "sortBy" param can be passed specifying a column/property to sort by
+    string? sortByProperty = queryParameters
+        .PopWhere(param => param.Key == "sortBy")
+        .Select(param => param.Value.FirstOrDefault())
+        .FirstOrDefault();
+
+    // a "orderDescending" param can be passed specifying if the sort order should be descending
+    bool orderDescending = queryParameters
+        .PopWhere(param => param.Key == "orderDescending")
+        .Select(param => bool.Parse(param.Value.FirstOrDefault()!))
         .FirstOrDefault();
 
     // construct the db query
@@ -263,7 +289,7 @@
         JsonObject jsonFilter = new();
         foreach (KeyValuePair<string, StringValues> queryParam in queryParameters)
         {
-            if(queryParam.Value.Count == 0)
+            if (queryParam.Value.Count == 0)
                 continue;
 
             jsonFilter[queryParam.Key] = queryParam.Value.First();
@@ -320,7 +346,7 @@
         }
     }
         string? paramValue = baseParams.GetValueOrDefault(propInfo.Name);
-        <span class="filter-badge badge rounded-pill" 
+        <span class="filter-badge badge rounded-pill"
               @onclick="() => EditParamBadge(propInfo.Name)">
             <span>@propInfo.Name</span>
             @if (paramValue != null || propInfo.Name == badgeEditingParamName)
@@ -328,18 +354,17 @@
                 if (propInfo.Name == badgeEditingParamName)
                 {
                     <span>=</span>
-                    <InputText @bind-Value="badgeFilterInputValue" 
+                    <InputText @bind-Value="badgeFilterInputValue"
                                @onkeyup="EditParamBadgeOnKeyDown" />
                 }
                 else
                 {
                     <span>=</span>
-
                     <span>@paramValue</span>
                 }
 
-                <span class="btn-filter-remove material-symbols-rounded" 
-                      @onclick="() => { RemoveQueryParamAndNavigate(propInfo.Name); badgeEditingParamName = null; }" 
+                <span class="btn-filter-remove material-symbols-rounded"
+                      @onclick="() => { RemoveQueryParamAndNavigate(propInfo.Name); badgeEditingParamName = null; }"
                       @onclick:stopPropagation="true">
                     close
                 </span>
@@ -357,8 +382,16 @@
     <WarehouseItemTableComponent Items="@items"
                                  AtDate="atParam"
                                  PropertyColumns="displayPropertyColumns"
-                                 DisplayedPropertyColumnsChanged='properties => 
-                                    AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray())'>
+                                 SortByColumn="@sortByProperty"
+                                 SortOrderDescending="@orderDescending"
+                                 DisplayedPropertyColumnsChangeRequested='properties =>
+                                     AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray())'
+                                 SortOrderChangeRequested='(ValueTuple<string?, bool> data) => {
+                                    if(data.Item1 != null)
+                                        AddOrInsertQueryParamsAndNavigate([("sortBy", [data.Item1]), ("orderDescending", [data.Item2.ToString()])]);
+                                    else
+                                        RemoveQueryParamsAndNavigate("sortBy", "orderDescending");
+                                 }'>
     </WarehouseItemTableComponent>
 }
 else

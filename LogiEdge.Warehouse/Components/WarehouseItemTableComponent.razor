@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using System.Collections.Generic
 @using System.Collections.Specialized
+@using System.Linq.Expressions
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.WarehouseService.Data
 @using Microsoft.AspNetCore.Components.Forms
@@ -12,8 +13,22 @@
     public DateTime? AtDate { get; set; }
     [Parameter]
     public required OrderedDictionary<string, bool> PropertyColumns { get; set; }
+    /// <summary>
+    /// Name of the column to sort by.
+    /// </summary>
     [Parameter]
-    public EventCallback<OrderedDictionary<string, bool>> DisplayedPropertyColumnsChanged { get; set; }
+    public string? SortByColumn { get; set; } = null;
+    /// <summary>
+    /// If false, sort in ascending order. If true, sort in descending order
+    /// </summary>
+    [Parameter]
+    public bool SortOrderDescending { get; set; } = false;
+
+    [Parameter]
+    public EventCallback<OrderedDictionary<string, bool>> DisplayedPropertyColumnsChangeRequested { get; set; }
+
+    [Parameter]
+    public EventCallback<(string? sortByColumn, bool sortDescending)> SortOrderChangeRequested { get; set; }
 
     private OrderedDictionary<string, bool>? modalPropertyColumns = null;
     private List<DraggableList<string>.ListItem> propertyListItems = [];
@@ -38,6 +53,13 @@
         }
     };
 
+    private void BtnSortClicked(string columnName)
+    {
+        // sort the column in ascending order if it is not already sorted by it
+        bool descending = (SortByColumn == columnName) && !SortOrderDescending;
+
+        SortOrderChangeRequested.InvokeAsync((columnName, descending));
+    }
 }
 
 @{
@@ -53,15 +75,41 @@
                 <th style="line-height: 24px;">
                     <span style="vertical-align: bottom;">@propertyName</span>
 
+                    <button type="button"
+                            class="btn btn-secondary table-button"
+                            @onclick="() => BtnSortClicked(propertyName)">
+                        @if (SortByColumn == propertyName)
+                        {
+                            @if (SortOrderDescending)
+                            {
+                                <span class="material-symbols-rounded">
+                                    arrow_upward
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="material-symbols-rounded">
+                                    arrow_downward
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="material-symbols-rounded">
+                                swap_vert
+                            </span>
+                        }
+                    </button>
+
                     @if (propertyName == PropertyColumns.Last(x => x.Value).Key)
                     {
                         // button to select which columns to show
                         <button type="button"
-                                class="btn btn-primary"
-                                style="float: right; height: 24px; width: 24px; padding: 0;"
+                                class="btn btn-primary table-button"
+                                style="float: right;"
                                 data-bs-toggle="modal"
                                 data-bs-target="#modal-column-select">
-                            <span class="material-symbols-rounded" style="font-size: 16px;">
+                            <span class="material-symbols-rounded">
                                 splitscreen_vertical_add
                             </span>
                         </button>
@@ -71,7 +119,39 @@
         </tr>
     </thead>
     <tbody>
-        @foreach (Item item in Items)
+        @{
+            IList<Item> sortedItems = Items;
+
+            if (SortByColumn != null)
+            {
+                PropertyInfo? itemProperty = typeof(Item).GetProperty(SortByColumn);
+                PropertyInfo? stateProperty = typeof(ItemState).GetProperty(SortByColumn);
+
+                if (itemProperty == null && stateProperty == null)
+                {
+                    <p>Property @SortByColumn to sort by could not be found.</p>
+                    return;
+                }
+
+                object? Lambda(Item it) => itemProperty != null
+                ? itemProperty.GetValue(it)
+                : stateProperty!.GetValue(it.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date));
+                if (SortOrderDescending)
+                {
+
+                    sortedItems = sortedItems
+                    .OrderByDescending(Lambda)
+                    .ToList();
+                }
+                else
+                {
+                    sortedItems = sortedItems
+                    .OrderBy(Lambda)
+                    .ToList();
+                }
+            }
+        }
+        @foreach (Item item in sortedItems)
         {
             ItemState? itemState = item.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date);
 
@@ -111,7 +191,7 @@
                         class="btn-close"
                         data-bs-dismiss="modal"
                         aria-label="Close"
-                        @onclick="() => DisplayedPropertyColumnsChanged.InvokeAsync(
+                        @onclick="() => DisplayedPropertyColumnsChangeRequested.InvokeAsync(
                             new OrderedDictionary<string, bool>(
                                 modalPropertyColumns.OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList()))">
                 </button>
@@ -123,8 +203,7 @@
                         RenderFragment<string> listItemFragment = item => @<span>
                             <InputCheckbox @bind-Value="modalPropertyColumns[item]" />
                             <label>@item</label>
-                        </span>
-                                        ;
+                        </span>;
                         propertyListItems.Clear();
                         foreach (string propertyName in PropertyColumns.Keys)
                         {

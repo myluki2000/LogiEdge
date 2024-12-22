@@ -9,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.WarehouseService.Data
 {
-    public class Warehouse
+    public class Warehouse : IComparable
     {
         [Key]
         public Guid Id { get; set; }
@@ -23,6 +23,14 @@ namespace LogiEdge.WarehouseService.Data
         public IEnumerable<(string propertyName, string typeName)> GetAdditionalPropertiesWithTypes()
         {
             return AdditionalProperties.Zip(AdditionalPropertiesTypes);
+        }
+
+        public int CompareTo(object? obj)
+        {
+            if (obj is not Warehouse otherWarehouse)
+                return 1;
+
+            return string.Compare(Name, otherWarehouse.Name, StringComparison.CurrentCultureIgnoreCase);
         }
     }
 }
