@@ -150,7 +150,18 @@
         ];
     }
 
-    OrderedDictionary<string, bool> displayPropertyColumns = new(allowedPropertyColumns.Select(x => new KeyValuePair<string, bool>(x, columnsToDisplay.Contains(x))));
+    OrderedDictionary<string, bool> displayPropertyColumns = new();
+
+    foreach (string columnName in columnsToDisplay)
+    {
+        if(allowedPropertyColumns.Contains(columnName))
+            displayPropertyColumns.Add(columnName, true);
+    }
+
+    foreach (string columnName in allowedPropertyColumns)
+    {
+        displayPropertyColumns.TryAdd(columnName, false);
+    }
 
     // parse url params which are not additional properties but "base properties" we store directly
     // as a DB column instead of as JSON

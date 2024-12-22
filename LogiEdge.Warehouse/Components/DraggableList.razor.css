@@ -1,0 +1,26 @@
+﻿.item-drag-over {
+    border-style: solid none none none;
+    border-color: red;
+}
+
+.item-dragging {
+    opacity: 0.5;
+}
+
+.item-handle {
+    cursor: grab;
+}
+
+.item-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+#list {
+    /* 
+        Same padding as the size of the pseudo element at the bottom of the list,
+        so it's symmetrical.
+    */
+    padding-top: 8px;
+    margin: 0;
+}

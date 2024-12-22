@@ -1,5 +1,4 @@
-﻿
-@using System.Reflection
+﻿@using System.Reflection
 @using System.Text.Json
 @using System.Collections.Generic
 @using System.Collections.Specialized
@@ -16,6 +15,7 @@
     public EventCallback<OrderedDictionary<string, bool>> DisplayedPropertyColumnsChanged { get; set; }
 
     private OrderedDictionary<string, bool>? modalPropertyColumns = null;
+    private List<DraggableList<string>.ListItem> propertyListItems = [];
 }
 
 @{
@@ -25,59 +25,59 @@
 <span>Showing @Items.Count items.</span>
 <table class="table table-striped table-hover">
     <thead class="table-primary">
-    <tr>
-        @foreach ((string propertyName, bool _) in PropertyColumns.Where(x => x.Value))
-        {
-            <th style="line-height: 24px;">
-                <span style="vertical-align: bottom;">@propertyName</span>
-                    
-                @if (propertyName == PropertyColumns.Last(x => x.Value).Key)
-                {
-                    // button to select which columns to show
-                    <button type="button" 
-                            class="btn btn-primary" 
-                            style="float: right; height: 24px; width: 24px; padding: 0;"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modal-column-select">
-                        <span class="material-symbols-rounded" style="font-size: 16px;">
-                            splitscreen_vertical_add
-                        </span>
-                    </button>
-                }
-            </th>
-        }
-    </tr>
-    </thead>
-    <tbody>
-    @foreach (Item item in Items)
-    {
-        ItemState? itemState = item.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date);
-
-        // if there is no item state before the given date that means the item wasn't in the warehouse at this
-        // point in time, so skip it
-        if (itemState == null)
-            continue;
-
         <tr>
-            @foreach (string propertyName in PropertyColumns.Where(x => x.Value).Select(x => x.Key))
+            @foreach ((string propertyName, bool _) in PropertyColumns.Where(x => x.Value))
             {
-                object? propertyValue = null;
-                PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
-                    
-                if (itemProperty != null)
-                {
-                    propertyValue = itemProperty.GetValue(item);
-                }
-                else
-                {
-                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-                    propertyValue = stateProperty?.GetValue(itemState);
-                }
+                <th style="line-height: 24px;">
+                    <span style="vertical-align: bottom;">@propertyName</span>
 
-                <td>@(propertyValue?.ToString() ?? "null")</td>
+                    @if (propertyName == PropertyColumns.Last(x => x.Value).Key)
+                    {
+                        // button to select which columns to show
+                        <button type="button"
+                                class="btn btn-primary"
+                                style="float: right; height: 24px; width: 24px; padding: 0;"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modal-column-select">
+                            <span class="material-symbols-rounded" style="font-size: 16px;">
+                                splitscreen_vertical_add
+                            </span>
+                        </button>
+                    }
+                </th>
             }
         </tr>
-    }
+    </thead>
+    <tbody>
+        @foreach (Item item in Items)
+        {
+            ItemState? itemState = item.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date);
+
+            // if there is no item state before the given date that means the item wasn't in the warehouse at this
+            // point in time, so skip it
+            if (itemState == null)
+                continue;
+
+            <tr>
+                @foreach (string propertyName in PropertyColumns.Where(x => x.Value).Select(x => x.Key))
+                {
+                    object? propertyValue = null;
+                    PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+
+                    if (itemProperty != null)
+                    {
+                        propertyValue = itemProperty.GetValue(item);
+                    }
+                    else
+                    {
+                        PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
+                        propertyValue = stateProperty?.GetValue(itemState);
+                    }
+
+                    <td>@(propertyValue?.ToString() ?? "null")</td>
+                }
+            </tr>
+        }
     </tbody>
 </table>
 
@@ -85,21 +85,39 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Select columns to display</h5>
+                <h5 class="modal-title">Table Columns</h5>
                 <button type="button"
                         class="btn-close"
                         data-bs-dismiss="modal"
                         aria-label="Close"
-                        @onclick="() => DisplayedPropertyColumnsChanged.InvokeAsync(modalPropertyColumns)">
+                        @onclick="() => DisplayedPropertyColumnsChanged.InvokeAsync(
+                            new OrderedDictionary<string, bool>(
+                                modalPropertyColumns.OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList()))">
                 </button>
             </div>
             <div class="modal-body">
-                @foreach (string propertyName in modalPropertyColumns.Keys)
+                <p style="width: 100%; text-align: center;">Select columns to display in the table. Drag the handles to change column order.</p>
+                <div id="modal-property-list" class="rounded border">
+                    @{
+                        RenderFragment<string> listItemFragment = item => @<span>
+                            <InputCheckbox @bind-Value="modalPropertyColumns[item]" />
+                            <label>@item</label>
+                        </span>
+                                        ;
+                        propertyListItems.Clear();
+                        foreach (string propertyName in PropertyColumns.Keys)
+                        {
+                            propertyListItems.Add(new DraggableList<string>.ListItem
                 {
-                    <InputCheckbox @bind-Value="modalPropertyColumns[propertyName]"/>
-                    <label>@propertyName</label>
-                    <br/>
-                }
+                    Order = PropertyColumns.Keys.ToList().IndexOf(propertyName),
+                    ListElement = listItemFragment,
+                    BackingElement = propertyName
+                });
+                        }
+                    }
+
+                    <DraggableList TItem="string" Items="propertyListItems" Style="list-style-type: none;"></DraggableList>
+                </div>
             </div>
         </div>
     </div>

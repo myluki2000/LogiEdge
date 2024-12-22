@@ -1,0 +1,79 @@
+﻿@using System.Diagnostics
+@typeparam TItem
+
+@code {
+    [Parameter]
+    public required List<ListItem> Items { get; set; }
+    [Parameter]
+    public string? Style { get; set; }
+    [Parameter]
+    public string? Class { get; set; }
+
+
+    public class ListItem
+    {
+        public int Order { get; set; }
+        public required RenderFragment<TItem> ListElement { get; set; }
+        public required TItem BackingElement { get; set; }
+        public bool IsDragOver { get; set; }
+    }
+
+    private ListItem? draggingItem = null;
+    private bool pseudoItemDragOver = false;
+
+    private void HandleDrop(int landingPosition)
+    {
+        if (draggingItem == null)
+            return;
+
+        pseudoItemDragOver = false;
+        foreach (ListItem item in Items)
+        {
+            item.IsDragOver = false;
+            if(item.Order >= landingPosition)
+                item.Order++;
+        }
+
+        draggingItem.Order = landingPosition;
+
+        // moving the dragged item has left a "hole" in the order numbers of the
+        // items, so iterate over them and give them contiguous numbers
+        int i = 0;
+        foreach (ListItem item in Items.OrderBy(x => x.Order))
+        {
+            item.Order = i;
+            i++;
+        }
+    }
+}
+
+<ul ondragover="event.preventDefault();"
+    ondragstart="event.dataTransfer.setData('', event.target.id);"
+    style="@Style"
+    class="@Class"
+    id="list">
+    @foreach (ListItem item in Items.OrderBy(x => x.Order))
+    {
+        <li @key="item"
+            class="@(draggingItem == item ? "item-dragging" : "") @(item.IsDragOver ? "item-drag-over" : "")">
+            <div class="item-wrapper">
+                <span class="item-handle material-symbols-rounded"
+                      @ondragleave="() => item.IsDragOver = false"
+                      @ondragenter="() => item.IsDragOver = true"
+                      @ondrop="() => HandleDrop(item.Order)"
+                      @ondragstart="() => draggingItem = item"
+                      @ondragend="() => draggingItem = null"
+                      draggable="true">
+                        drag_handle
+                </span>
+                @item.ListElement(item.BackingElement)
+            </div>
+        </li>
+    }
+    @* Pseudo-element to drag another item onto when we want it to be placed at the end of the list *@
+    <li @ondrop="() => HandleDrop(Items.Max(x => x.Order) + 1)" 
+        @ondragenter="() => pseudoItemDragOver = true"
+        @ondragleave="() => pseudoItemDragOver = false"
+        class="@(pseudoItemDragOver ? "item-drag-over" : "")"
+        style="list-style-type: none; height: 8px;"></li>
+</ul>
