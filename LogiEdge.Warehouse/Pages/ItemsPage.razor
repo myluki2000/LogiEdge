@@ -288,16 +288,16 @@
         .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
         .Select(p => p.Name));
     allowedPropertyColumns.AddRange(schemasAdditionalProperties);
-    
+
     // if no columns to display are specified, show some sane default columns
     if (columnsToDisplay.Count == 0)
     {
         columnsToDisplay = [
             nameof(Item.Id),
-            nameof(Item.Customer),
-            nameof(Item.ItemNumber),
-            nameof(ItemState.Warehouse),
-            nameof(ItemState.Location),
+    nameof(Item.Customer),
+    nameof(Item.ItemNumber),
+    nameof(ItemState.Warehouse),
+    nameof(ItemState.Location),
         ];
         columnsToDisplay.AddRange(schemasAdditionalProperties);
     }
@@ -322,7 +322,7 @@
     @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
     {
         <a class="badge rounded-pill"
-           href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
+        href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
             Customer: @customer.Name
         </a>
     }
@@ -357,10 +357,12 @@
         ?? stateParams.GetValueOrDefault(propertyName)
         ?? queryParameters.GetValueOrDefault(propertyName);
 
-        <span class="filter-badge badge rounded-pill"
+        bool valueDisplayed = paramValue != null || propertyName == badgeEditingParamName;
+
+        <span class="filter-badge badge rounded-pill @(!valueDisplayed ? "fw-lighter" : "")"
               @onclick="() => EditParamBadge(propertyName)">
             <span>@propertyName</span>
-            @if (paramValue != null || propertyName == badgeEditingParamName)
+            @if (valueDisplayed)
             {
                 <span>=</span>
                 if (propertyName == badgeEditingParamName)
