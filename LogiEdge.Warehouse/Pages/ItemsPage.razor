@@ -271,7 +271,48 @@
         itemsQueryable = itemsQueryable.Where(lambda);
     }
 
+    // get the used item schemas and extract the additional properties our items could have
+    IEnumerable<ItemSchema> itemSchemas = itemsQueryable
+        .Select(it => it.ItemSchema)
+        .Distinct();
+    List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).ToList();
 
+    // get a list of column property names which are allowed
+    List<string> allowedPropertyColumns = typeof(Item)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+        .Select(p => p.Name)
+        .ToList();
+    allowedPropertyColumns.AddRange(typeof(ItemState)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+        .Select(p => p.Name));
+    allowedPropertyColumns.AddRange(schemasAdditionalProperties);
+
+    // if no columns to display are specified, show some sane default columns
+    if (columnsToDisplay.Count == 0)
+    {
+        columnsToDisplay = [
+            nameof(Item.Id),
+    nameof(Item.Customer),
+    nameof(Item.ItemNumber),
+    nameof(ItemState.Warehouse),
+    nameof(ItemState.Location),
+        ];
+    }
+
+    OrderedDictionary<string, bool> displayPropertyColumns = new();
+
+    foreach (string columnName in columnsToDisplay)
+    {
+        if (allowedPropertyColumns.Contains(columnName))
+            displayPropertyColumns.Add(columnName, true);
+    }
+
+    foreach (string columnName in allowedPropertyColumns)
+    {
+        displayPropertyColumns.TryAdd(columnName, false);
+    }
 }
 
 
@@ -280,7 +321,7 @@
     @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
     {
         <a class="badge rounded-pill"
-        href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
+           href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
             Customer: @customer.Name
         </a>
     }
@@ -309,19 +350,22 @@
 
 <div>
     <span>Filter By:</span>
-    @foreach (PropertyInfo propInfo in basePropInfos)
+    @foreach (string propertyName in basePropInfos.Select(pi => pi.Name).Concat(schemasAdditionalProperties).Concat(queryParameters.Keys))
     {
-        string? paramValue = baseParams.GetValueOrDefault(propInfo.Name);
+        string? paramValue = baseParams.GetValueOrDefault(propertyName)
+        ?? stateParams.GetValueOrDefault(propertyName)
+        ?? queryParameters.GetValueOrDefault(propertyName);
+
         <span class="filter-badge badge rounded-pill"
-        @onclick="() => EditParamBadge(propInfo.Name)">
-            <span>@propInfo.Name</span>
-            @if (paramValue != null || propInfo.Name == badgeEditingParamName)
+              @onclick="() => EditParamBadge(propertyName)">
+            <span>@propertyName</span>
+            @if (paramValue != null || propertyName == badgeEditingParamName)
             {
                 <span>=</span>
-                if (propInfo.Name == badgeEditingParamName)
+                if (propertyName == badgeEditingParamName)
                 {
                     <InputText @bind-Value="badgeFilterInputValue"
-                    @onkeyup="EditParamBadgeOnKeyDown" />
+                               @onkeyup="EditParamBadgeOnKeyDown" />
                 }
                 else
                 {
@@ -329,8 +373,8 @@
                 }
 
                 <span class="btn-filter-remove material-symbols-rounded"
-                @onclick="() => { RemoveQueryParamAndNavigate(propInfo.Name); badgeEditingParamName = null; }"
-                @onclick:stopPropagation="true">
+                      @onclick="() => { RemoveQueryParamAndNavigate(propertyName); badgeEditingParamName = null; }"
+                      @onclick:stopPropagation="true">
                     close
                 </span>
             }
@@ -344,49 +388,6 @@
         .Include(it => it.ItemStates)
         .ThenInclude(st => st.Warehouse)
         .ToList();
-
-    // get the used item schemas and extract the additional properties our items could have
-    IEnumerable<ItemSchema> itemSchemas = itemsQueryable
-        .Select(it => it.ItemSchema)
-        .Distinct();
-    List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).ToList();
-
-    // get a list of column property names which are allowed
-    List<string> allowedPropertyColumns = typeof(Item)
-        .GetProperties()
-        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
-        .Select(p => p.Name)
-        .ToList();
-    allowedPropertyColumns.AddRange(typeof(ItemState)
-        .GetProperties()
-        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
-        .Select(p => p.Name));
-    allowedPropertyColumns.AddRange(schemasAdditionalProperties);
-
-    // if no columns to display are specified, show some sane default columns
-    if (columnsToDisplay.Count == 0)
-    {
-        columnsToDisplay = [
-            nameof(Item.Id),
-            nameof(Item.Customer),
-            nameof(Item.ItemNumber),
-            nameof(ItemState.Warehouse),
-            nameof(ItemState.Location),
-        ];
-    }
-
-    OrderedDictionary<string, bool> displayPropertyColumns = new();
-
-    foreach (string columnName in columnsToDisplay)
-    {
-        if (allowedPropertyColumns.Contains(columnName))
-            displayPropertyColumns.Add(columnName, true);
-    }
-
-    foreach (string columnName in allowedPropertyColumns)
-    {
-        displayPropertyColumns.TryAdd(columnName, false);
-    }
 
     <WarehouseItemTableComponent Parent="@this"
                                  Items="@items"
