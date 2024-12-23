@@ -157,29 +157,30 @@
 
             if (SortByColumn != null)
             {
-                PropertyInfo? itemProperty = typeof(Item).GetProperty(SortByColumn);
-                PropertyInfo? stateProperty = typeof(ItemState).GetProperty(SortByColumn);
-
-                if (itemProperty == null && stateProperty == null)
+                Func<Item, object?>? lambda = null;
+                if (typeof(Item).GetProperty(SortByColumn) is { } itemInfo)
                 {
-                    <p>Property @SortByColumn to sort by could not be found.</p>
-                    return;
+                    lambda = it => itemInfo.GetValue(it);
+                } else if (typeof(ItemState).GetProperty(SortByColumn) is { } stateInfo)
+                {
+                    lambda = it => stateInfo.GetValue(it.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date));
                 }
-
-                object? Lambda(Item it) => itemProperty != null
-                ? itemProperty.GetValue(it)
-                : stateProperty!.GetValue(it.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date));
+                else
+                {
+                    lambda = it => (it.GetAdditionalProperty(SortByColumn) ?? null);
+                }
+                
                 if (SortOrderDescending)
                 {
 
                     sortedItems = sortedItems
-                    .OrderByDescending(Lambda)
+                    .OrderByDescending(lambda)
                     .ToList();
                 }
                 else
                 {
                     sortedItems = sortedItems
-                    .OrderBy(Lambda)
+                    .OrderBy(lambda)
                     .ToList();
                 }
             }

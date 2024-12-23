@@ -48,6 +48,37 @@ namespace LogiEdge.WarehouseService.Data
             }
         }
 
+        /// <summary>
+        /// Returns the value of the additional property with the given property name, deserialized to an object of appropriate type.
+        /// If the item does not have an additional property with the given name, returns null.
+        ///
+        /// Item.ItemSchema must be .Included() for this method to be used.
+        /// </summary>
+        public object? GetAdditionalProperty(string propertyName)
+        {
+            if (ItemSchema == null)
+                throw new Exception("ItemSchema of this item needs to be .Include()ed to use .GetAdditionalProperty() method.");
+
+            int index = ItemSchema.AdditionalProperties.IndexOf(propertyName);
+            if (index == -1)
+                return null;
+
+            string type = ItemSchema.AdditionalPropertiesTypes[index];
+
+            JsonElement element = AdditionalProperties.RootElement.GetProperty(propertyName);
+            object? value = type switch
+            {
+                nameof(String) => element.GetString(),
+                nameof(Int32) => element.GetInt32(),
+                nameof(Single) => element.GetSingle(),
+                nameof(Boolean) => element.GetBoolean(),
+                nameof(DateTime) => element.GetDateTime(),
+                _ => throw new Exception($"Unknown type '{type}' for property '{propertyName}'.")
+            };
+
+            return value;
+        }
+
         public void Dispose()
         {
             AdditionalProperties?.Dispose();
