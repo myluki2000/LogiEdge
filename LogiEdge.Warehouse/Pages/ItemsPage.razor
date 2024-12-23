@@ -351,7 +351,7 @@
 
 <div>
     <span>Filter By:</span>
-    @foreach (string propertyName in basePropInfos.Select(pi => pi.Name).Concat(schemasAdditionalProperties).Concat(queryParameters.Keys))
+    @foreach (string propertyName in basePropInfos.Select(pi => pi.Name).Concat(schemasAdditionalProperties).Concat(queryParameters.Keys).Distinct())
     {
         string? paramValue = baseParams.GetValueOrDefault(propertyName)
         ?? stateParams.GetValueOrDefault(propertyName)
