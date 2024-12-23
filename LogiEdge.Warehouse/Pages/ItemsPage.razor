@@ -288,17 +288,18 @@
         .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
         .Select(p => p.Name));
     allowedPropertyColumns.AddRange(schemasAdditionalProperties);
-
+    
     // if no columns to display are specified, show some sane default columns
     if (columnsToDisplay.Count == 0)
     {
         columnsToDisplay = [
             nameof(Item.Id),
-    nameof(Item.Customer),
-    nameof(Item.ItemNumber),
-    nameof(ItemState.Warehouse),
-    nameof(ItemState.Location),
+            nameof(Item.Customer),
+            nameof(Item.ItemNumber),
+            nameof(ItemState.Warehouse),
+            nameof(ItemState.Location),
         ];
+        columnsToDisplay.AddRange(schemasAdditionalProperties);
     }
 
     OrderedDictionary<string, bool> displayPropertyColumns = new();
