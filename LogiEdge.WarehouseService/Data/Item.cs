@@ -12,6 +12,8 @@ namespace LogiEdge.WarehouseService.Data
         [DisplayColumnProperty]
         public Guid Id { get; set; }
 
+        public required ItemSchema ItemSchema { get; set; }
+
         [ForeignKey("Customer")]
         [FilterableProperty]
         public required Guid CustomerId { get; set; }

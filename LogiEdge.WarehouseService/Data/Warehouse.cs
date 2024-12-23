@@ -15,15 +15,7 @@ namespace LogiEdge.WarehouseService.Data
         public Guid Id { get; set; }
         public required string Name { get; set; }
 
-        public required List<string> AdditionalProperties { get; set; }
-        public required List<string> AdditionalPropertiesTypes { get; set; }
-
         public List<Item> Items { get; set; } = null!;
-
-        public IEnumerable<(string propertyName, string typeName)> GetAdditionalPropertiesWithTypes()
-        {
-            return AdditionalProperties.Zip(AdditionalPropertiesTypes);
-        }
 
         public int CompareTo(object? obj)
         {

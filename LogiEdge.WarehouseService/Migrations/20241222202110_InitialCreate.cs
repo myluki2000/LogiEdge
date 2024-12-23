@@ -14,13 +14,25 @@ namespace LogiEdge.WarehouseService.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "ItemSchemas",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
+                    AdditionalProperties = table.Column<List<string>>(type: "text[]", nullable: false),
+                    AdditionalPropertiesTypes = table.Column<List<string>>(type: "text[]", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ItemSchemas", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Warehouses",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    AdditionalProperties = table.Column<List<string>>(type: "text[]", nullable: false),
-                    AdditionalPropertiesTypes = table.Column<List<string>>(type: "text[]", nullable: false)
+                    Name = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -32,11 +44,12 @@ namespace LogiEdge.WarehouseService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false),
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
-                    WarehouseId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ItemNumber = table.Column<string>(type: "text", nullable: false),
-                    AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: true),
-                    Comments = table.Column<string>(type: "text", nullable: false)
+                    ItemNumber = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: false),
+                    Comments = table.Column<string>(type: "text", nullable: false),
+                    WarehouseId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -48,11 +61,16 @@ namespace LogiEdge.WarehouseService.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
+                        name: "FK_Items_ItemSchemas_ItemSchemaId",
+                        column: x => x.ItemSchemaId,
+                        principalTable: "ItemSchemas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
                         name: "FK_Items_Warehouses_WarehouseId",
                         column: x => x.WarehouseId,
                         principalTable: "Warehouses",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
@@ -63,7 +81,7 @@ namespace LogiEdge.WarehouseService.Migrations
                     ItemId = table.Column<Guid>(type: "uuid", nullable: false),
                     Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     WarehouseId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Location = table.Column<string>(type: "text", nullable: false)
+                    Location = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -86,6 +104,11 @@ namespace LogiEdge.WarehouseService.Migrations
                 name: "IX_Items_CustomerId",
                 table: "Items",
                 column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Items_ItemSchemaId",
+                table: "Items",
+                column: "ItemSchemaId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Items_WarehouseId",
@@ -111,6 +134,9 @@ namespace LogiEdge.WarehouseService.Migrations
 
             migrationBuilder.DropTable(
                 name: "Items");
+
+            migrationBuilder.DropTable(
+                name: "ItemSchemas");
 
             migrationBuilder.DropTable(
                 name: "Warehouses");

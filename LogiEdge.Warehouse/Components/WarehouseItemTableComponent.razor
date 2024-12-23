@@ -2,6 +2,7 @@
 @using System.Text.Json
 @using System.Collections.Generic
 @using System.Collections.Specialized
+@using System.Diagnostics.CodeAnalysis
 @using System.Linq.Expressions
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Warehouse.Pages
@@ -12,8 +13,19 @@
     public required IList<Item> Items { get; set; }
     [Parameter]
     public DateTime? AtDate { get; set; }
+
     [Parameter]
-    public required OrderedDictionary<string, bool> PropertyColumns { get; set; }
+    public required OrderedDictionary<string, bool> PropertyColumns
+    {
+        get => propertyColumns;
+        [MemberNotNull(nameof(propertyColumns))]
+        set
+        {
+            propertyColumns = value;
+            modalPropertyColumns = new OrderedDictionary<string, bool>(PropertyColumns);
+        }
+    }
+
     /// <summary>
     /// Name of the column to sort by.
     /// </summary>
@@ -32,6 +44,7 @@
     private List<DraggableList<string>.ListItem> propertyListItems = [];
 
     private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
+    private OrderedDictionary<string, bool> propertyColumns;
 
     private void BtnSortClicked(string? columnName)
     {
@@ -53,14 +66,12 @@
 }
 
 @{
-    modalPropertyColumns ??= new OrderedDictionary<string, bool>(PropertyColumns);
-
     propertyRenderFragment = (ValueTuple<string, object?> data) =>
     {
         (string propertyName, object? propertyValue) = data;
 
         if (propertyValue == null)
-            return @<td>null</td>;
+            return @<td></td>;
 
         switch (propertyName)
         {
@@ -186,15 +197,22 @@
                 @foreach (string propertyName in PropertyColumns.Where(x => x.Value).Select(x => x.Key))
                 {
                     PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
                     object? propertyValue = null;
                     if (itemProperty != null)
                     {
                         propertyValue = itemProperty.GetValue(item);
                     }
+                    else if(stateProperty != null)
+                    {
+                        propertyValue = stateProperty?.GetValue(itemState);
+                    }
                     else
                     {
-                        PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-                        propertyValue = stateProperty?.GetValue(itemState);
+                        // try finding it in the additional properties
+                        // TODO: Support additional properties with non-string types
+                        if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
+                            propertyValue = propertyElement.GetString();
                     }
 
                     @propertyRenderFragment((propertyName, propertyValue))

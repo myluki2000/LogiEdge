@@ -10,14 +10,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.WarehouseService.Persistence
 {
-    public class WarehouseDbContext : DbContext
+    public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : DbContext(options)
     {
         public DbSet<Warehouse> Warehouses { get; init; }
 
         public DbSet<Item> Items { get; init; }
         public DbSet<ItemState> ItemStates { get; init; }
-
-        public WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : base(options) { }
+        public DbSet<ItemSchema> ItemSchemas { get; init; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

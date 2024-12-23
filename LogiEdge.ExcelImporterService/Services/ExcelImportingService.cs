@@ -52,6 +52,32 @@ namespace LogiEdge.ExcelImporterService.Services
         {
             using WarehouseDbContext warehouseDbContext = warehouseDbContextFactory.CreateDbContext();
 
+            // create the item schemas listed in the config if they don't exist already
+            foreach (InventoryItemSchema schema in config.InventoryItemSchemas)
+            {
+                // get schema with the given name if it exists already
+                ItemSchema? existingSchema = warehouseDbContext.ItemSchemas.FirstOrDefault(x => x.Name == schema.Name);
+
+                // check if the existing schema has the correct properties
+                if (existingSchema != null)
+                {
+                    if (!existingSchema.AdditionalProperties.SequenceEqual(schema.AdditionalProperties)
+                        || !existingSchema.AdditionalPropertiesTypes.SequenceEqual(schema.AdditionalPropertiesTypes))
+                        throw new Exception("Schema with same name as defined in the excel import config already exists but has different properties or property types.");
+                }
+                else
+                {
+                    warehouseDbContext.ItemSchemas.Add(new ItemSchema()
+                    {
+                        Name = schema.Name,
+                        AdditionalProperties = schema.AdditionalProperties,
+                        AdditionalPropertiesTypes = schema.AdditionalPropertiesTypes,
+                    });
+                }
+            }
+
+            warehouseDbContext.SaveChanges();
+
             foreach (InventoryFileMatchingOptions options in config.InventoryFileMatchingOptions)
             {
                 // get or create the customer entry for this import
@@ -76,8 +102,6 @@ namespace LogiEdge.ExcelImporterService.Services
                     {
                         Name = options.WarehouseName,
                         Items = new List<Item>(),
-                        AdditionalProperties = new List<string> { },
-                        AdditionalPropertiesTypes = new List<string> { },
                     }).Entity;
                 }
 
@@ -101,6 +125,7 @@ namespace LogiEdge.ExcelImporterService.Services
                             {
                                 ItemNumber = item.ItemNumber,
                                 CustomerId = customer.Id,
+                                ItemSchema = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema),
                                 ItemStates = [
                                     new ItemState()
                                     {
@@ -181,6 +206,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                 {
                                     ItemNumber = x.ItemNumber,
                                     CustomerId = customer.Id,
+                                    ItemSchema = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema),
                                     ItemStates = [
                                         new ItemState()
                                         {
