@@ -49,6 +49,23 @@ namespace LogiEdge.WarehouseService.Data
         }
 
         /// <summary>
+        /// The date when the item first entered one of the warehouses of the system, i.e. the date of the first ItemState which
+        /// is not in the PRE_ARRIVAL or SHIPPED location.
+        /// </summary>
+        [DisplayColumnProperty]
+        public DateTime? EntryDate
+        {
+            get
+            {
+                ItemState? state = ItemStates
+                    .Where(st => st.Location != SpecialLocations.PRE_ARRIVAL)
+                    .MinBy(st => st.Date);
+
+                return state?.Date;
+            }
+        }
+
+        /// <summary>
         /// Returns the value of the additional property with the given property name, deserialized to an object of appropriate type.
         /// If the item does not have an additional property with the given name, returns null.
         ///
