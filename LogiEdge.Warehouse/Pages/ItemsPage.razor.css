@@ -6,23 +6,3 @@
     background-color: var(--bs-primary);
     color: white;
 }
-
-.filter-badge {
-    background-color: var(--bs-gray-300);
-    color: black;
-    cursor: pointer;
-}
-
-    .filter-badge .btn-filter-remove {
-        cursor: pointer;
-        font-size: 1.5em;
-        color: var(--bs-red);
-        border-radius: 50%;
-        margin-left: 4px;
-        filter: grayscale(40%);
-    }
-
-        .filter-badge .btn-filter-remove:hover {
-            background-color: var(--bs-gray-500);
-            filter: grayscale(0%);
-        }

@@ -1,0 +1,43 @@
+﻿@code {
+    [Parameter]
+    public bool IsEditing { get; set; }
+    [Parameter]
+    public required string PropertyName { get; set; }
+    [Parameter]
+    public required object? PropertyValue { get; set; }
+
+    [Parameter]
+    public required RenderFragment<object?> EditValueRenderFragment { get; set; }
+
+    [Parameter]
+    public EventCallback<PropertyFilterBadgeComponent> OnRemoveFilter { get; set; }
+    [Parameter]
+    public EventCallback<PropertyFilterBadgeComponent> OnEditingRequested { get; set; }
+}
+
+@{
+    bool valueDisplayed = PropertyValue != null || IsEditing;
+}
+
+<span class="filter-badge badge rounded-pill @(!valueDisplayed ? "fw-lighter" : "")"
+      @onclick="() => OnEditingRequested.InvokeAsync(this)!">
+    <span>@PropertyName</span>
+    @if (valueDisplayed)
+    {
+        <span>=</span>
+        if (IsEditing)
+        {
+            @EditValueRenderFragment(PropertyValue)
+        }
+        else
+        {
+            <PropertyValueComponent PropertyValue="PropertyValue" />
+        }
+
+        <span class="btn-filter-remove material-symbols-rounded"
+              @onclick="() => OnRemoveFilter.InvokeAsync(this)!"
+              @onclick:stopPropagation="true">
+            close
+        </span>
+    }
+</span>

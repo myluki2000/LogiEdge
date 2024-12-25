@@ -15,14 +15,14 @@ namespace LogiEdge.WarehouseService.Data
         public required ItemSchema ItemSchema { get; set; }
 
         [ForeignKey("Customer")]
-        [FilterableProperty]
         public required Guid CustomerId { get; set; }
 
         [DisplayColumnProperty]
+        [QueryFilterableProperty(nameof(CustomerId))]
         public Customer Customer { get; set; } = null!;
 
         [MaxLength(64)]
-        [FilterableProperty]
+        [QueryFilterableProperty]
         [DisplayColumnProperty]
         public required string ItemNumber { get; set; }
 

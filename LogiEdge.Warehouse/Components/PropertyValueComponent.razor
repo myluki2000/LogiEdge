@@ -1,0 +1,32 @@
+﻿@using System.Globalization
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.WarehouseService.Data
+
+@code {
+    [Parameter]
+    public object? PropertyValue { get; set; }
+}
+
+@if (PropertyValue == null)
+{
+    <text></text>
+}
+else
+{
+    switch (PropertyValue)
+    {
+        case Customer customerValue:
+            <text>@customerValue.Name</text>
+            return;
+        case Warehouse warehouseValue:
+            <text>@warehouseValue.Name</text>
+            return;
+        case DateTime dateTimeValue:
+            <text>@dateTimeValue.ToLocalTime().ToString(CultureInfo.CurrentCulture)</text>
+            return;
+        default:
+            <text>@PropertyValue.ToString()</text>
+            return;
+
+    }
+}

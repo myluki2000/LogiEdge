@@ -11,16 +11,16 @@ namespace LogiEdge.WarehouseService.Data
 
         public Item Item { get; set; } = null!;
 
-        [FilterableProperty]
+        [QueryFilterableProperty]
         public required DateTime Date { get; set; }
 
-        [FilterableProperty]
         public required Guid WarehouseId { get; set; }
 
+        [QueryFilterableProperty(nameof(WarehouseId))]
         [DisplayColumnProperty]
         public Warehouse Warehouse { get; set; } = null!;
 
-        [FilterableProperty]
+        [QueryFilterableProperty]
         [DisplayColumnProperty]
         [MaxLength(32)]
         public required string Location { get; set; }

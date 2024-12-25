@@ -1,0 +1,34 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public bool IsEditing { get; set; }
+    [Parameter]
+    public required string PropertyName { get; set; }
+    [Parameter]
+    public required DateTime? PropertyValue { get; set; }
+
+    [Parameter]
+    public EventCallback<PropertyFilterBadgeComponent> OnRemoveFilter { get; set; }
+    [Parameter]
+    public EventCallback<PropertyFilterBadgeComponent> OnEditingRequested { get; set; }
+    [Parameter]
+    public EventCallback<object?> OnEditingFinished { get; set; }
+}
+
+@{
+    RenderFragment<object?> editValueRenderFragment = (object? value) => @<text>
+        <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="PropertyValue" />
+        <span class="btn-filter-done material-symbols-rounded"
+              @onclick="() => OnEditingFinished.InvokeAsync(PropertyValue)"
+              @onclick:stopPropagation="true">
+            check
+        </span>
+    </text>;
+}
+
+<PropertyFilterBadgeComponent PropertyName="@PropertyName"
+                              PropertyValue="@PropertyValue"
+                              IsEditing="@IsEditing"
+                              OnRemoveFilter="@OnRemoveFilter"
+                              OnEditingRequested="@OnEditingRequested"
+                              EditValueRenderFragment="@editValueRenderFragment" />

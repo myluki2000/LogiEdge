@@ -45,7 +45,6 @@
     private List<DraggableList<string>.ListItem> propertyListItems = [];
 
     private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
-    private RenderFragment<object?>? propertyValueRenderFragment = null;
     private OrderedDictionary<string, bool> propertyColumns;
 
     private void BtnSortClicked(string? columnName)
@@ -69,51 +68,48 @@
 }
 
 @{
-    propertyValueRenderFragment = (object? propertyValue) =>
-    {
-        if (propertyValue == null)
-            return @<text></text>;
-
-        switch (propertyValue)
-        {
-            case DateTime dateTimeValue:
-                return @<text>@dateTimeValue.ToLocalTime().ToString(CultureInfo.CurrentCulture)</text>;
-            default:
-                return @<text>@propertyValue.ToString()</text>;
-        }
-
-        return @<td>@propertyValue.ToString()</td>;
-    };
-
-    propertyRenderFragment = (ValueTuple<string, object?> data) =>
+    propertyRenderFragment = (ValueTuple<string, object?> data) => builder =>
     {
         (string propertyName, object? propertyValue) = data;
 
         if (propertyValue == null)
-            return @<td></td>;
+        {
+            <td></td>
+            return;
+        }
 
         switch (propertyName)
         {
+            case nameof(Item.Id):
+                <td>
+                    <a href="/item/@propertyValue">
+                        <PropertyValueComponent PropertyValue="propertyValue" />
+                    </a>
+                </td>
+                return;
             case nameof(Item.Customer):
                 Customer c = (Customer)propertyValue;
-                return @<td>
-                           <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("CustomerId", c.Id.ToString())'>
-                               @propertyValueRenderFragment(c.Name)
-                           </a>
-                       </td>;
+                <td>
+                    <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("Customer", c.Id.ToString())'>
+                        <PropertyValueComponent PropertyValue="c" />
+                    </a>
+                </td>
+                return;
             case nameof(ItemState.Warehouse):
                 Warehouse w = (Warehouse)propertyValue;
-                return @<td>
-                           <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("WarehouseId", w.Id.ToString())'>
-                               @propertyValueRenderFragment(w.Name)
-                           </a>
-                       </td>;
+                <td>
+                    <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("Warehouse", w.Id.ToString())'>
+                        <PropertyValueComponent PropertyValue="w" />
+                    </a>
+                </td>
+                return;
             default:
-                return @<td>
-                           <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
-                               @propertyValueRenderFragment(propertyValue)
-                           </a>
-                       </td>;
+                <td>
+                    <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
+                        <PropertyValueComponent PropertyValue="propertyValue" />
+                    </a>
+                </td>
+                return;
         }
     };
 }
@@ -180,7 +176,8 @@
                 if (typeof(Item).GetProperty(SortByColumn) is { } itemInfo)
                 {
                     lambda = it => itemInfo.GetValue(it);
-                } else if (typeof(ItemState).GetProperty(SortByColumn) is { } stateInfo)
+                }
+                else if (typeof(ItemState).GetProperty(SortByColumn) is { } stateInfo)
                 {
                     lambda = it => stateInfo.GetValue(it.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date));
                 }
@@ -188,7 +185,7 @@
                 {
                     lambda = it => (it.GetAdditionalProperty(SortByColumn) ?? null);
                 }
-                
+
                 if (SortOrderDescending)
                 {
 
@@ -223,7 +220,7 @@
                     {
                         propertyValue = itemProperty.GetValue(item);
                     }
-                    else if(stateProperty != null)
+                    else if (stateProperty != null)
                     {
                         propertyValue = stateProperty?.GetValue(itemState);
                     }

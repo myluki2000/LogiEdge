@@ -14,6 +14,7 @@
 @using LogiEdge.Warehouse.Components
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.Extensions.Primitives
+@using LogiEdge.Warehouse.Components.PropertyFilterBadge
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject NavigationManager NavigationManager
 
@@ -34,20 +35,6 @@
     private static readonly MethodInfo jsonContainsMethod = typeof(NpgsqlJsonDbFunctionsExtensions)
         .GetMethod(nameof(NpgsqlJsonDbFunctionsExtensions.JsonContains), [typeof(DbFunctions), typeof(JsonDocument), typeof(JsonDocument)])!;
     private static readonly ParameterExpression itemStateParameterExpression = Expression.Parameter(typeof(ItemState), "st");
-
-    private static Expression GenerateTypeConvertingConstantExpression(MemberExpression memberExpression, KeyValuePair<string, string> param)
-    {
-        object convertedParam = memberExpression.Type switch
-        {
-            { } t when t == typeof(int) => int.Parse(param.Value),
-            { } t when t == typeof(decimal) => decimal.Parse(param.Value),
-            { } t when t == typeof(DateTime) => DateTime.Parse(param.Value),
-            { } t when t == typeof(Guid) => Guid.Parse(param.Value),
-            _ => param.Value
-        };
-
-        return Expression.Constant(convertedParam);
-    }
 
     public static string GetPageUrlWithParams(IReadOnlyDictionary<string, string>? queryParams = null)
     {
@@ -120,8 +107,6 @@
             .Value
             .FirstOrDefault();
     }
-
-    private string badgeFilterInputValue = "";
 }
 
 @{
@@ -138,25 +123,61 @@
     // as a DB column instead of as JSON
     List<PropertyInfo> basePropInfos = typeof(Item)
         .GetProperties()
-        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)))
+        .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
         .ToList();
-    Dictionary<string, string> baseParams = queryParameters
+    Dictionary<string, object> baseParams = queryParameters
         .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
-        .ToDictionary(x => x.Key, x => x.Value.First()!);
+        .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
+            x => x.Key, 
+            x =>
+        {
+            string stringValue = x.Value.First()!;
+            switch (basePropInfos.FirstOrDefault(prop => prop.Name == x.Key)?.PropertyType)
+            {
+                case { } t when t == typeof(int):
+                    return int.Parse(stringValue);
+                case { } t when t == typeof(decimal):
+                    return decimal.Parse(stringValue);
+                case { } t when t == typeof(DateTime):
+                    return DateTime.SpecifyKind(DateTime.Parse(stringValue), DateTimeKind.Utc);
+                case { } t when t == typeof(Guid):
+                    return Guid.Parse(stringValue);
+                default:
+                    return stringValue;
+            }
+        });
 
     // do the same not for base params, but for item state params
     List<PropertyInfo> statePropInfos = typeof(ItemState)
         .GetProperties()
-        .Where(p => Attribute.IsDefined(p, typeof(FilterablePropertyAttribute)))
+        .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
         .ToList();
-    Dictionary<string, string> stateParams = queryParameters
+    Dictionary<string, object> stateParams = queryParameters
         .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
-        .ToDictionary(x => x.Key, x => x.Value.First()!);
+        .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
+            x => x.Key, 
+            x =>
+            {
+                string stringValue = x.Value.First()!;
+                switch (statePropInfos.FirstOrDefault(prop => prop.Name == x.Key)?.PropertyType)
+                {
+                    case { } t when t == typeof(int):
+                        return int.Parse(stringValue);
+                    case { } t when t == typeof(decimal):
+                        return decimal.Parse(stringValue);
+                    case { } t when t == typeof(DateTime):
+                        return DateTime.SpecifyKind(DateTime.Parse(stringValue), DateTimeKind.Utc);
+                    case { } t when t == typeof(Guid):
+                        return Guid.Parse(stringValue);
+                    default:
+                        return stringValue;
+                }
+            });
 
     // an "at" date can be passed as a URL parameter to define for what point in time the item state params should be matched
     DateTime? atParam = queryParameters
         .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
-        .Select(param => DateTime.Parse(param.Value.First()!))
+        .Select(param => DateTime.SpecifyKind(DateTime.Parse(param.Value.First()!), DateTimeKind.Utc))
         .Cast<DateTime?>()
         .FirstOrDefault();
 
@@ -204,23 +225,33 @@
     }
 
     // construct an expression to filter for the base item properties passed as query params
-    foreach (KeyValuePair<string, string> param in baseParams)
+    foreach (KeyValuePair<string, object> param in baseParams)
     {
-        MemberExpression propertyExpression = Expression.Property(itemParameterExpression, param.Key);
+        string? foreignComparisonKey = basePropInfos
+            .FirstOrDefault(pi => pi.Name == param.Key)?
+            .GetCustomAttribute<QueryFilterablePropertyAttribute>()?
+            .CompareQueryParamWith;
+
+        MemberExpression propertyExpression = Expression.Property(itemParameterExpression, foreignComparisonKey ?? param.Key);
         BinaryExpression equalityExpression = Expression.Equal(
             propertyExpression,
-            GenerateTypeConvertingConstantExpression(propertyExpression, param));
+            Expression.Constant(param.Value));
         Expression<Func<Item, bool>> lambda = Expression.Lambda<Func<Item, bool>>(equalityExpression, itemParameterExpression);
         itemsQueryable = itemsQueryable.Where(lambda);
     }
 
     // construct an expression to filter for the item state properties passed as query params
-    foreach (KeyValuePair<string, string> param in stateParams)
+    foreach (KeyValuePair<string, object> param in stateParams)
     {
-        MemberExpression propertyExpression = Expression.Property(itemStateParameterExpression, param.Key);
+        string? foreignComparisonKey = statePropInfos
+            .FirstOrDefault(pi => pi.Name == param.Key)?
+            .GetCustomAttribute<QueryFilterablePropertyAttribute>()?
+            .CompareQueryParamWith;
+
+        MemberExpression propertyExpression = Expression.Property(itemStateParameterExpression, foreignComparisonKey ?? param.Key);
         BinaryExpression equalityExpression = Expression.Equal(
             propertyExpression,
-            GenerateTypeConvertingConstantExpression(propertyExpression, param));
+            Expression.Constant(param.Value));
         Expression<Func<ItemState, bool>> lambda = Expression.Lambda<Func<ItemState, bool>>(
             equalityExpression,
             itemStateParameterExpression
@@ -294,11 +325,11 @@
     {
         columnsToDisplay = [
             nameof(Item.Id),
-            nameof(Item.Customer),
-            nameof(Item.ItemNumber),
-            nameof(ItemState.Warehouse),
-            nameof(ItemState.Location),
-            nameof(Item.EntryDate)
+    nameof(Item.Customer),
+    nameof(Item.ItemNumber),
+    nameof(ItemState.Warehouse),
+    nameof(ItemState.Location),
+    nameof(Item.EntryDate)
         ];
         columnsToDisplay.AddRange(schemasAdditionalProperties);
     }
@@ -335,58 +366,75 @@
 @code {
     private void EditParamBadge(string paramName)
     {
-        badgeFilterInputValue = GetQueryParamValue(paramName).FirstOrDefault() ?? "";
         badgeEditingParamName = paramName;
     }
 
-    private void EditParamBadgeOnKeyDown(KeyboardEventArgs e)
+    private void EditPropertyFilterBadgeFinished(string propertyName, object? newValue)
     {
-        if (e.Key != "Enter" || badgeEditingParamName == null)
-            return;
+        if(newValue != null)
+            AddOrInsertQueryParamAndNavigate(propertyName, newValue.ToString());
+        else
+            RemoveQueryParamAndNavigate(propertyName);
 
-        AddOrInsertQueryParamAndNavigate(badgeEditingParamName, badgeFilterInputValue);
         badgeEditingParamName = null;
-        badgeFilterInputValue = "";
     }
 }
 
 <div>
     <span>Filter By:</span>
     @foreach (string propertyName in basePropInfos.Select(pi => pi.Name)
-                  .Concat(statePropInfos.Select(pi => pi.Name))
-                  .Concat(schemasAdditionalProperties)
-                  .Concat(queryParameters.Keys)
-                  .Distinct())
+    .Concat(statePropInfos.Select(pi => pi.Name))
+    .Concat(schemasAdditionalProperties)
+    .Concat(queryParameters.Keys)
+    .Distinct())
     {
-        string? paramValue = baseParams.GetValueOrDefault(propertyName)
-        ?? stateParams.GetValueOrDefault(propertyName)
-        ?? queryParameters.GetValueOrDefault(propertyName);
+        object? paramValue = baseParams.GetValueOrDefault(propertyName)
+        ?? stateParams.GetValueOrDefault(propertyName);
 
-        bool valueDisplayed = paramValue != null || propertyName == badgeEditingParamName;
+        if (paramValue == null)
+        {
+            if (queryParameters.TryGetValue(propertyName, out StringValues stringValues))
+                paramValue = stringValues.First();
+        }
 
-        <span class="filter-badge badge rounded-pill @(!valueDisplayed ? "fw-lighter" : "")"
-              @onclick="() => EditParamBadge(propertyName)">
-            <span>@propertyName</span>
-            @if (valueDisplayed)
+        string? propertyType = basePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name
+        ?? statePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name;
+
+        if (propertyType == null)
+        {
+            ItemSchema? schema = itemSchemas.FirstOrDefault(sch => sch.AdditionalProperties.Contains(propertyName));
+
+            if (schema != null)
             {
-                <span>=</span>
-                if (propertyName == badgeEditingParamName)
-                {
-                    <InputText @bind-Value="badgeFilterInputValue"
-                               @onkeyup="EditParamBadgeOnKeyDown" />
-                }
-                else
-                {
-                    <span>@paramValue</span>
-                }
-
-                <span class="btn-filter-remove material-symbols-rounded"
-                      @onclick="() => { RemoveQueryParamAndNavigate(propertyName); badgeEditingParamName = null; }"
-                      @onclick:stopPropagation="true">
-                    close
-                </span>
+                int index = schema.AdditionalProperties.IndexOf(propertyName);
+                propertyType = schema.AdditionalPropertiesTypes[index];
             }
-        </span>
+        }
+
+        if (propertyType == null)
+            throw new Exception("Could not determine Type of property " + propertyName);
+
+        bool isEditing = propertyName == badgeEditingParamName;
+
+        switch (propertyType)
+        {
+            case nameof(DateTime):
+                <DateTimePropertyFilterBadge PropertyName="@propertyName"
+                                             PropertyValue="@(((DateTime?)paramValue)?.ToLocalTime())"
+                                             IsEditing="@isEditing"
+                                             OnEditingRequested="sender => badgeEditingParamName = sender.PropertyName"
+                                             OnRemoveFilter="sender => RemoveQueryParamAndNavigate(sender.PropertyName)"
+                                             OnEditingFinished="newValue => EditPropertyFilterBadgeFinished(propertyName, ((DateTime?)newValue)?.ToUniversalTime())" />
+                break;
+            case nameof(String):
+                <StringPropertyFilterBadge PropertyName="@propertyName"
+                                           PropertyValue="@((string?)paramValue)"
+                                           IsEditing="@isEditing"
+                                           OnEditingRequested="sender => badgeEditingParamName = sender.PropertyName"
+                                           OnRemoveFilter="sender => RemoveQueryParamAndNavigate(sender.PropertyName)"
+                                           OnEditingFinished="newValue => EditPropertyFilterBadgeFinished(propertyName, newValue)" />
+                break;
+        }
     }
 </div>
 
@@ -399,11 +447,10 @@
 
     <WarehouseItemTableComponent Parent="@this"
                                  Items="@items"
-                                 AtDate="atParam"
-                                 PropertyColumns="displayPropertyColumns"
+                                 AtDate="@atParam"
+                                 PropertyColumns="@displayPropertyColumns"
                                  SortByColumn="@sortByProperty"
-                                 SortOrderDescending="@orderDescending">
-    </WarehouseItemTableComponent>
+                                 SortOrderDescending="@orderDescending" />
 }
 else
 {
@@ -468,5 +515,5 @@ else
             .ToList();
     }
 
-    <WarehouseGroupedItemTableComponent ItemGroups="@itemGroups" GroupByPropertyName="@groupByProperty"></WarehouseGroupedItemTableComponent>
+    <WarehouseGroupedItemTableComponent ItemGroups="@itemGroups" GroupByPropertyName="@groupByProperty" />
 }

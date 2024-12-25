@@ -110,7 +110,10 @@ namespace LogiEdge.ExcelImporterService.Services
                 foreach (string dayDirPath in Directory.GetDirectories(config.FolderPath))
                 {
                     string dayDirName = Path.GetFileName(dayDirPath);
-                    DateTime day = DateTime.ParseExact(dayDirName, "yyyy-MM-dd", CultureInfo.InvariantCulture).ToUniversalTime();
+                    
+                    DateTime day = DateTime
+                        .SpecifyKind(DateTime.ParseExact(dayDirName, "yyyy-MM-dd", CultureInfo.InvariantCulture), DateTimeKind.Local)
+                        .ToUniversalTime();
 
                     InventoryFileMatcher matcher = new(dayDirPath, day, options);
 
