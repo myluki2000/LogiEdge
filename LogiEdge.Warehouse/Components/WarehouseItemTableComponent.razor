@@ -3,6 +3,7 @@
 @using System.Collections.Generic
 @using System.Collections.Specialized
 @using System.Diagnostics.CodeAnalysis
+@using System.Globalization
 @using System.Linq.Expressions
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Warehouse.Pages
@@ -44,6 +45,7 @@
     private List<DraggableList<string>.ListItem> propertyListItems = [];
 
     private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
+    private RenderFragment<object?>? propertyValueRenderFragment = null;
     private OrderedDictionary<string, bool> propertyColumns;
 
     private void BtnSortClicked(string? columnName)
@@ -63,9 +65,26 @@
             .OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList());
         Parent.AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray());
     }
+
 }
 
 @{
+    propertyValueRenderFragment = (object? propertyValue) =>
+    {
+        if (propertyValue == null)
+            return @<text></text>;
+
+        switch (propertyValue)
+        {
+            case DateTime dateTimeValue:
+                return @<text>@dateTimeValue.ToLocalTime().ToString(CultureInfo.CurrentCulture)</text>;
+            default:
+                return @<text>@propertyValue.ToString()</text>;
+        }
+
+        return @<td>@propertyValue.ToString()</td>;
+    };
+
     propertyRenderFragment = (ValueTuple<string, object?> data) =>
     {
         (string propertyName, object? propertyValue) = data;
@@ -79,20 +98,20 @@
                 Customer c = (Customer)propertyValue;
                 return @<td>
                            <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("CustomerId", c.Id.ToString())'>
-                               @c.Name
+                               @propertyValueRenderFragment(c.Name)
                            </a>
                        </td>;
             case nameof(ItemState.Warehouse):
                 Warehouse w = (Warehouse)propertyValue;
                 return @<td>
                            <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("WarehouseId", w.Id.ToString())'>
-                               @w.Name
+                               @propertyValueRenderFragment(w.Name)
                            </a>
                        </td>;
             default:
                 return @<td>
                            <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
-                               @(propertyValue.ToString())
+                               @propertyValueRenderFragment(propertyValue)
                            </a>
                        </td>;
         }
