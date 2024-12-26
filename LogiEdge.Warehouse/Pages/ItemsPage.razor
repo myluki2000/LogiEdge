@@ -355,20 +355,6 @@
     }
 }
 
-@{
-    DateTime inputAtParam = atParam ?? DateTime.UtcNow.ToLocalTime();
-}
-
-<div>
-    <span>Show Warehouse at Point in Time:</span>
-    <InputDate Type="InputDateType.DateTimeLocal"
-               Value="inputAtParam"
-               ValueExpression="() => inputAtParam"
-               ValueChanged='(DateTime dt) => { DateTime? newDate = dt.SpecifyKind(DateTimeKind.Local).ToUniversalTime(); AddOrUpdateQueryParamAndNavigate("at", newDate.Value.ToString("o")); }'/>
-    <button @onclick='() => RemoveQueryParamAndNavigate("at")'>
-        Now
-    </button>
-</div>
 <div>
     <span>Default Views:</span>
     @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
@@ -403,13 +389,13 @@
 <div>
     <span>Filter By:</span>
     @foreach (string propertyName in basePropInfos.Select(pi => pi.Name)
-    .Concat(statePropInfos.Select(pi => pi.Name))
-    .Concat(schemasAdditionalProperties)
-    .Concat(queryParameters.Keys)
-    .Distinct())
+                  .Concat(statePropInfos.Select(pi => pi.Name))
+                  .Concat(schemasAdditionalProperties)
+                  .Concat(queryParameters.Keys)
+                  .Distinct())
     {
         object? paramValue = baseParams.GetValueOrDefault(propertyName)
-        ?? stateParams.GetValueOrDefault(propertyName);
+                             ?? stateParams.GetValueOrDefault(propertyName);
 
         if (paramValue == null)
         {
@@ -418,7 +404,7 @@
         }
 
         string? propertyType = basePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name
-        ?? statePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name;
+                               ?? statePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name;
 
         if (propertyType == null)
         {
@@ -456,6 +442,22 @@
                 break;
         }
     }
+</div>
+
+@{
+    DateTime inputAtParam = atParam ?? DateTime.UtcNow.ToLocalTime();
+}
+
+<div>
+    <span>Show Warehouse at Point in Time:</span>
+    <InputDate Type="InputDateType.DateTimeLocal"
+               Value="inputAtParam"
+               ValueExpression="() => inputAtParam"
+               ValueChanged='(DateTime dt) => { DateTime? newDate = dt.SpecifyKind(DateTimeKind.Local).ToUniversalTime(); AddOrUpdateQueryParamAndNavigate("at", newDate.Value.ToString("o")); }' />
+    <button class="btn btn-secondary btn-sm"
+            @onclick='() => RemoveQueryParamAndNavigate("at")'>
+        Now
+    </button>
 </div>
 
 @if (groupByProperty == null)
