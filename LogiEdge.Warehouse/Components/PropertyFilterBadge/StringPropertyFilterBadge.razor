@@ -12,7 +12,7 @@
     [Parameter]
     public EventCallback<PropertyFilterBadgeComponent> OnEditingRequested { get; set; }
     [Parameter]
-    public EventCallback<object?> OnEditingFinished { get; set; }
+    public EventCallback<string?> OnEditingFinished { get; set; }
 
     private void EditParamBadgeOnKeyUp(KeyboardEventArgs e)
     {
