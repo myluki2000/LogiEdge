@@ -53,7 +53,7 @@
         bool descending = (SortByColumn == columnName) && !SortOrderDescending;
 
         if (columnName != null)
-            Parent.AddOrInsertQueryParamsAndNavigate([("sortBy", [columnName]), ("orderDescending", [descending.ToString()])]);
+            Parent.AddOrUpdateQueryParamsAndNavigate([("sortBy", [columnName]), ("orderDescending", [descending.ToString()])]);
         else
             Parent.RemoveQueryParamsAndNavigate("sortBy", "orderDescending");
     }
@@ -62,7 +62,7 @@
     {
         OrderedDictionary<string, bool> properties = new((modalPropertyColumns ?? [])
             .OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList());
-        Parent.AddOrInsertQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray());
+        Parent.AddOrUpdateQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray());
     }
 
 }
@@ -90,7 +90,7 @@
             case nameof(Item.Customer):
                 Customer c = (Customer)propertyValue;
                 <td>
-                    <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("Customer", c.Id.ToString())'>
+                    <a href="" @onclick='() => Parent.AddOrUpdateQueryParamAndNavigate("Customer", c.Id.ToString())'>
                         <PropertyValueComponent PropertyValue="c" />
                     </a>
                 </td>
@@ -98,14 +98,14 @@
             case nameof(ItemState.Warehouse):
                 Warehouse w = (Warehouse)propertyValue;
                 <td>
-                    <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate("Warehouse", w.Id.ToString())'>
+                    <a href="" @onclick='() => Parent.AddOrUpdateQueryParamAndNavigate("Warehouse", w.Id.ToString())'>
                         <PropertyValueComponent PropertyValue="w" />
                     </a>
                 </td>
                 return;
             default:
                 <td>
-                    <a href="" @onclick='() => Parent.AddOrInsertQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
+                    <a href="" @onclick='() => Parent.AddOrUpdateQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
                         <PropertyValueComponent PropertyValue="propertyValue" />
                     </a>
                 </td>

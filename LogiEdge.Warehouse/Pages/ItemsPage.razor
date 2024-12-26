@@ -1,4 +1,5 @@
 ﻿@page "/items"
+@using LogiEdge.Shared.Utility
 @using System.Linq.Expressions
 @using System.Reflection
 @using System.Text.Json
@@ -6,7 +7,6 @@
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared
 @using LogiEdge.Shared.Attributes
-@using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
 @using Microsoft.AspNetCore.WebUtilities
@@ -59,6 +59,8 @@
             .Where(p => !keys.Contains(p.Key)) // Exclude the keys to remove
             .ToDictionary();
 
+        atParam = null;
+
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
@@ -73,7 +75,7 @@
         RemoveQueryParamsAndNavigate(key);
     }
 
-    public void AddOrInsertQueryParamsAndNavigate(IEnumerable<(string key, string[] values)> newQueryParams)
+    public void AddOrUpdateQueryParamsAndNavigate(IEnumerable<(string key, string[] values)> newQueryParams)
     {
         // Create a copy of the current query parameters
         Uri currentUri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -84,6 +86,8 @@
             updatedQueryParameters[key] = values;
         }
 
+        atParam = null;
+
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
@@ -93,9 +97,9 @@
         NavigationManager.NavigateTo(newQueryString);
     }
 
-    public void AddOrInsertQueryParamAndNavigate(string key, params string[] values)
+    public void AddOrUpdateQueryParamAndNavigate(string key, params string[] values)
     {
-        AddOrInsertQueryParamsAndNavigate([(key, values)]);
+        AddOrUpdateQueryParamsAndNavigate([(key, values)]);
     }
 
     public StringValues GetQueryParamValue(string key)
@@ -107,6 +111,9 @@
             .Value
             .FirstOrDefault();
     }
+
+    private DateTime? atParam { get; set; } = null;
+
 }
 
 @{
@@ -128,7 +135,7 @@
     Dictionary<string, object> baseParams = queryParameters
         .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
         .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
-            x => x.Key, 
+            x => x.Key,
             x =>
         {
             string stringValue = x.Value.First()!;
@@ -155,7 +162,7 @@
     Dictionary<string, object> stateParams = queryParameters
         .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
         .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
-            x => x.Key, 
+            x => x.Key,
             x =>
             {
                 string stringValue = x.Value.First()!;
@@ -175,7 +182,7 @@
             });
 
     // an "at" date can be passed as a URL parameter to define for what point in time the item state params should be matched
-    DateTime? atParam = queryParameters
+    atParam = queryParameters
         .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
         .Select(param => DateTime.SpecifyKind(DateTime.Parse(param.Value.First()!), DateTimeKind.Utc))
         .Cast<DateTime?>()
@@ -348,13 +355,26 @@
     }
 }
 
+@{
+    DateTime inputAtParam = atParam ?? DateTime.UtcNow.ToLocalTime();
+}
 
+<div>
+    <span>Show Warehouse at Point in Time:</span>
+    <InputDate Type="InputDateType.DateTimeLocal"
+               Value="inputAtParam"
+               ValueExpression="() => inputAtParam"
+               ValueChanged='(DateTime dt) => { DateTime? newDate = dt.SpecifyKind(DateTimeKind.Local).ToUniversalTime(); AddOrUpdateQueryParamAndNavigate("at", newDate.Value.ToString("o")); }'/>
+    <button @onclick='() => RemoveQueryParamAndNavigate("at")'>
+        Now
+    </button>
+</div>
 <div>
     <span>Default Views:</span>
     @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
     {
         <a class="badge rounded-pill"
-        href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
+           href="@GetPageUrlWithParams(new Dictionary<string, string> { ["CustomerId"] = customer.Id.ToString() })">
             Customer: @customer.Name
         </a>
     }
@@ -371,8 +391,8 @@
 
     private void EditPropertyFilterBadgeFinished(string propertyName, object? newValue)
     {
-        if(newValue != null)
-            AddOrInsertQueryParamAndNavigate(propertyName, newValue.ToString());
+        if (newValue != null)
+            AddOrUpdateQueryParamAndNavigate(propertyName, newValue.ToString());
         else
             RemoveQueryParamAndNavigate(propertyName);
 
