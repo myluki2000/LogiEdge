@@ -385,7 +385,7 @@
     }
 }
 
-<div>
+<div class="my-1">
     <span>Default Views:</span>
     @foreach (Customer customer in warehouseDb.Items.Select(it => it.Customer).Distinct().ToList())
     {
@@ -395,7 +395,7 @@
         </a>
     }
 </div>
-<div>
+<div class="my-1">
     <span>My Views:</span>
 </div>
 
@@ -417,7 +417,7 @@
     }
 }
 
-<div>
+<div class="my-1">
     <span>Filter By:</span>
     @foreach (string propertyName in basePropInfos.Select(pi => pi.Name)
     .Concat(statePropInfos.Select(pi => pi.Name))
@@ -511,7 +511,7 @@
     DateTime inputAtParam = atParam ?? DateTime.UtcNow.ToLocalTime();
 }
 
-<div>
+<div class="my-1">
     <span>Show Warehouse at Point in Time:</span>
     <InputDate Type="InputDateType.DateTimeLocal"
                Value="inputAtParam"
