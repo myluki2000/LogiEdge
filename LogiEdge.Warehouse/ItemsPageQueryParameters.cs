@@ -43,7 +43,7 @@ namespace LogiEdge.Warehouse
                         nameof(ItemState.Warehouse),
                         nameof(ItemState.Location),
                         nameof(Item.EntryDate)
-                    }.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties).ToList());
+                    }.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties));
 
         }
 
