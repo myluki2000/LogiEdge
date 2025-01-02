@@ -120,9 +120,9 @@
     // get the query parameters
     Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
     // we only allow each param to be specified once, so pick the first value
-    Dictionary<string, StringValues> queryParameters = QueryHelpers.ParseQuery(uri.Query)
+    ItemsPageQueryParameters qp = ItemsPageQueryParameters.FromQueryParameters(QueryHelpers.ParseQuery(uri.Query)
         .Where(x => x.Value.Count > 0)
-        .ToDictionary();
+        .ToDictionary());
 
     WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
 
@@ -132,129 +132,18 @@
         .GetProperties()
         .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
         .ToList();
-    Dictionary<string, object> baseParams = queryParameters
-        .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
-        .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
-            x => x.Key,
-            x =>
-        {
-            string stringValue = x.Value.First()!;
-
-            PropertyInfo propInfo = basePropInfos.FirstOrDefault(prop => prop.Name == x.Key)
-                                    ?? throw new Exception("Could not find property with name " + x.Key);
-
-            Type propertyType;
-
-            if (propInfo.GetCustomAttribute<QueryFilterablePropertyAttribute>() is { CompareQueryParamWith: not null } attr)
-            {
-                PropertyInfo comparePropInfo = typeof(Item).GetProperty(attr.CompareQueryParamWith)
-                                               ?? throw new Exception(
-                                                   "Property " + attr.CompareQueryParamWith + ", referenced by [QueryFilterableProperty] attribute on property "
-                                                   + propInfo.Name + ", could not be found on type " + propInfo.DeclaringType?.Name);
-
-                propertyType = comparePropInfo.PropertyType;
-            }
-            else
-            {
-                propertyType = propInfo.PropertyType;
-            }
-
-            return propertyType switch
-            {
-                { } t when t == typeof(int) => int.Parse(stringValue),
-                { } t when t == typeof(decimal) => decimal.Parse(stringValue),
-                { } t when t == typeof(DateTime) => DateTime.SpecifyKind(DateTime.Parse(stringValue), DateTimeKind.Utc),
-                { } t when t == typeof(Guid) => Guid.Parse(stringValue),
-                _ => stringValue
-            };
-        });
 
     // do the same not for base params, but for item state params
     List<PropertyInfo> statePropInfos = typeof(ItemState)
         .GetProperties()
         .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
         .ToList();
-    Dictionary<string, object> stateParams = queryParameters
-        .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
-        .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
-            x => x.Key,
-            x =>
-            {
-                string stringValue = x.Value.First()!;
-
-                PropertyInfo propInfo = statePropInfos.FirstOrDefault(prop => prop.Name == x.Key)
-                                        ?? throw new Exception("Could not find property with name " + x.Key);
-
-                Type propertyType;
-
-                if (propInfo.GetCustomAttribute<QueryFilterablePropertyAttribute>() is { CompareQueryParamWith: not null } attr)
-                {
-                    PropertyInfo comparePropInfo = typeof(ItemState).GetProperty(attr.CompareQueryParamWith)
-                                                   ?? throw new Exception(
-                                                       "Property " + attr.CompareQueryParamWith + ", referenced by [QueryFilterableProperty] attribute on property "
-                                                       + propInfo.Name + ", could not be found on type " + propInfo.DeclaringType?.Name);
-
-                    propertyType = comparePropInfo.PropertyType;
-                }
-                else
-                {
-                    propertyType = propInfo.PropertyType;
-                }
-
-                return propertyType switch
-                {
-                    { } t when t == typeof(int) => int.Parse(stringValue),
-                    { } t when t == typeof(decimal) => decimal.Parse(stringValue),
-                    { } t when t == typeof(DateTime) => DateTime.SpecifyKind(DateTime.Parse(stringValue), DateTimeKind.Utc),
-                    { } t when t == typeof(Guid) => Guid.Parse(stringValue),
-                    _ => stringValue
-                };
-            });
-
-    // an "at" date can be passed as a URL parameter to define for what point in time the item state params should be matched
-    atParam = queryParameters
-        .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
-        .Select(param => DateTime.SpecifyKind(DateTime.Parse(param.Value.First()!), DateTimeKind.Utc))
-        .Cast<DateTime?>()
-        .FirstOrDefault();
-
-    // a "showShipped=bool" param can be passed to define if items that have already been shipped at that point in time should be shown
-    bool showShipped = queryParameters
-        .PopWhere(param => param.Key == "showShipped" && param.Value.Count > 0)
-        .Select(param => bool.Parse(param.Value.First()!))
-        .FirstOrDefault();
-
-    // a "groupby" param can be passed specifying a property the results should be grouped by
-    string? groupByProperty = queryParameters
-        .PopWhere(param => param.Key == "groupBy")
-        .Select(param => param.Value.FirstOrDefault())
-        .FirstOrDefault();
-
-    // a "sortBy" param can be passed specifying a column/property to sort by
-    string? sortByProperty = queryParameters
-        .PopWhere(param => param.Key == "sortBy")
-        .Select(param => param.Value.FirstOrDefault())
-        .FirstOrDefault();
-
-    // a "orderDescending" param can be passed specifying if the sort order should be descending
-    bool orderDescending = queryParameters
-        .PopWhere(param => param.Key == "orderDescending")
-        .Select(param => bool.Parse(param.Value.FirstOrDefault()!))
-        .FirstOrDefault();
-
-    // get the column parameters. Here, we allow specifying the "column" parameter multiple times
-    // to display multiple columns
-    List<string> columnsToDisplay = queryParameters
-        .PopWhere(x => x.Key == "col")
-        .SelectMany(x => x.Value.ToList())
-        .OfType<string>()
-        .ToList();
 
     // construct the db query
     IQueryable<Item> itemsQueryable = warehouseDb.Items
         .Include(it => it.Customer);
 
-    if (!showShipped)
+    if (!qp.ShowShipped)
     {
         itemsQueryable = atParam.HasValue
             ? itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First(st => st.Date <= atParam).Location != SpecialLocations.SHIPPED)
@@ -262,7 +151,7 @@
     }
 
     // construct an expression to filter for the base item properties passed as query params
-    foreach (KeyValuePair<string, object> param in baseParams)
+    foreach (KeyValuePair<string, object> param in qp.BaseParameters)
     {
         string? foreignComparisonKey = basePropInfos
             .FirstOrDefault(pi => pi.Name == param.Key)?
@@ -278,7 +167,7 @@
     }
 
     // construct an expression to filter for the item state properties passed as query params
-    foreach (KeyValuePair<string, object> param in stateParams)
+    foreach (KeyValuePair<string, object> param in qp.StateParameters)
     {
         string? foreignComparisonKey = statePropInfos
             .FirstOrDefault(pi => pi.Name == param.Key)?
@@ -316,16 +205,13 @@
     }
 
     // if any AdditionalProperties query params have been specified, construct an expression to filter for those
-    if (queryParameters.Count > 0)
+    if (qp.AdditionalPropertyParameters.Count > 0)
     {
         // create a json document which contains the properties we want to filter for
         JsonObject jsonFilter = new();
-        foreach (KeyValuePair<string, StringValues> queryParam in queryParameters)
+        foreach (KeyValuePair<string, string> queryParam in qp.AdditionalPropertyParameters)
         {
-            if (queryParam.Value.Count == 0)
-                continue;
-
-            jsonFilter[queryParam.Key] = queryParam.Value.First();
+            jsonFilter[queryParam.Key] = queryParam.Value;
         }
         JsonDocument jsonFilterDoc = jsonFilter.Deserialize<JsonDocument>()!;
 
@@ -340,9 +226,10 @@
     }
 
     // get the used item schemas and extract the additional properties our items could have
-    IEnumerable<ItemSchema> itemSchemas = itemsQueryable
+    List<ItemSchema> itemSchemas = itemsQueryable
         .Select(it => it.ItemSchema)
-        .Distinct();
+        .Distinct()
+        .ToList();
     List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).ToList();
 
     // get a list of column property names which are allowed
@@ -357,23 +244,9 @@
         .Select(p => p.Name));
     allowedPropertyColumns.AddRange(schemasAdditionalProperties);
 
-    // if no columns to display are specified, show some sane default columns
-    if (columnsToDisplay.Count == 0)
-    {
-        columnsToDisplay = [
-            nameof(Item.Id),
-    nameof(Item.Customer),
-    nameof(Item.ItemNumber),
-    nameof(ItemState.Warehouse),
-    nameof(ItemState.Location),
-    nameof(Item.EntryDate)
-        ];
-        columnsToDisplay.AddRange(schemasAdditionalProperties);
-    }
-
     OrderedDictionary<string, bool> displayPropertyColumns = new();
 
-    foreach (string columnName in columnsToDisplay)
+    foreach (string columnName in qp.GetColumnsToDisplay(itemSchemas))
     {
         if (allowedPropertyColumns.Contains(columnName))
             displayPropertyColumns.Add(columnName, true);
@@ -412,7 +285,7 @@
         else
             RemoveQueryParamAndNavigate(propertyName);
 
-        if(badgeEditingParamName == propertyName)
+        if (badgeEditingParamName == propertyName)
             badgeEditingParamName = null;
     }
 }
@@ -422,16 +295,16 @@
     @foreach (string propertyName in basePropInfos.Select(pi => pi.Name)
     .Concat(statePropInfos.Select(pi => pi.Name))
     .Concat(schemasAdditionalProperties)
-    .Concat(queryParameters.Keys)
+    .Concat(qp.AdditionalPropertyParameters.Keys)
     .Distinct())
     {
-        object? paramValue = baseParams.GetValueOrDefault(propertyName)
-        ?? stateParams.GetValueOrDefault(propertyName);
+        object? paramValue = qp.BaseParameters.GetValueOrDefault(propertyName)
+        ?? qp.StateParameters.GetValueOrDefault(propertyName);
 
         if (paramValue == null)
         {
-            if (queryParameters.TryGetValue(propertyName, out StringValues stringValues))
-                paramValue = stringValues.First();
+            if (qp.AdditionalPropertyParameters.TryGetValue(propertyName, out string? stringValue))
+                paramValue = stringValue;
         }
 
         string? propertyType = basePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name
@@ -523,7 +396,7 @@
     </button>
 </div>
 
-@if (groupByProperty == null)
+@if (qp.GroupByProperty == null)
 {
     List<Item> items = itemsQueryable
         .Include(it => it.ItemStates)
@@ -534,19 +407,19 @@
                                  Items="@items"
                                  AtDate="@atParam"
                                  PropertyColumns="@displayPropertyColumns"
-                                 SortByColumn="@sortByProperty"
-                                 SortOrderDescending="@orderDescending" />
+                                 SortByColumn="@qp.SortByProperty"
+                                 SortOrderDescending="@qp.SortOrderDescending" />
 }
 else
 {
     List<IGrouping<object?, Item>> itemGroups;
-    if (basePropInfos.Any(pi => pi.Name == groupByProperty))
+    if (basePropInfos.Any(pi => pi.Name == qp.GroupByProperty))
     {
-        MemberExpression propertyExpression = Expression.Property(itemParameterExpression, groupByProperty);
+        MemberExpression propertyExpression = Expression.Property(itemParameterExpression, qp.GroupByProperty);
         Expression<Func<Item, object>> lambda = Expression.Lambda<Func<Item, object>>(propertyExpression, itemParameterExpression);
         itemGroups = itemsQueryable.GroupBy(lambda).ToList();
     }
-    else if (statePropInfos.Any(pi => pi.Name == groupByProperty))
+    else if (statePropInfos.Any(pi => pi.Name == qp.GroupByProperty))
     {
         MemberExpression propertyExpression = Expression.Property(itemParameterExpression, nameof(Item.ItemStates));
 
@@ -584,7 +457,7 @@ else
             orderByDescendingCallExpression);
 
         // build the property comparison expression and chain call it
-        MemberExpression statePropertyExpression = Expression.Property(firstCallExpression, groupByProperty);
+        MemberExpression statePropertyExpression = Expression.Property(firstCallExpression, qp.GroupByProperty);
 
         Expression<Func<Item, object?>> keySelectorLambda = Expression.Lambda<Func<Item, object?>>(statePropertyExpression, itemParameterExpression);
 
@@ -596,9 +469,9 @@ else
     {
         itemGroups = itemsQueryable
             .AsQueryable()
-            .GroupBy(it => (object?)it.AdditionalProperties.RootElement.GetProperty(groupByProperty).GetString())
+            .GroupBy(it => (object?)it.AdditionalProperties.RootElement.GetProperty(qp.GroupByProperty).GetString())
             .ToList();
     }
 
-    <WarehouseGroupedItemTableComponent ItemGroups="@itemGroups" GroupByPropertyName="@groupByProperty" />
+    <WarehouseGroupedItemTableComponent ItemGroups="@itemGroups" GroupByPropertyName="@qp.GroupByProperty" />
 }
