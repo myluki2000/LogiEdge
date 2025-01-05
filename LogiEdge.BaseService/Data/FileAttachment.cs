@@ -4,6 +4,8 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LogiEdge.Shared.Conventions;
+using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.BaseService.Data
 {
@@ -11,8 +13,15 @@ namespace LogiEdge.BaseService.Data
     {
         [Key]
         public Guid Id { get; set; }
-        public required byte[] Data { get; set; }
         public required string FileName { get; set; }
         public required string ContentType { get; set; }
+        [AutoInclude(false)]
+        public required BinaryData Data { get; set; }
+    }
+
+    [Owned]
+    public class BinaryData
+    {
+        public required byte[] Data { get; set; }
     }
 }
