@@ -1,0 +1,64 @@
+﻿@page "/warehouse/inbound/{TransactionId:guid}"
+@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Services
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Shared.Components
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject FileAttachmentService FileAttachmentService
+
+@code {
+    [Parameter]
+    public Guid TransactionId { get; set; }
+
+    private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        if (transaction == null)
+            return;
+
+        foreach (FileAttachment attachment in newAttachments)
+        {
+            FileAttachment entity = await FileAttachmentService.CreateAttachmentAsync(attachment);
+            transaction.AttachmentIds.Add(entity.Id);
+        }
+
+        await ctx.SaveChangesAsync();
+    }
+
+    private async Task OnAttachmentRemoved(Guid attachmentId)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+        transaction?.AttachmentIds.Remove(attachmentId);
+        await FileAttachmentService.DeleteAttachmentAsync(attachmentId);
+        await ctx.SaveChangesAsync();
+    }
+
+}
+
+@{
+    using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+    InboundTransaction? transaction = ctx.InboundTransactions
+        .FirstOrDefault(t => t.Id == TransactionId);
+
+    if (transaction == null)
+    {
+        <p>Could not find transaction with ID @TransactionId</p>
+        return;
+    }
+
+    List<FileAttachment> attachments = FileAttachmentService.GetAttachments(transaction.AttachmentIds);
+}
+
+<h3>InboundTransactionPage</h3>
+
+<FileAttachmentManagerComponent Attachments="@attachments"
+                                OnAttachmentsUploaded="OnAttachmentsUploaded"
+                                OnAttachmentRemoved="OnAttachmentRemoved"/>

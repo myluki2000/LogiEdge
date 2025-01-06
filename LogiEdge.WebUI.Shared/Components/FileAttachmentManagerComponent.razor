@@ -1,0 +1,64 @@
+﻿@using LogiEdge.BaseService.Data
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public required DbContext DbContext { get; set; }
+    [Parameter]
+    public required List<FileAttachment> Attachments { get; set; }
+    [Parameter]
+    public required EventCallback<List<FileAttachment>> OnAttachmentsUploaded { get; set; }
+    [Parameter]
+    public required EventCallback<Guid> OnAttachmentRemoved { get; set; }
+
+    private async Task InputFileOnChange(InputFileChangeEventArgs e)
+    {
+        List<FileAttachment> newAttachments = [];
+
+        foreach (IBrowserFile file in e.GetMultipleFiles())
+        {
+            await using Stream rs = file.OpenReadStream(50000000);
+            await using MemoryStream ms = new();
+            await rs.CopyToAsync(ms);
+            newAttachments.Add(new FileAttachment()
+            {
+                ContentType = file.ContentType,
+                FileName = file.Name,
+                Data = new BinaryData(ms.ToArray())
+            });
+        }
+
+        await OnAttachmentsUploaded.InvokeAsync(newAttachments);
+    }
+
+    private void RemoveAttachment(Guid attachmentId)
+    {
+        OnAttachmentRemoved.InvokeAsync(attachmentId);
+    }
+}
+
+<div id="file-attachment-manager">
+    <div class="file-attachment-manager-header">
+        <h3>Attachments</h3>
+    </div>
+    <div id="file-attachment-container">
+        @foreach (FileAttachment attachment in Attachments)
+        {
+            <div class="item">
+                <span class="btn-remove-attachment material-symbols-rounded"
+                      @onclick="() => RemoveAttachment(attachment.Id)">
+                    delete
+                </span>
+                <a href="@($"/api/attachments/{attachment.Id}/download")">@attachment.FileName</a>
+            </div>
+        }
+        
+        <label class="item" id="file-drop-zone" for="file-selector">
+            Drop files here or click to select
+            <InputFile OnChange="InputFileOnChange" 
+                       id="file-selector"
+                       style="opacity: 0; position: absolute; width: 100%; height: 100%; top: 0; left: 0;"
+                       multiple />
+        </label>
+    </div>
+</div>

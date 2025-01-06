@@ -1,30 +1,41 @@
 ﻿@page "/Settings"
-
 @using Microsoft.EntityFrameworkCore
-@using LogiEdge.Data
-@using Microsoft.EntityFrameworkCore.Internal
-@using Microsoft.IdentityModel.Tokens
-@using LogiEdge.BaseService.Persistence
+@using LogiEdge.BaseService.Services
+@inject SettingsService SettingsService;
 
 @code {
     private string NewKeyName { get; set; } = "";
 
     private void AddNewKey()
     {
-        using ApplicationDbContext dbContext = DbContextFactory.CreateDbContext();
-        if (!string.IsNullOrEmpty(NewKeyName)) {
-            dbContext.Settings.Add(new SettingsEntry(NewKeyName, ""));
+        if (!string.IsNullOrEmpty(NewKeyName))
+        {
+            SettingsService.SetSetting(NewKeyName, "");
             NewKeyName = "";
-            dbContext.SaveChanges();
+        }
+    }
+
+    private Dictionary<string, string>? OriginalSettings { get; set; }
+    private Dictionary<string, string>? EditSettings { get; set; }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        OriginalSettings = new(SettingsService.GetAllSettings());
+        EditSettings = new(OriginalSettings);
+    }
+
+    private void SaveSettings()
+    {
+        foreach ((string key, string value) in EditSettings!.Where(es => OriginalSettings!.GetValueOrDefault(es.Key) != es.Value))
+        {
+            SettingsService.SetSetting(key, value);
         }
     }
 }
-<h3>Settings</h3>
 
-@inject IDbContextFactory<ApplicationDbContext> DbContextFactory;
-@{
-    ApplicationDbContext dbContext = DbContextFactory.CreateDbContext();
-}
+<h3>Settings</h3>
 
 <table>
     <thead>
@@ -34,11 +45,11 @@
     </tr>
     </thead>
     <tbody>
-        @foreach (SettingsEntry entry in dbContext.Settings)
+        @foreach (string key in EditSettings!.Keys)
         {
             <tr>
-                <td>@entry.Key</td>
-                <td><InputText @bind-Value="@entry.Value" @onblur="() => dbContext.SaveChanges()"></InputText></td>
+                <td>@key</td>
+                <td><InputText @bind-Value="EditSettings[key]" @onblur="SaveSettings"></InputText></td>
             </tr>
         }
     </tbody>

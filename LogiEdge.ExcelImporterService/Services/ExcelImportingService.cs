@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using LogiEdge.BaseService.Persistence;
+using LogiEdge.BaseService.Services;
 using LogiEdge.CustomerService.Data;
 using LogiEdge.CustomerService.Services;
 using LogiEdge.ExcelImporterService.Data;
@@ -21,15 +22,13 @@ using Microsoft.Extensions.Options;
 
 namespace LogiEdge.ExcelImporterService.Services
 {
-    public class ExcelImportingService(IDbContextFactory<ApplicationDbContext> appDbContextFactory,
+    public class ExcelImportingService(SettingsService settingsService,
                                        IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory,
                                        CustomerManagementService customerService)
     {
         public void RunImport()
         {
-            using ApplicationDbContext appDbContext = appDbContextFactory.CreateDbContext();
-
-            string configJson = appDbContext.Settings.Find("ExcelImporterConfig")?.Value ?? throw new Exception("Could not find 'ExcelImporterConfig' settings entry.");
+            string configJson = settingsService.GetSetting("ExcelImporterConfig") ?? throw new Exception("Could not find 'ExcelImporterConfig' settings entry.");
 
             ExcelImporterConfig config = LoadConfigFromPath(configJson);
 

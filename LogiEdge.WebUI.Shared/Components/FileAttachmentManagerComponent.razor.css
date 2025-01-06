@@ -1,0 +1,40 @@
+﻿#file-attachment-container {
+    display: flex;
+}
+
+    #file-attachment-container .item {
+        position: relative;
+        box-sizing: border-box;
+        width: 150px;
+        height: 200px;
+        padding: 4px;
+        border-style: solid;
+        border-color: var(--bs-primary);
+        border-width: 1px;
+        border-radius: var(--bs-border-radius-sm);
+        margin: 8px;
+        word-wrap: break-word;
+    }
+
+        #file-attachment-container .item .btn-remove-attachment {
+            position: absolute;
+            top: 0;
+            right: 0;
+            cursor: pointer;
+            font-weight: 200;
+            color: var(--bs-danger);
+            background-color: var(--bs-gray-300);
+            border-bottom-left-radius: var(--bs-border-radius-sm);
+            border-top-right-radius: var(--bs-border-radius-sm);
+            border-left-style: solid;
+            border-bottom-style: solid;
+            border-color: var(--bs-primary);
+            border-width: 1px;
+        }
+
+    #file-attachment-container #file-drop-zone {
+        cursor: pointer;
+        border-style: dotted;
+        border-width: 2px;
+        text-align: center;
+    }

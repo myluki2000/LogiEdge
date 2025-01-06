@@ -23,6 +23,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Test.ExcelImporter
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Test.Shared", "LogiEdge.Test.Shared\LogiEdge.Test.Shared.csproj", "{9A22C03D-D34F-4B07-B502-8B288237D71C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.WebUI.Shared", "LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj", "{BA8BE3F0-38BB-416D-A1B1-67E82058274D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,10 @@ Global
 		{9A22C03D-D34F-4B07-B502-8B288237D71C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9A22C03D-D34F-4B07-B502-8B288237D71C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9A22C03D-D34F-4B07-B502-8B288237D71C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

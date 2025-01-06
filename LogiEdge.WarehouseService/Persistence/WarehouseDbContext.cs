@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using LogiEdge.BaseService.Data;
 using LogiEdge.CustomerService.Data;
 using LogiEdge.Shared.Conventions;
 using LogiEdge.WarehouseService.Data;

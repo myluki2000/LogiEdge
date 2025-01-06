@@ -20,8 +20,8 @@ namespace LogiEdge.BaseService.Data
     }
 
     [Owned]
-    public class BinaryData
+    public class BinaryData(byte[] data)
     {
-        public required byte[] Data { get; set; }
+        public byte[] Data { get; set; } = data;
     }
 }

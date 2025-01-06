@@ -16,6 +16,6 @@ namespace LogiEdge.WarehouseService.Data.Transactions
         public required Guid CreatedByUserId { get; set; }
         public required string HandledByWorker { get; set; }
         public string Comments { get; set; } = string.Empty;
-        public List<FileAttachment> Attachments { get; set; } = [];
+        public List<Guid> AttachmentIds { get; set; } = [];
     }
 }

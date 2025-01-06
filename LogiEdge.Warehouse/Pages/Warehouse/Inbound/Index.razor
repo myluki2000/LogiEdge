@@ -1,0 +1,35 @@
+﻿@page "/warehouse/inbound"
+@using LogiEdge.BaseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+@code {
+    private void BtnCreateTransactionOnClick()
+    {
+        WarehouseDbContext ctx = WarehouseDbContextFactory.CreateDbContext();
+
+        ctx.InboundTransactions.Add(new InboundTransaction()
+        {
+            Date = DateTime.UtcNow,
+            CreatedByUserId = Guid.Empty,
+            HandledByWorker = "",
+            AttachmentIds = []
+        });
+
+        ctx.SaveChanges();
+    }
+}
+
+@{
+    WarehouseDbContext ctx = WarehouseDbContextFactory.CreateDbContext();
+}
+
+<button @onclick="BtnCreateTransactionOnClick">Create Transaction</button>
+
+<h3>Inbound Transactions</h3>
+@foreach (InboundTransaction transaction in ctx.InboundTransactions)
+{
+    <li><a href="@($"/warehouse/inbound/{transaction.Id}")">@transaction.Id</a></li>
+}
