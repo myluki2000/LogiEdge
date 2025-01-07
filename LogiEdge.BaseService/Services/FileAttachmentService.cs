@@ -69,7 +69,15 @@ namespace LogiEdge.BaseService.Services
             if (attachment is null) return attachment;
 
             context.Attachments.Remove(attachment);
-            await context.SaveChangesAsync();
+
+            // if delete fails because of concurrency exception, that means the attachment was already deleted,
+            // so we don't care
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException) { }
+
             return attachment;
         }
     }
