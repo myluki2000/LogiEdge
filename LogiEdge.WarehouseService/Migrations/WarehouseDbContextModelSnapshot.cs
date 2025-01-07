@@ -135,7 +135,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("ItemStates");
+                    b.ToTable("ItemState");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>

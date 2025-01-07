@@ -20,7 +20,6 @@ namespace LogiEdge.WarehouseService.Persistence
         public DbSet<Warehouse> Warehouses { get; init; }
 
         public DbSet<Item> Items { get; init; }
-        public DbSet<ItemState> ItemStates { get; init; }
         public DbSet<ItemSchema> ItemSchemas { get; init; }
 
         public DbSet<InventoryTransaction> Transactions { get; init; }

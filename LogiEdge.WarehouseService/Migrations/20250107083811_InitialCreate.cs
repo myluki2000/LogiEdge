@@ -91,7 +91,7 @@ namespace LogiEdge.WarehouseService.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ItemStates",
+                name: "ItemState",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -102,15 +102,15 @@ namespace LogiEdge.WarehouseService.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ItemStates", x => x.Id);
+                    table.PrimaryKey("PK_ItemState", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ItemStates_Items_ItemId",
+                        name: "FK_ItemState_Items_ItemId",
                         column: x => x.ItemId,
                         principalTable: "Items",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_ItemStates_Warehouses_WarehouseId",
+                        name: "FK_ItemState_Warehouses_WarehouseId",
                         column: x => x.WarehouseId,
                         principalTable: "Warehouses",
                         principalColumn: "Id",
@@ -133,13 +133,13 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ItemStates_ItemId",
-                table: "ItemStates",
+                name: "IX_ItemState_ItemId",
+                table: "ItemState",
                 column: "ItemId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ItemStates_WarehouseId",
-                table: "ItemStates",
+                name: "IX_ItemState_WarehouseId",
+                table: "ItemState",
                 column: "WarehouseId");
         }
 
@@ -147,7 +147,7 @@ namespace LogiEdge.WarehouseService.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "ItemStates");
+                name: "ItemState");
 
             migrationBuilder.DropTable(
                 name: "Transactions");

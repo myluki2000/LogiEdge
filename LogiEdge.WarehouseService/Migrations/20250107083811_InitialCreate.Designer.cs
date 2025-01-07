@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20250106165632_InitialCreate")]
+    [Migration("20250107083811_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -138,7 +138,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("ItemStates");
+                    b.ToTable("ItemState");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
