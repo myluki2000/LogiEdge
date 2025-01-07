@@ -11,7 +11,7 @@
     [Parameter]
     public required EventCallback<Guid> OnAttachmentRemoved { get; set; }
 
-    private int dragOverCounter { get; set; } = 0;
+    private int DragOverCounter { get; set; } = 0;
 
     private async Task InputFileOnChange(InputFileChangeEventArgs e)
     {
@@ -55,16 +55,16 @@
             </div>
         }
         
-        <label class="item @(dragOverCounter > 0 ? "drag-over" : "")" 
+        <label class="item @(DragOverCounter > 0 ? "drag-over" : "")" 
                id="file-drop-zone"
                for="file-selector">
             <span style="pointer-events: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
                 Drop files here or click to select
             </span>
             <InputFile OnChange="InputFileOnChange"  
-                       @ondragenter="() => dragOverCounter++"
-                       @ondragleave="() => dragOverCounter--"
-                       @ondrop="() => dragOverCounter = 0"
+                       @ondragenter="() => DragOverCounter++"
+                       @ondragleave="() => DragOverCounter--"
+                       @ondrop="() => DragOverCounter = 0"
                        id="file-selector"
                        style="opacity: 0; position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 99;"
                        multiple />
