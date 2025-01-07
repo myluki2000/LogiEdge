@@ -11,13 +11,15 @@
     [Parameter]
     public required EventCallback<Guid> OnAttachmentRemoved { get; set; }
 
+    private int dragOverCounter { get; set; } = 0;
+
     private async Task InputFileOnChange(InputFileChangeEventArgs e)
     {
         List<FileAttachment> newAttachments = [];
 
         foreach (IBrowserFile file in e.GetMultipleFiles())
         {
-            await using Stream rs = file.OpenReadStream(50000000);
+            await using Stream rs = file.OpenReadStream(100000000);
             await using MemoryStream ms = new();
             await rs.CopyToAsync(ms);
             newAttachments.Add(new FileAttachment()
@@ -53,11 +55,18 @@
             </div>
         }
         
-        <label class="item" id="file-drop-zone" for="file-selector">
-            Drop files here or click to select
-            <InputFile OnChange="InputFileOnChange" 
+        <label class="item @(dragOverCounter > 0 ? "drag-over" : "")" 
+               id="file-drop-zone"
+               for="file-selector">
+            <span style="pointer-events: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                Drop files here or click to select
+            </span>
+            <InputFile OnChange="InputFileOnChange"  
+                       @ondragenter="() => dragOverCounter++"
+                       @ondragleave="() => dragOverCounter--"
+                       @ondrop="() => dragOverCounter = 0"
                        id="file-selector"
-                       style="opacity: 0; position: absolute; width: 100%; height: 100%; top: 0; left: 0;"
+                       style="opacity: 0; position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 99;"
                        multiple />
         </label>
     </div>

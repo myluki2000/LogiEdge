@@ -30,11 +30,22 @@
             border-bottom-style: solid;
             border-color: var(--bs-primary);
             border-width: 1px;
+            user-select: none;
         }
+
+            #file-attachment-container .item .btn-remove-attachment:hover {
+                background-color: var(--bs-gray-400);
+            }
 
     #file-attachment-container #file-drop-zone {
         cursor: pointer;
         border-style: dotted;
         border-width: 2px;
         text-align: center;
+        transition: all 0.3s;
     }
+
+        #file-attachment-container #file-drop-zone.drag-over {
+            border-style: solid;
+            background-color: lightblue;
+        }
