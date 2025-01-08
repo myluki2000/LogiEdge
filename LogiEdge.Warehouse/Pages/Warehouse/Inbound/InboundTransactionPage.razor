@@ -1,6 +1,7 @@
 ﻿@page "/warehouse/inbound/{TransactionId:guid}"
 @using LogiEdge.BaseService.Data
 @using LogiEdge.BaseService.Services
+@using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WebUI.Shared.Components
@@ -46,6 +47,8 @@
 @{
     using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
     InboundTransaction? transaction = ctx.InboundTransactions
+        .Include(t => t.ResultingItemStates)
+        .ThenInclude(st => st.Item)
         .FirstOrDefault(t => t.Id == TransactionId);
 
     if (transaction == null)
@@ -58,6 +61,15 @@
 }
 
 <h3>InboundTransactionPage</h3>
+
+<ul>
+    @foreach (ItemState itemState in transaction.ResultingItemStates)
+    {
+        <li>
+            <span>@itemState.Item.Id - @itemState.Item.ItemNumber</span>
+        </li>
+    }
+</ul>
 
 <FileAttachmentManagerComponent Attachments="@attachments"
                                 OnAttachmentsUploaded="OnAttachmentsUploaded"

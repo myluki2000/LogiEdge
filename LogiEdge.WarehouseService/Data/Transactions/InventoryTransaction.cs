@@ -17,5 +17,7 @@ namespace LogiEdge.WarehouseService.Data.Transactions
         public required string HandledByWorker { get; set; }
         public string Comments { get; set; } = string.Empty;
         public List<Guid> AttachmentIds { get; set; } = [];
+
+        public List<ItemState> ResultingItemStates { get; set; } = [];
     }
 }

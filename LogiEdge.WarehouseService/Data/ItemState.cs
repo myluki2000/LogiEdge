@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using LogiEdge.Shared.Attributes;
+using LogiEdge.WarehouseService.Data.Transactions;
 
 namespace LogiEdge.WarehouseService.Data
 {
@@ -24,5 +25,7 @@ namespace LogiEdge.WarehouseService.Data
         [DisplayColumnProperty]
         [MaxLength(32)]
         public required string Location { get; set; }
+
+        public InventoryTransaction? RelatedTransaction { get; set; }
     }
 }
