@@ -10,12 +10,21 @@
 @using LogiEdge.Warehouse.Pages.Warehouse
 @using LogiEdge.WarehouseService.Data
 @using Microsoft.AspNetCore.Components.Forms
+@inject NavigationManager NavigationManager
 @code {
     [Parameter]
     public required IList<Item> Items { get; set; }
-    [Parameter]
-    public DateTime? AtDate { get; set; }
 
+    /// <summary>
+    /// Func which is used to determine which ItemState of the item is shown in the table.
+    /// </summary>
+    [Parameter]
+    public required Func<Item, ItemState> ItemStateSelectionFunc { get; set; }
+
+    /// <summary>
+    /// Ordered dictionary of the columns to display in the table. The Value in the dict is
+    /// a bool which indicates whether the column should be visible or hidden.
+    /// </summary>
     [Parameter]
     public required OrderedDictionary<string, bool> PropertyColumns
     {
@@ -29,18 +38,42 @@
     }
 
     /// <summary>
-    /// Name of the column to sort by.
+    /// Provides information about how the item list passed to the component is sorted.
+    /// Pass NULL if item list is not sorted.
     /// </summary>
     [Parameter]
-    public string? SortByColumn { get; set; } = null;
-    /// <summary>
-    /// If false, sort in ascending order. If true, sort in descending order
-    /// </summary>
-    [Parameter]
-    public bool SortOrderDescending { get; set; } = false;
+    public ColumnSortInfo? SortInfo { get; set; } = null;
 
+    /// <summary>
+    /// Set an action to this property which is run if the user clicks on a property value
+    /// to filter the table by it. If no function is set, clicking on property values is disabled.
+    /// </summary>
     [Parameter]
-    public required ItemsPage Parent { get; set; }
+    public Action<(string propertyName, object? propertyValue)>? OnPropertyValueClicked { get; set; } = null;
+    /// <summary>
+    /// This function defines whether a property value of a property is clickable or not. If the value is clickable
+    /// and is then clicked, the OnPropertyValueClicked action is run.
+    /// </summary>
+    [Parameter]
+    public Func<(string propertyName, object? propertyValue), bool>? PropertyValueClickableFunc { get; set; } = null;
+    /// <summary>
+    /// Action which is run if the sort button of a column of the table is clicked. If set to NULL, sort buttons
+    /// are hidden.
+    /// </summary>
+    [Parameter]
+    public Action<ColumnSortInfo>? OnSortButtonClicked { get; set; } = null;
+    /// <summary>
+    /// Action which is run if the user clicks on the button to select which columns to show in the table.
+    /// If set to NULL, the button is hidden.
+    /// </summary>
+    [Parameter]
+    public Action<IEnumerable<string>>? OnColumnDisplaySelectionRequested { get; set; } = null!;
+    /// <summary>
+    /// Renders the render fragment as a footer row (RenderFragment should have root-level <tr></tr>) if
+    /// set to non-null.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? FooterRow { get; set; } = null;
 
     private OrderedDictionary<string, bool>? modalPropertyColumns = null;
     private List<DraggableList<string>.ListItem> propertyListItems = [];
@@ -48,24 +81,38 @@
     private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
     private OrderedDictionary<string, bool> propertyColumns;
 
-    private void BtnSortClicked(string? columnName)
+    private void BtnSortClicked(string columnName)
     {
         // sort the column in ascending order if it is not already sorted by it
-        bool descending = (SortByColumn == columnName) && !SortOrderDescending;
+        bool descending = (SortInfo?.SortByColumn == columnName) && !(SortInfo?.SortOrderDescending ?? false);
 
-        if (columnName != null)
-            Parent.AddOrUpdateQueryParamsAndNavigate([("sortBy", [columnName]), ("orderDescending", [descending.ToString()])]);
-        else
-            Parent.RemoveQueryParamsAndNavigate("sortBy", "orderDescending");
+        OnSortButtonClicked?.Invoke(new ColumnSortInfo(columnName, descending));
     }
 
     private void BtnCloseModalClicked()
     {
         OrderedDictionary<string, bool> properties = new((modalPropertyColumns ?? [])
             .OrderBy(x => propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList());
-        Parent.AddOrUpdateQueryParamAndNavigate("col", properties.Where(x => x.Value).Select(x => x.Key).ToArray());
+        OnColumnDisplaySelectionRequested?.Invoke(properties.Where(x => x.Value).Select(x => x.Key).ToArray());
     }
 
+    public class ColumnSortInfo
+    {
+        /// <summary>
+        /// Name of the column the items are sorted by.
+        /// </summary>
+        public string SortByColumn { get; set; }
+        /// <summary>
+        /// If false, sorted in ascending order. If true, sorted in descending order
+        /// </summary>
+        public bool SortOrderDescending { get; set; }
+
+        public ColumnSortInfo(string sortByColumn, bool sortOrderDescending)
+        {
+            SortByColumn = sortByColumn;
+            SortOrderDescending = sortOrderDescending;
+        }
+    }
 }
 
 @{
@@ -73,44 +120,19 @@
     {
         (string propertyName, object? propertyValue) = data;
 
-        if (propertyValue == null)
+        if(PropertyValueClickableFunc?.Invoke((propertyName, propertyValue)) ?? false)
         {
-            <td></td>
-            return;
+            <a href="" @onclick="() => OnPropertyValueClicked?.Invoke((propertyName, propertyValue))">
+                <td>
+                    <PropertyValueComponent PropertyValue="propertyValue" />
+                </td>
+            </a>
         }
-
-        switch (propertyName)
+        else
         {
-            case nameof(Item.Id):
-                <td>
-                    <a href="/item/@propertyValue">
-                        <PropertyValueComponent PropertyValue="propertyValue" />
-                    </a>
-                </td>
-                return;
-            case nameof(Item.Customer):
-                Customer c = (Customer)propertyValue;
-                <td>
-                    <a href="" @onclick='() => Parent.AddOrUpdateQueryParamAndNavigate("Customer", c.Id.ToString())'>
-                        <PropertyValueComponent PropertyValue="c" />
-                    </a>
-                </td>
-                return;
-            case nameof(ItemState.Warehouse):
-                Warehouse w = (Warehouse)propertyValue;
-                <td>
-                    <a href="" @onclick='() => Parent.AddOrUpdateQueryParamAndNavigate("Warehouse", w.Id.ToString())'>
-                        <PropertyValueComponent PropertyValue="w" />
-                    </a>
-                </td>
-                return;
-            default:
-                <td>
-                    <a href="" @onclick='() => Parent.AddOrUpdateQueryParamAndNavigate(propertyName, propertyValue?.ToString() ?? "")'>
-                        <PropertyValueComponent PropertyValue="propertyValue" />
-                    </a>
-                </td>
-                return;
+            <td>
+                <PropertyValueComponent PropertyValue="propertyValue" />
+            </td>
         }
     };
 }
@@ -124,31 +146,36 @@
                 <th style="line-height: 24px;">
                     <span style="vertical-align: bottom;">@propertyName</span>
 
-                    <button type="button"
-                            class="btn btn-secondary table-button"
-                            @onclick="() => BtnSortClicked(propertyName)">
-                        @if (SortByColumn == propertyName)
-                        {
-                            @if (SortOrderDescending)
+                    // render a sort button in the column header if the OnSortButtonClicked callback
+                    // is set
+                    @if (OnSortButtonClicked != null)
+                    {
+                        <button type="button"
+                        class="btn btn-secondary table-button"
+                        @onclick="() => BtnSortClicked(propertyName)">
+                            @if (SortInfo?.SortByColumn == propertyName)
                             {
-                                <span class="material-symbols-rounded">
-                                    arrow_upward
-                                </span>
+                                @if (SortInfo.SortOrderDescending)
+                                {
+                                    <span class="material-symbols-rounded">
+                                        arrow_upward
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="material-symbols-rounded">
+                                        arrow_downward
+                                    </span>
+                                }
                             }
                             else
                             {
                                 <span class="material-symbols-rounded">
-                                    arrow_downward
+                                    swap_vert
                                 </span>
                             }
-                        }
-                        else
-                        {
-                            <span class="material-symbols-rounded">
-                                swap_vert
-                            </span>
-                        }
-                    </button>
+                        </button>
+                    }
 
                     @if (propertyName == PropertyColumns.Last(x => x.Value).Key)
                     {
@@ -168,43 +195,9 @@
         </tr>
     </thead>
     <tbody>
-        @{
-            IList<Item> sortedItems = Items;
-
-            if (SortByColumn != null)
-            {
-                Func<Item, object?>? lambda = null;
-                if (typeof(Item).GetProperty(SortByColumn) is { } itemInfo)
-                {
-                    lambda = it => itemInfo.GetValue(it);
-                }
-                else if (typeof(ItemState).GetProperty(SortByColumn) is { } stateInfo)
-                {
-                    lambda = it => stateInfo.GetValue(it.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date));
-                }
-                else
-                {
-                    lambda = it => (it.GetAdditionalProperty(SortByColumn) ?? null);
-                }
-
-                if (SortOrderDescending)
-                {
-
-                    sortedItems = sortedItems
-                    .OrderByDescending(lambda)
-                    .ToList();
-                }
-                else
-                {
-                    sortedItems = sortedItems
-                    .OrderBy(lambda)
-                    .ToList();
-                }
-            }
-        }
-        @foreach (Item item in sortedItems)
+        @foreach (Item item in Items)
         {
-            ItemState? itemState = item.ItemStates.Where(st => !AtDate.HasValue || st.Date <= AtDate.Value).MaxBy(st => st.Date);
+            ItemState? itemState = ItemStateSelectionFunc.Invoke(item);
 
             // if there is no item state before the given date that means the item wasn't in the warehouse at this
             // point in time, so skip it
@@ -236,6 +229,11 @@
                     @propertyRenderFragment((propertyName, propertyValue))
                 }
             </tr>
+        }
+
+        @if (FooterRow != null)
+        {
+            @FooterRow
         }
     </tbody>
 </table>

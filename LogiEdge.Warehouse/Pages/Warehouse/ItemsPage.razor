@@ -403,12 +403,92 @@
         .ThenInclude(st => st.Warehouse)
         .ToList();
 
-    <WarehouseItemTableComponent Parent="@this"
-                                 Items="@items"
-                                 AtDate="@atParam"
+    Action<(string propertyName, object? propertyValue)> onPropertyValueClick =
+        ((string propertyName, object? propertyValue) e) =>
+    {
+        switch (e.propertyName)
+        {
+            case nameof(Item.Id):
+                NavigationManager.NavigateTo($"/item/{e.propertyValue}");
+                break;
+            case nameof(Item.Customer):
+                Customer c = (Customer)e.propertyValue;
+                AddOrUpdateQueryParamAndNavigate("Customer", c.Id.ToString());
+                break;
+            case nameof(ItemState.Warehouse):
+                Warehouse w = (Warehouse)e.propertyValue;
+                AddOrUpdateQueryParamAndNavigate("Warehouse", w.Id.ToString());
+                break;
+            default:
+                AddOrUpdateQueryParamAndNavigate(e.propertyName, e.propertyValue?.ToString() ?? "");
+                break;
+        }
+
+    };
+
+    Action<WarehouseItemTableComponent.ColumnSortInfo> onSortButtonClicked = si =>
+    {
+        if (si.SortByColumn != null)
+            AddOrUpdateQueryParamsAndNavigate(
+                                        [
+                    ("sortBy", [si.SortByColumn]),
+                    ("orderDescending", [si.SortOrderDescending.ToString()])
+                ]
+            );
+        else
+            RemoveQueryParamsAndNavigate("sortBy", "orderDescending");
+    };
+
+    WarehouseItemTableComponent.ColumnSortInfo? sortInfo =
+        qp.SortByProperty != null
+            ? new WarehouseItemTableComponent.ColumnSortInfo(qp.SortByProperty, qp.SortOrderDescending)
+            : null;
+
+    IList<Item> sortedItems = items;
+
+    if (sortInfo != null)
+    {
+        Func<Item, object?>? lambda = null;
+        if (typeof(Item).GetProperty(sortInfo.SortByColumn) is { } itemInfo)
+        {
+            lambda = it => itemInfo.GetValue(it);
+        }
+        else if (typeof(ItemState).GetProperty(sortInfo.SortByColumn) is { } stateInfo)
+        {
+            lambda = it => stateInfo.GetValue(it.ItemStates.Where(st => !atParam.HasValue || st.Date <= atParam.Value).MaxBy(st => st.Date));
+        }
+        else
+        {
+            lambda = it => (it.GetAdditionalProperty(sortInfo.SortByColumn) ?? null);
+        }
+
+        if (sortInfo.SortOrderDescending)
+        {
+
+            sortedItems = sortedItems
+            .OrderByDescending(lambda)
+            .ToList();
+        }
+        else
+        {
+            sortedItems = sortedItems
+            .OrderBy(lambda)
+            .ToList();
+        }
+    }
+
+    <WarehouseItemTableComponent Items="@sortedItems"
+                                 ItemStateSelectionFunc="item =>
+                                    item.ItemStates
+                                        .Where(st => !atParam.HasValue || st.Date <= atParam.Value)
+                                        .MaxBy(st => st.Date)"
                                  PropertyColumns="@displayPropertyColumns"
-                                 SortByColumn="@qp.SortByProperty"
-                                 SortOrderDescending="@qp.SortOrderDescending" />
+                                 OnSortButtonClicked="onSortButtonClicked"
+                                 SortInfo="sortInfo"
+                                 OnPropertyValueClicked="onPropertyValueClick"
+                                 OnColumnDisplaySelectionRequested='(IEnumerable<string> cols) =>
+                                    AddOrUpdateQueryParamAndNavigate("col", cols.ToArray())'
+                                 PropertyValueClickableFunc="e => true" />
 }
 else
 {
@@ -425,36 +505,36 @@ else
 
         // Convert ItemStates to IQueryable (EF Core needs this for translation)
         MethodCallExpression asQueryableCall = Expression.Call(
-            typeof(Queryable),
-            nameof(Queryable.AsQueryable),
-            [typeof(ItemState)],
-            propertyExpression
+        typeof(Queryable),
+        nameof(Queryable.AsQueryable),
+                                            [typeof(ItemState)],
+        propertyExpression
         );
 
         // build the where call expression and call it on the "it.ItemStates" property
         Expression<Func<ItemState, bool>> dateWhereLambda = st => st.Date <= atParam.Value;
         MethodCallExpression whereCallExpression = Expression.Call(
-            typeof(Queryable),
-            nameof(Queryable.Where),
-            [typeof(ItemState)],
-            asQueryableCall,
-            dateWhereLambda);
+        typeof(Queryable),
+        nameof(Queryable.Where),
+                                            [typeof(ItemState)],
+        asQueryableCall,
+        dateWhereLambda);
 
         // build the OrderByDescending call expression and chain call it
         Expression<Func<ItemState, DateTime>> orderByDescendingLambda = st => st.Date;
         MethodCallExpression orderByDescendingCallExpression = Expression.Call(
-            typeof(Queryable),
-            nameof(Queryable.OrderByDescending),
-            new[] { typeof(ItemState), typeof(DateTime) },
-            atParam != null ? whereCallExpression : asQueryableCall,
-            orderByDescendingLambda);
+        typeof(Queryable),
+        nameof(Queryable.OrderByDescending),
+        new[] { typeof(ItemState), typeof(DateTime) },
+        atParam != null ? whereCallExpression : asQueryableCall,
+        orderByDescendingLambda);
 
         // build the First call expression and chain call it
         MethodCallExpression firstCallExpression = Expression.Call(
-            typeof(Queryable),
-            nameof(Queryable.First),
-            new[] { typeof(ItemState) },
-            orderByDescendingCallExpression);
+        typeof(Queryable),
+        nameof(Queryable.First),
+        new[] { typeof(ItemState) },
+        orderByDescendingCallExpression);
 
         // build the property comparison expression and chain call it
         MemberExpression statePropertyExpression = Expression.Property(firstCallExpression, qp.GroupByProperty);
@@ -462,15 +542,15 @@ else
         Expression<Func<Item, object?>> keySelectorLambda = Expression.Lambda<Func<Item, object?>>(statePropertyExpression, itemParameterExpression);
 
         itemGroups = itemsQueryable
-            .AsQueryable()
-            .GroupBy(keySelectorLambda).ToList();
+        .AsQueryable()
+        .GroupBy(keySelectorLambda).ToList();
     }
     else
     {
         itemGroups = itemsQueryable
-            .AsQueryable()
-            .GroupBy(it => (object?)it.AdditionalProperties.RootElement.GetProperty(qp.GroupByProperty).GetString())
-            .ToList();
+        .AsQueryable()
+        .GroupBy(it => (object?)it.AdditionalProperties.RootElement.GetProperty(qp.GroupByProperty).GetString())
+        .ToList();
     }
 
     <WarehouseGroupedItemTableComponent ItemGroups="@itemGroups" GroupByPropertyName="@qp.GroupByProperty" />

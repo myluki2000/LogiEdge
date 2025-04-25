@@ -1,0 +1,62 @@
+﻿@page "/warehouse/transactions/"
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+<h3>Transactions</h3>
+
+@{
+    using WarehouseDbContext ctx = WarehouseDbContextFactory.CreateDbContext();
+
+    List<InventoryTransaction> transactions = ctx.InventoryTransactions.ToList();
+}
+
+<div>
+    @foreach(InventoryTransaction transaction in transactions)
+    {
+        string transactionTypeString = transaction switch
+        {
+            InboundTransaction => "Inbound Transaction",
+            OutboundTransaction => "Outbound Transaction",
+            RelocationTransaction => "Relocation Transaction",
+            _ => throw new Exception("Encountered unknown transaction type " + transaction.GetType().Name),
+        };
+
+        // group items first by customer and then by item number
+        var groupedItems = 
+            transaction.AffectedItems?.GroupBy(
+                it => it.Customer,
+                resultSelector: (key, gi) => (key, gi.GroupBy(x => x.ItemNumber)))
+        ?? [];
+
+        <div>
+            <span>@transactionTypeString</span>
+            <span>@transaction.Date</span>
+            <span>Created by @transaction.CreatedByUserId - Handled by @transaction.HandledByWorker</span>
+
+            <table>
+                <tr>
+                    <th>Item Number</th>
+                    <th>Count</th>
+                </tr>
+                @foreach(var customerGroup in groupedItems) {
+                    <tr>
+                        <td colspan="2" align="center">@customerGroup.key</td>
+                    </tr>
+                    @foreach(IGrouping<string, Item> itemGroup in customerGroup.Item2)
+                    {
+                        <tr>
+                            <td>@itemGroup.Key</td>
+                            <td>@itemGroup.Count()</td>
+                        </tr>
+                    }
+                }
+            </table>
+        </div>
+    }
+</div>
+
+

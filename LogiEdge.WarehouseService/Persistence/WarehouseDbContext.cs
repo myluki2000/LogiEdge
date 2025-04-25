@@ -22,10 +22,16 @@ namespace LogiEdge.WarehouseService.Persistence
         public DbSet<Item> Items { get; init; }
         public DbSet<ItemSchema> ItemSchemas { get; init; }
 
-        public DbSet<InventoryTransaction> Transactions { get; init; }
         public DbSet<InboundTransaction> InboundTransactions { get; init; }
         public DbSet<OutboundTransaction> OutboundTransactions { get; init; }
         public DbSet<RelocationTransaction> RelocationTransactions { get; init; }
+
+        public IEnumerable<InventoryTransaction> InventoryTransactions => Enumerable.Concat(
+            InboundTransactions,
+            Enumerable.Concat<InventoryTransaction>(
+                OutboundTransactions,
+                RelocationTransactions)
+        );
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
