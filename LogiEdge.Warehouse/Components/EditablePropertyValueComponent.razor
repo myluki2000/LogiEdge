@@ -6,9 +6,9 @@
     [Parameter]
     public EventCallback<object?> OnEditingFinished { get; set; }
     [Parameter]
-    private bool IsEditing { get; set; }
+    public bool IsEditing { get; set; }
     [Parameter]
-    private bool AllowEditingOnClick { get; set; }
+    public bool AllowEditingOnClick { get; set; }
 
     private void PropertyValueOnClick()
     {
