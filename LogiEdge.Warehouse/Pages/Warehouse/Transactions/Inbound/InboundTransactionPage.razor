@@ -1,0 +1,201 @@
+﻿@page "/warehouse/transactions/inbound/{TransactionId:guid}"
+@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Services
+@using LogiEdge.Shared.Attributes
+@using LogiEdge.Warehouse.Components
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Shared.Components
+@using Microsoft.EntityFrameworkCore
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@implements IAsyncDisposable
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject FileAttachmentService FileAttachmentService
+
+@code {
+    /// <summary>
+    /// The ID of the transaction this page will show
+    /// </summary>
+    [Parameter]
+    public Guid TransactionId { get; set; }
+    /// <summary>
+    /// During execution of <see cref="SetParametersAsync(ParameterView)"/>, keeps
+    /// track of the ID of the previou transaction this page displayed. Afterwards,
+    /// oldTransactionId and <see cref="TransactionId"/> will be identical.
+    ///
+    /// This field is necessary for when the <see cref="TransactionId"/> is changed
+    /// so the <see cref="SetParametersAsync(ParameterView)"/> can save the modified
+    /// data of the previous transaction.
+    /// </summary>
+    private Guid? oldTransactionId = null;
+
+    private JsonArray? draftItems = null;
+
+    private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        if (transaction == null)
+            return;
+
+        foreach (FileAttachment attachment in newAttachments)
+        {
+            FileAttachment entity = await FileAttachmentService.CreateAttachmentAsync(attachment);
+            transaction.AttachmentIds.Add(entity.Id);
+        }
+
+        await ctx.SaveChangesAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // TODO: Check if saving the page's data via the dispose method actually works reliably
+        await SaveTransactionItemDraftData();
+    }
+
+    private async Task OnAttachmentRemoved(Guid attachmentId)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+        transaction?.AttachmentIds.Remove(attachmentId);
+        await FileAttachmentService.DeleteAttachmentAsync(attachmentId);
+        await ctx.SaveChangesAsync();
+    }
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        if (oldTransactionId != null)
+        {
+            // if we navigate straight from one transaction to another (so this blazor component
+            // isn't destroyed but instead just the TransactionId parameter updated), we first need
+            // to save the old transaction's data
+            await SaveTransactionItemDraftData();
+        }
+
+        // afterwards, intialize draftItems with the new transaction's data
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        if (transaction == null)
+            return;
+
+        draftItems = transaction.DraftItems?.Deserialize<JsonArray>();
+
+        oldTransactionId = TransactionId;
+
+        await base.SetParametersAsync(parameters);
+    }
+
+    private async Task SaveTransactionItemDraftData()
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        InboundTransaction? transaction = await ctx.InboundTransactions
+            .FirstOrDefaultAsync(t => t.Id == oldTransactionId);
+
+        if (transaction == null)
+            return;
+
+        transaction.DraftItems = draftItems.Deserialize<JsonElement>();
+
+        await ctx.SaveChangesAsync();
+    }
+}
+@{
+    using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+    InboundTransaction? transaction = ctx.InboundTransactions
+        .FirstOrDefault(t => t.Id == TransactionId);
+
+    if (transaction == null)
+    {
+        <p>Could not find transaction with ID @TransactionId</p>
+        return;
+    }
+
+    List<FileAttachment> attachments = FileAttachmentService.GetAttachments(transaction.AttachmentIds);
+}
+
+<h3>InboundTransactionPage</h3>
+
+<button>Generate Frachtbrief</button>
+
+<span>Date: @transaction.Date</span>
+
+@foreach (ItemSchema schema in transaction.AffectedItems.Select(it => it.ItemSchema).Distinct())
+{
+    <h4>Items for @schema.Name</h4>
+
+    List<(string propertyName, Type propertyType)> propertyColumns = typeof(Item)
+                .GetProperties()
+                .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+                .Select(p => (p.Name, p.PropertyType))
+                .ToList();
+    propertyColumns.AddRange(typeof(ItemState)
+        .GetProperties()
+        .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+        .Select(p => (p.Name, p.PropertyType)));
+    propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x, schema.AdditionalPropertiesTypes[i])));
+
+
+    if (transaction.State == TransactionState.BOOKED)
+    {
+        <span>Booked transactions are final and cannot be edited.</span>
+        <WarehouseItemTableComponent Items="transaction.AffectedItems.Where(it => it.ItemSchema == schema).ToList()"
+                                     ItemStateSelectionFunc="it => transaction.NewItemStates!.First(st => st.Item == it)"
+                                     PropertyColumns="new OrderedDictionary<string, bool>(
+                                    propertyColumns.Select(x => new KeyValuePair<string, bool>(x, true)))" />
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    @foreach (var propertyColumn in propertyColumns)
+                    {
+                        <th>@propertyColumn.propertyName</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    int tabIndex = -1;
+                    foreach (JsonNode? node in draftItems ?? [])
+                    {
+                        JsonObject? item = node as JsonObject;
+                        if (item == null)
+                            throw new Exception("Encountered unexpected JSON format in "
+                            + "DraftItems property of transaction " + TransactionId);
+
+                        <tr>
+                            @foreach (var propertyColumn in propertyColumns)
+                            {
+                                tabIndex++;
+
+                                string propertyName = propertyColumn.propertyName;
+                                Type propertyType = propertyColumn.propertyType;
+                                <td>
+                                    <PropertyValueInput ValueType="propertyType"
+                                                        @bind-Value:get="draftItems![propertyName]?.Deserialize(propertyType)"
+                                                        @bind-Value:set="value => draftItems![propertyName] = JsonValue.Create(value)"
+                                                        tabindex="@tabIndex" />
+                                </td>
+                            }
+
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+}
+
+<FileAttachmentManagerComponent Attachments="@attachments"
+                                OnAttachmentsUploaded="OnAttachmentsUploaded"
+                                OnAttachmentRemoved="OnAttachmentRemoved" />

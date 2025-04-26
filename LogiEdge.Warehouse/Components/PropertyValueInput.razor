@@ -1,0 +1,31 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public required Type ValueType { get; set; }
+    [Parameter]
+    public required object? Value { get; set; }
+    [Parameter]
+    public EventCallback<object?> ValueChanged { get; set; }
+}
+
+@{
+    if (Value != null && Value.GetType() != ValueType && !Value.GetType().IsSubclassOf(ValueType))
+        throw new Exception("PropertyValueInput: Passed Value's type was different than the ValueType which was passed.");
+}
+
+@if (ValueType == typeof(string))
+{
+    <InputText @bind-Value:get="Value as string"
+               @bind-Value:set="v => ValueChanged.InvokeAsync(v)" />
+}
+else if (ValueType == typeof(int))
+{
+    <InputNumber @bind-Value:get="Value as int?"
+                 @bind-Value:set="v => ValueChanged.InvokeAsync(v)" />
+}
+else if (ValueType == typeof(DateTime))
+{
+    <InputDate Type="InputDateType.DateTimeLocal"
+               @bind-Value:get="Value as DateTime?"
+               @bind-Value:set="v => ValueChanged.InvokeAsync(v)" />
+}
