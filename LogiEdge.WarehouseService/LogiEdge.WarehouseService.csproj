@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="DocumentGeneration\**" />
+    <EmbeddedResource Remove="DocumentGeneration\**" />
+    <None Remove="DocumentGeneration\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
     <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
     <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
@@ -15,10 +21,6 @@
   <ItemGroup>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
     <PackageReference Include="PDFsharp-MigraDoc" Version="6.1.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="DocumentGeneration\" />
   </ItemGroup>
 
 </Project>
