@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using LogiEdge.Shared.Attributes;
 using LogiEdge.WarehouseService.Data.Transactions;
 
