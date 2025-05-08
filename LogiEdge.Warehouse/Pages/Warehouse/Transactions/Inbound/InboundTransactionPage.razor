@@ -111,6 +111,8 @@
 @{
     using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
     InboundTransaction? transaction = ctx.InboundTransactions
+        .Include(t => t.NewItemStates)
+        .ThenInclude(st => st.Item)
         .FirstOrDefault(t => t.Id == TransactionId);
 
     if (transaction == null)
@@ -141,7 +143,7 @@
         .GetProperties()
         .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
         .Select(p => (p.Name, p.PropertyType)));
-    propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x, schema.AdditionalPropertiesTypes[i])));
+    propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x, Type.GetType(schema.AdditionalPropertiesTypes[i]))));
 
 
     if (transaction.State == TransactionState.BOOKED)
@@ -150,7 +152,7 @@
         <WarehouseItemTableComponent Items="transaction.AffectedItems.Where(it => it.ItemSchema == schema).ToList()"
                                      ItemStateSelectionFunc="it => transaction.NewItemStates!.First(st => st.Item == it)"
                                      PropertyColumns="new OrderedDictionary<string, bool>(
-                                    propertyColumns.Select(x => new KeyValuePair<string, bool>(x, true)))" />
+                                    propertyColumns.Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
     }
     else
     {
