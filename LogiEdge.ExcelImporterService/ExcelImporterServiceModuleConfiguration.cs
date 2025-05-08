@@ -16,7 +16,7 @@ namespace LogiEdge.ExcelImporterService
 
         public void OnAppBuilt(WebApplication app)
         {
-            app.MapGet("/RunExcelImport", () => app.Services.GetService<ExcelImportingService>()!.RunImport());
+            app.MapGet("/RunExcelImport", async () => await app.Services.GetService<ExcelImportingService>()!.RunImportAsync());
         }
 
         public Assembly Assembly => typeof(ExcelImporterServiceModuleConfiguration).Assembly;

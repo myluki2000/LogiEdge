@@ -26,9 +26,10 @@ namespace LogiEdge.ExcelImporterService.Services
                                        IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory,
                                        CustomerManagementService customerService)
     {
-        public void RunImport()
+        public async Task RunImportAsync()
         {
-            string configJson = settingsService.GetSetting("ExcelImporterConfig") ?? throw new Exception("Could not find 'ExcelImporterConfig' settings entry.");
+            string configJson = await settingsService.GetSettingAsync("ExcelImporterConfig") 
+                                ?? throw new Exception("Could not find 'ExcelImporterConfig' settings entry.");
 
             ExcelImporterConfig config = LoadConfigFromPath(configJson);
 

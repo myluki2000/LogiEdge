@@ -17,11 +17,6 @@ namespace LogiEdge.BaseService.Services
             this.applicationDbContextFactory = applicationDbContextFactory;
         }
 
-        public List<KeyValuePair<string, string>> GetAllSettings()
-        {
-            return GetAllSettingsAsync().Result;
-        }
-
         public async Task<List<KeyValuePair<string, string>>> GetAllSettingsAsync()
         {
             await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
@@ -33,18 +28,6 @@ namespace LogiEdge.BaseService.Services
             await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
             SettingsEntry? setting = await context.Settings.FindAsync(key);
             return setting?.Value;
-        }
-
-        public string? GetSetting(string key)
-        {
-            using ApplicationDbContext context = applicationDbContextFactory.CreateDbContext();
-            SettingsEntry? setting = context.Settings.Find(key);
-            return setting?.Value;
-        }
-
-        public void SetSetting(string key, string value)
-        {
-            SetSettingAsync(key, value).RunSynchronously();
         }
 
         public async Task SetSettingAsync(string key, string value)

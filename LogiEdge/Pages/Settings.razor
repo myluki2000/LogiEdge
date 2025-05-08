@@ -6,54 +6,66 @@
 @code {
     private string NewKeyName { get; set; } = "";
 
-    private void AddNewKey()
+    private async Task AddNewKeyAsync()
     {
         if (!string.IsNullOrEmpty(NewKeyName))
         {
-            SettingsService.SetSetting(NewKeyName, "");
+            await SettingsService.SetSettingAsync(NewKeyName, "");
             NewKeyName = "";
+            
+            OriginalSettings = new(await SettingsService.GetAllSettingsAsync());
+            EditSettings = new(OriginalSettings);
         }
     }
 
     private Dictionary<string, string>? OriginalSettings { get; set; }
     private Dictionary<string, string>? EditSettings { get; set; }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        base.OnInitialized();
+        await base.OnInitializedAsync();
 
-        OriginalSettings = new(SettingsService.GetAllSettings());
+        OriginalSettings = new(await SettingsService.GetAllSettingsAsync());
         EditSettings = new(OriginalSettings);
     }
 
-    private void SaveSettings()
+
+
+    private async Task SaveSettingsAsync()
     {
         foreach ((string key, string value) in EditSettings!.Where(es => OriginalSettings!.GetValueOrDefault(es.Key) != es.Value))
         {
-            SettingsService.SetSetting(key, value);
+            await SettingsService.SetSettingAsync(key, value);
         }
     }
 }
 
 <h3>Settings</h3>
 
-<table>
-    <thead>
-    <tr>
-        <th>Key</th>
-        <th>Value</th>
-    </tr>
-    </thead>
-    <tbody>
+@if (EditSettings == null)
+{
+    <p>Loading settings...</p>
+} 
+else
+{
+    <table>
+        <thead>
+        <tr>
+            <th>Key</th>
+            <th>Value</th>
+        </tr>
+        </thead>
+        <tbody>
         @foreach (string key in EditSettings!.Keys)
         {
             <tr>
                 <td>@key</td>
-                <td><InputText @bind-Value="EditSettings[key]" @onblur="SaveSettings"></InputText></td>
+                <td><InputText @bind-Value="EditSettings[key]" @onblur="SaveSettingsAsync"></InputText></td>
             </tr>
         }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+}
 
 <InputText @bind-Value="NewKeyName"></InputText>
-<button @onclick="AddNewKey">Add New Key</button>
+<button @onclick="AddNewKeyAsync">Add New Key</button>
