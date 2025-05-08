@@ -63,5 +63,5 @@
 <h3>Inbound Transactions</h3>
 @foreach (InboundTransaction transaction in ctx.InboundTransactions)
 {
-    <li><a href="@($"/warehouse/inbound/{transaction.Id}")">@transaction.Id</a></li>
+    <li><a href="@($"/warehouse/transactions/inbound/{transaction.Id}")">@transaction.Id</a></li>
 }
