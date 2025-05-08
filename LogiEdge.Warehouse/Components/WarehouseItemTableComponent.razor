@@ -122,11 +122,12 @@
 
         if(PropertyValueClickableFunc?.Invoke((propertyName, propertyValue)) ?? false)
         {
-            <a href="" @onclick="() => OnPropertyValueClicked?.Invoke((propertyName, propertyValue))">
-                <td>
-                    <PropertyValueComponent PropertyValue="propertyValue" />
-                </td>
-            </a>
+            
+            <td>
+                <a href="" @onclick="() => OnPropertyValueClicked?.Invoke((propertyName, propertyValue))">
+                    <PropertyValueComponent PropertyValue="propertyValue"/>
+                </a>
+            </td>
         }
         else
         {
@@ -146,8 +147,7 @@
                 <th style="line-height: 24px;">
                     <span style="vertical-align: bottom;">@propertyName</span>
 
-                    // render a sort button in the column header if the OnSortButtonClicked callback
-                    // is set
+                    @* render a sort button in the column header if the OnSortButtonClicked callback is set *@
                     @if (OnSortButtonClicked != null)
                     {
                         <button type="button"
@@ -179,7 +179,7 @@
 
                     @if (propertyName == PropertyColumns.Last(x => x.Value).Key)
                     {
-                        // button to select which columns to show
+                        @* button to select which columns to show *@
                         <button type="button"
                                 class="btn btn-primary table-button"
                                 style="float: right;"
@@ -199,8 +199,8 @@
         {
             ItemState? itemState = ItemStateSelectionFunc.Invoke(item);
 
-            // if there is no item state before the given date that means the item wasn't in the warehouse at this
-            // point in time, so skip it
+            @* if there is no item state before the given date that means the item wasn't in the warehouse at this 
+            point in time, so skip it *@
             if (itemState == null)
                 continue;
 
