@@ -19,7 +19,7 @@
     /// Func which is used to determine which ItemState of the item is shown in the table.
     /// </summary>
     [Parameter]
-    public required Func<Item, ItemState> ItemStateSelectionFunc { get; set; }
+    public required Func<Item, ItemState?> ItemStateSelectionFunc { get; set; }
 
     /// <summary>
     /// Ordered dictionary of the columns to display in the table. The Value in the dict is

@@ -59,8 +59,6 @@
             .Where(p => !keys.Contains(p.Key)) // Exclude the keys to remove
             .ToDictionary();
 
-        atParam = null;
-
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
@@ -86,8 +84,6 @@
             updatedQueryParameters[key] = values;
         }
 
-        atParam = null;
-
         // Build the updated URL
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         string baseUri = uri.GetLeftPart(UriPartial.Path); // Get the base URL without the query string
@@ -111,8 +107,6 @@
             .Value
             .FirstOrDefault();
     }
-
-    private DateTime? atParam { get; set; } = null;
 
 }
 
@@ -145,9 +139,20 @@
 
     if (!qp.ShowShipped)
     {
-        itemsQueryable = atParam.HasValue
-            ? itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First(st => st.Date <= atParam).Location != SpecialLocations.SHIPPED)
-            : itemsQueryable.Where(it => it.ItemStates.OrderByDescending(st => st.Date).First().Location != SpecialLocations.SHIPPED);
+        itemsQueryable = qp.AtTime.HasValue
+            ? itemsQueryable
+                .Where(it => 
+                    it.ItemStates.Any(st => st.Date <= qp.AtTime) 
+                    && it.ItemStates
+                    .OrderByDescending(st => st.Date)
+                    .First(st => st.Date <= qp.AtTime)
+                    .Location != SpecialLocations.SHIPPED)
+            : itemsQueryable
+                .Where(it => it.ItemStates
+                    .OrderByDescending(st => st.Date)
+                    .First()
+                    .Location != SpecialLocations.SHIPPED);
+        int count = itemsQueryable.Count();
     }
 
     // construct an expression to filter for the base item properties passed as query params
@@ -183,11 +188,11 @@
             itemStateParameterExpression
         );
 
-        if (atParam.HasValue)
+        if (qp.AtTime.HasValue)
         {
             itemsQueryable = itemsQueryable.Where(it => it.ItemStates
                 .AsQueryable()
-                .Where(st => st.Date < atParam.Value)
+                .Where(st => st.Date < qp.AtTime.Value)
                 .OrderByDescending(st => st.Date)
                 .Take(1)
                 .Where(lambda)
@@ -381,7 +386,7 @@
 </div>
 
 @{
-    DateTime inputAtParam = atParam ?? DateTime.UtcNow.ToLocalTime();
+    DateTime inputAtParam = qp.AtTime ?? DateTime.UtcNow.ToLocalTime();
 }
 
 <div class="my-1">
@@ -455,7 +460,7 @@
         }
         else if (typeof(ItemState).GetProperty(sortInfo.SortByColumn) is { } stateInfo)
         {
-            lambda = it => stateInfo.GetValue(it.ItemStates.Where(st => !atParam.HasValue || st.Date <= atParam.Value).MaxBy(st => st.Date));
+            lambda = it => stateInfo.GetValue(it.ItemStates.Where(st => !qp.AtTime.HasValue || st.Date <= qp.AtTime.Value).MaxBy(st => st.Date));
         }
         else
         {
@@ -480,7 +485,7 @@
     <WarehouseItemTableComponent Items="@sortedItems"
                                  ItemStateSelectionFunc="item =>
                                     item.ItemStates
-                                        .Where(st => !atParam.HasValue || st.Date <= atParam.Value)
+                                        .Where(st => !qp.AtTime.HasValue || st.Date <= qp.AtTime.Value)
                                         .MaxBy(st => st.Date)"
                                  PropertyColumns="@displayPropertyColumns"
                                  OnSortButtonClicked="onSortButtonClicked"
@@ -512,7 +517,7 @@ else
         );
 
         // build the where call expression and call it on the "it.ItemStates" property
-        Expression<Func<ItemState, bool>> dateWhereLambda = st => st.Date <= atParam.Value;
+        Expression<Func<ItemState, bool>> dateWhereLambda = st => st.Date <= qp.AtTime.Value;
         MethodCallExpression whereCallExpression = Expression.Call(
         typeof(Queryable),
         nameof(Queryable.Where),
@@ -525,15 +530,15 @@ else
         MethodCallExpression orderByDescendingCallExpression = Expression.Call(
         typeof(Queryable),
         nameof(Queryable.OrderByDescending),
-        new[] { typeof(ItemState), typeof(DateTime) },
-        atParam != null ? whereCallExpression : asQueryableCall,
+        [typeof(ItemState), typeof(DateTime)],
+        qp.AtTime != null ? whereCallExpression : asQueryableCall,
         orderByDescendingLambda);
 
         // build the First call expression and chain call it
         MethodCallExpression firstCallExpression = Expression.Call(
         typeof(Queryable),
         nameof(Queryable.First),
-        new[] { typeof(ItemState) },
+        [typeof(ItemState)],
         orderByDescendingCallExpression);
 
         // build the property comparison expression and chain call it
