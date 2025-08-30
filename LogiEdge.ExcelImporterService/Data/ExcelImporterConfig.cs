@@ -17,6 +17,7 @@ namespace LogiEdge.ExcelImporterService.Data
     public class InventoryItemSchema
     {
         public required string Name { get; init; }
+        public required List<string> Customers { get; init; }
         public required List<string> AdditionalProperties { get; init; }
         public required List<string> AdditionalPropertiesTypes { get; init; }
     }

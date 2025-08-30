@@ -20,7 +20,6 @@ namespace LogiEdge.WarehouseService.Persistence
         public DbSet<Warehouse> Warehouses { get; init; }
 
         public DbSet<Item> Items { get; init; }
-        public DbSet<Item> PendingItems { get; init; }
 
         public DbSet<ItemSchema> ItemSchemas { get; init; }
 
@@ -38,6 +37,7 @@ namespace LogiEdge.WarehouseService.Persistence
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Customer>().ToTable("Customers", t => t.ExcludeFromMigrations());
+            modelBuilder.Entity<ItemSchema>().HasMany(sch => sch.Customers).WithMany();
 
             modelBuilder.Entity<Item>()
                 .HasMany(x => x.ItemStates)

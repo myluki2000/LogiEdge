@@ -1,0 +1,106 @@
+﻿@using LogiEdge.CustomerService.Data
+@using LogiEdge.WarehouseService.Data
+@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public required Type ValueType { get; set; }
+    [Parameter]
+    public EventCallback<object?> ValueChanged { get; set; }
+    [Parameter]
+    public int? TabIndex { get; set; }
+    [Parameter]
+    public required object? Value
+    {
+        get => value;
+        set
+        {
+            if (this.value != value)
+            {
+                this.value = value;
+                ValueChanged.InvokeAsync(value);
+            }
+        }
+    }
+    private object? value;
+
+    private string? ValueAsString
+    {
+        get => Value as string;
+        set => Value = value;
+    }
+
+    private int? ValueAsInt
+    {
+        get => Value as int?;
+        set => Value = value;
+    }
+
+    private float? ValueAsFloat
+    {
+        get => Value as float?;
+        set => Value = value;
+    }
+
+    private DateTime? ValueAsDateTime
+    {
+        get => (Value as DateTime?) ?? DateTime.MinValue;
+        set => Value = value;
+    }
+
+    private Customer? ValueAsCustomer
+    {
+        get => Value as Customer;
+        set => Value = value;
+    }
+
+    private Warehouse? ValueAsWarehouse
+    {
+        get => Value as Warehouse;
+        set => Value = value;
+    }
+}
+
+@{
+    if (Value != null && Value.GetType() != ValueType && !Value.GetType().IsSubclassOf(ValueType))
+        throw new Exception($"PropertyValueInput: Passed Value's type ({Value.GetType()}) was different than the ValueType which was passed ({ValueType}).");
+}
+
+@if (ValueType == typeof(string))
+{
+    <InputText @bind-Value="ValueAsString"
+               tabindex="@TabIndex"
+               class="form-control" />
+}
+else if (ValueType == typeof(int))
+{
+    <InputNumber @bind-Value="ValueAsInt"
+                 step="1"
+                 tabindex="@TabIndex"
+                 class="form-control" />
+}
+else if (ValueType == typeof(Single))
+{
+    <InputNumber @bind-Value="ValueAsFloat"
+                 step="any"
+                 tabindex="@TabIndex"
+                 class="form-control" />
+}
+else if (ValueType == typeof(DateTime?))
+{
+    <InputDate Type="InputDateType.DateTimeLocal"
+               @bind-Value="ValueAsDateTime"
+               tabindex="@TabIndex"
+               class="form-control" />
+}
+else if (ValueType == typeof(Customer))
+{
+    <CustomerPropertyValueInput @bind-Value="ValueAsCustomer" />
+}
+else if (ValueType == typeof(Warehouse))
+{
+    <WarehousePropertyValueInput @bind-Value="ValueAsWarehouse" />
+}
+else
+{
+    throw new Exception($"PropertyValueInput: Unsupported ValueType: {ValueType}.");
+}

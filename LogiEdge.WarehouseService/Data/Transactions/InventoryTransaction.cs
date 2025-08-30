@@ -20,19 +20,11 @@ public abstract class InventoryTransaction
     public List<Guid> AttachmentIds { get; set; } = [];
     public TransactionState State { get; set; }
     /// <summary>
-    /// If this transactions has been booked, this will contain the item states created
+    /// If this transaction has been booked, this will contain the item states created
     /// on the items affected by the transaction.
-    /// If this transaction has not been booked, this will be NULL and the draft of 
-    /// item changes will instead be stored in <see cref="DraftItems"/>
+    /// If this transaction has not been booked, this will be NULL.
     /// </summary>
     public List<ItemState>? NewItemStates { get; set; } = null;
-
-    /// <summary>
-    /// If this transaction is a draft, stores the item changes in a JSON document.
-    /// If this transaction has been booked, this will be NULL and the states of the
-    /// items affected by the transaction will be stored in <see cref="NewItemStates"/>.
-    /// </summary>
-    public JsonElement? DraftItems { get; set; }
 
     public IEnumerable<Item>? AffectedItems => NewItemStates?.Select(st => st.Item);
 }

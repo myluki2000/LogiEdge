@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -24,7 +25,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     Comments = table.Column<string>(type: "text", nullable: false),
                     AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
                     State = table.Column<int>(type: "integer", nullable: false),
-                    DraftItems = table.Column<JsonElement>(type: "jsonb", nullable: true),
                     Discriminator = table.Column<string>(type: "character varying(21)", maxLength: 21, nullable: false)
                 },
                 constraints: table =>
@@ -37,9 +37,7 @@ namespace LogiEdge.WarehouseService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    AdditionalProperties = table.Column<List<string>>(type: "text[]", nullable: false),
-                    AdditionalPropertiesTypes = table.Column<List<string>>(type: "text[]", nullable: false)
+                    Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -59,7 +57,90 @@ namespace LogiEdge.WarehouseService.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Item",
+                name: "CustomerItemSchema",
+                columns: table => new
+                {
+                    CustomersId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CustomerItemSchema", x => new { x.CustomersId, x.ItemSchemaId });
+                    table.ForeignKey(
+                        name: "FK_CustomerItemSchema_Customers_CustomersId",
+                        column: x => x.CustomersId,
+                        principalTable: "Customers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_CustomerItemSchema_ItemSchemas_ItemSchemaId",
+                        column: x => x.ItemSchemaId,
+                        principalTable: "ItemSchemas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "InboundDraftItem",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ItemNumber = table.Column<string>(type: "text", nullable: false),
+                    AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: false),
+                    Comments = table.Column<string>(type: "text", nullable: false),
+                    Location = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    Count = table.Column<int>(type: "integer", nullable: false),
+                    InboundTransactionId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_InboundDraftItem", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_InboundDraftItem_Customers_CustomerId",
+                        column: x => x.CustomerId,
+                        principalTable: "Customers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_InboundDraftItem_InventoryTransaction_InboundTransactionId",
+                        column: x => x.InboundTransactionId,
+                        principalTable: "InventoryTransaction",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_InboundDraftItem_ItemSchemas_ItemSchemaId",
+                        column: x => x.ItemSchemaId,
+                        principalTable: "ItemSchemas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ItemSchemaProperty",
+                columns: table => new
+                {
+                    ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Name = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    Type = table.Column<int>(type: "integer", maxLength: 256, nullable: false),
+                    IsRequired = table.Column<bool>(type: "boolean", nullable: false),
+                    IsUnique = table.Column<bool>(type: "boolean", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ItemSchemaProperty", x => new { x.ItemSchemaId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_ItemSchemaProperty_ItemSchemas_ItemSchemaId",
+                        column: x => x.ItemSchemaId,
+                        principalTable: "ItemSchemas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Items",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -73,26 +154,26 @@ namespace LogiEdge.WarehouseService.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Item", x => x.Id);
+                    table.PrimaryKey("PK_Items", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Item_Customers_CustomerId",
+                        name: "FK_Items_Customers_CustomerId",
                         column: x => x.CustomerId,
                         principalTable: "Customers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Item_InventoryTransaction_InventoryTransactionId",
+                        name: "FK_Items_InventoryTransaction_InventoryTransactionId",
                         column: x => x.InventoryTransactionId,
                         principalTable: "InventoryTransaction",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_Item_ItemSchemas_ItemSchemaId",
+                        name: "FK_Items_ItemSchemas_ItemSchemaId",
                         column: x => x.ItemSchemaId,
                         principalTable: "ItemSchemas",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Item_Warehouses_WarehouseId",
+                        name: "FK_Items_Warehouses_WarehouseId",
                         column: x => x.WarehouseId,
                         principalTable: "Warehouses",
                         principalColumn: "Id");
@@ -118,9 +199,9 @@ namespace LogiEdge.WarehouseService.Migrations
                         principalTable: "InventoryTransaction",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_ItemState_Item_ItemId",
+                        name: "FK_ItemState_Items_ItemId",
                         column: x => x.ItemId,
-                        principalTable: "Item",
+                        principalTable: "Items",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
@@ -132,23 +213,43 @@ namespace LogiEdge.WarehouseService.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Item_CustomerId",
-                table: "Item",
-                column: "CustomerId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Item_InventoryTransactionId",
-                table: "Item",
-                column: "InventoryTransactionId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Item_ItemSchemaId",
-                table: "Item",
+                name: "IX_CustomerItemSchema_ItemSchemaId",
+                table: "CustomerItemSchema",
                 column: "ItemSchemaId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Item_WarehouseId",
-                table: "Item",
+                name: "IX_InboundDraftItem_CustomerId",
+                table: "InboundDraftItem",
+                column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_InboundDraftItem_InboundTransactionId",
+                table: "InboundDraftItem",
+                column: "InboundTransactionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_InboundDraftItem_ItemSchemaId",
+                table: "InboundDraftItem",
+                column: "ItemSchemaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Items_CustomerId",
+                table: "Items",
+                column: "CustomerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Items_InventoryTransactionId",
+                table: "Items",
+                column: "InventoryTransactionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Items_ItemSchemaId",
+                table: "Items",
+                column: "ItemSchemaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Items_WarehouseId",
+                table: "Items",
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
@@ -171,10 +272,19 @@ namespace LogiEdge.WarehouseService.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "CustomerItemSchema");
+
+            migrationBuilder.DropTable(
+                name: "InboundDraftItem");
+
+            migrationBuilder.DropTable(
+                name: "ItemSchemaProperty");
+
+            migrationBuilder.DropTable(
                 name: "ItemState");
 
             migrationBuilder.DropTable(
-                name: "Item");
+                name: "Items");
 
             migrationBuilder.DropTable(
                 name: "InventoryTransaction");

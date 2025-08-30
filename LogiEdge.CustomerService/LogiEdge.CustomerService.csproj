@@ -15,4 +15,8 @@
     <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
 </Project>

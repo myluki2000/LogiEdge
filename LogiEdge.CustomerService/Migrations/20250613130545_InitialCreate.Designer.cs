@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.CustomerService.Migrations
 {
     [DbContext(typeof(CustomerDbContext))]
-    [Migration("20250106165656_InitialCreate")]
+    [Migration("20250613130545_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

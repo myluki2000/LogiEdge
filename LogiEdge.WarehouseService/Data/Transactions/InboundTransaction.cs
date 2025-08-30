@@ -8,5 +8,6 @@ namespace LogiEdge.WarehouseService.Data.Transactions
 {
     public class InboundTransaction : InventoryTransaction
     {
+        public List<InboundDraftItem> DraftItems { get; set; } = [];
     }
 }

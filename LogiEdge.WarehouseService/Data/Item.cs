@@ -69,28 +69,26 @@ namespace LogiEdge.WarehouseService.Data
         /// Returns the value of the additional property with the given property name, deserialized to an object of appropriate type.
         /// If the item does not have an additional property with the given name, returns null.
         ///
-        /// Item.ItemSchema must be .Included() for this method to be used.
+        /// Item.ItemSchema must be .Include()-ed for this method to be used.
         /// </summary>
         public object? GetAdditionalProperty(string propertyName)
         {
             if (ItemSchema == null)
                 throw new Exception("ItemSchema of this item needs to be .Include()ed to use .GetAdditionalProperty() method.");
 
-            int index = ItemSchema.AdditionalProperties.IndexOf(propertyName);
-            if (index == -1)
+            ItemSchemaProperty? property = ItemSchema.AdditionalProperties.FirstOrDefault(pr => pr.Name == propertyName);
+            if (property == null)
                 return null;
-
-            string type = ItemSchema.AdditionalPropertiesTypes[index];
-
+            
             JsonElement element = AdditionalProperties.RootElement.GetProperty(propertyName);
-            object? value = type switch
+            object? value = property.Type switch
             {
-                nameof(String) => element.GetString(),
-                nameof(Int32) => element.GetInt32(),
-                nameof(Single) => element.GetSingle(),
-                nameof(Boolean) => element.GetBoolean(),
-                nameof(DateTime) => element.GetDateTime(),
-                _ => throw new Exception($"Unknown type '{type}' for property '{propertyName}'.")
+                ItemSchemaProperty.SupportedTypes.String => element.GetString(),
+                ItemSchemaProperty.SupportedTypes.Int32 => element.GetInt32(),
+                ItemSchemaProperty.SupportedTypes.Single => element.GetSingle(),
+                ItemSchemaProperty.SupportedTypes.Boolean => element.GetBoolean(),
+                ItemSchemaProperty.SupportedTypes.DateTime => element.GetDateTime(),
+                _ => throw new Exception($"Unknown type '{property.Type}' for property '{propertyName}'.")
             };
 
             return value;

@@ -1,0 +1,65 @@
+﻿@using System.Reflection
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+
+@code {
+    [Parameter]
+    public required string PropertyName { get; set; }
+    [Parameter]
+    public required InboundDraftItem DraftItem { get; set; }
+    [Parameter]
+    public int? TabIndex { get; set; }
+
+    private object? Value
+    {
+        get => GetPropertyValue();
+        set => SetPropertyValue(value);
+    }
+
+    private object? GetPropertyValue()
+    {
+        PropertyInfo? pi = DraftItem.GetType().GetProperty(PropertyName);
+        Type? propertyType = GetPropertyType();
+
+        if (pi == null)
+        {
+            return DraftItem.AdditionalProperties.RootElement.GetProperty(PropertyName).Deserialize(propertyType);
+        }
+
+        return pi.GetValue(DraftItem);
+    }
+
+    private void SetPropertyValue(object? value)
+    {
+        PropertyInfo? pi = DraftItem.GetType().GetProperty(PropertyName);
+        if (pi != null)
+        {
+            pi.SetValue(DraftItem, value);
+        }
+        else
+        {
+            JsonObject jo = DraftItem.AdditionalProperties.RootElement.Deserialize<JsonObject>();
+            jo[PropertyName] = null;
+            DraftItem.AdditionalProperties = jo.Deserialize<JsonDocument>();
+        }
+    }
+
+    private Type GetPropertyType()
+    {
+        PropertyInfo? pi = DraftItem.GetType().GetProperty(PropertyName);
+        Type? propertyType = pi?.PropertyType 
+                             ?? DraftItem.ItemSchema.AdditionalProperties.FirstOrDefault(x => x.Name == PropertyName)?.Type.ToType();
+
+        if(propertyType == null)
+            throw new InvalidOperationException($"Property '{PropertyName}' not found in {DraftItem.GetType().Name} or ItemSchema.");
+
+        return propertyType;
+    }
+}
+
+<PropertyValueInput
+    @bind-Value="Value"
+    ValueType="GetPropertyType()"
+    TabIndex="TabIndex" />

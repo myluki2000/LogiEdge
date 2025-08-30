@@ -235,7 +235,7 @@
         .Select(it => it.ItemSchema)
         .Distinct()
         .ToList();
-    List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).ToList();
+    List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name).ToList();
 
     // get a list of column property names which are allowed
     List<string> allowedPropertyColumns = typeof(Item)
@@ -313,16 +313,15 @@
         }
 
         string? propertyType = basePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name
-        ?? statePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name;
+            ?? statePropInfos.FirstOrDefault(pi => pi.Name == propertyName)?.PropertyType.Name;
 
         if (propertyType == null)
         {
-            ItemSchema? schema = itemSchemas.FirstOrDefault(sch => sch.AdditionalProperties.Contains(propertyName));
+            ItemSchema? schema = itemSchemas.FirstOrDefault(sch => sch.AdditionalProperties.Any(pr => pr.Name == propertyName));
 
             if (schema != null)
             {
-                int index = schema.AdditionalProperties.IndexOf(propertyName);
-                propertyType = schema.AdditionalPropertiesTypes[index];
+                propertyType = schema.AdditionalProperties.FirstOrDefault(pr => pr.Name == propertyName)?.Type.ToString();
             }
         }
 

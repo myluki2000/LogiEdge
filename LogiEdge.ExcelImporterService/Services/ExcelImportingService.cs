@@ -28,7 +28,7 @@ namespace LogiEdge.ExcelImporterService.Services
     {
         public async Task RunImportAsync()
         {
-            string configJson = await settingsService.GetSettingAsync("ExcelImporterConfig") 
+            string configJson = await settingsService.GetSettingAsync("ExcelImporterConfig")
                                 ?? throw new Exception("Could not find 'ExcelImporterConfig' settings entry.");
 
             ExcelImporterConfig config = LoadConfigFromPath(configJson);
@@ -56,23 +56,50 @@ namespace LogiEdge.ExcelImporterService.Services
             foreach (InventoryItemSchema schema in config.InventoryItemSchemas)
             {
                 // get schema with the given name if it exists already
-                ItemSchema? existingSchema = warehouseDbContext.ItemSchemas.FirstOrDefault(x => x.Name == schema.Name);
+                ItemSchema? existingSchema = warehouseDbContext.ItemSchemas
+                    .Include(sch => sch.Customers)
+                    .FirstOrDefault(x => x.Name == schema.Name);
 
                 // check if the existing schema has the correct properties
                 if (existingSchema != null)
                 {
-                    if (!existingSchema.AdditionalProperties.SequenceEqual(schema.AdditionalProperties)
-                        || !existingSchema.AdditionalPropertiesTypes.SequenceEqual(schema.AdditionalPropertiesTypes))
+                    if (!existingSchema.AdditionalProperties.Select(x => x.Name).SequenceEqual(schema.AdditionalProperties)
+                        || !existingSchema.AdditionalProperties.Select(x => x.Type.ToString()).SequenceEqual(schema.AdditionalPropertiesTypes))
                         throw new Exception("Schema with same name as defined in the excel import config already exists but has different properties or property types.");
                 }
                 else
                 {
-                    warehouseDbContext.ItemSchemas.Add(new ItemSchema()
+                    existingSchema = new ItemSchema()
                     {
                         Name = schema.Name,
-                        AdditionalProperties = schema.AdditionalProperties,
-                        AdditionalPropertiesTypes = schema.AdditionalPropertiesTypes,
-                    });
+                        AdditionalProperties = schema.AdditionalProperties.Zip(schema.AdditionalPropertiesTypes)
+                            .Select(x => new ItemSchemaProperty()
+                            {
+                                Name = x.First,
+                                Type = Enum.Parse<ItemSchemaProperty.SupportedTypes>(x.Second)
+                            }).ToList()
+                    };
+                    warehouseDbContext.ItemSchemas.Add(existingSchema);
+                }
+
+                // create customers associated with this schema if they don't exist already
+                foreach (string customerName in schema.Customers)
+                {
+                    Customer? customer = customerService.GetCustomers().FirstOrDefault(x => x.Name == customerName);
+                    if (customer == null)
+                    {
+                        customer = customerService.CreateCustomer(new Customer()
+                        {
+                            Name = customerName,
+                            Abbreviation = customerName.Substring(0, 2).ToUpper()
+                        });
+                    }
+                    // add the item schema to the customer's schemas if it doesn't exist already
+                    warehouseDbContext.Attach(customer);
+                    if (!existingSchema.Customers.Contains(customer))
+                    {
+                        existingSchema.Customers.Add(customer);
+                    }
                 }
             }
 
@@ -84,11 +111,7 @@ namespace LogiEdge.ExcelImporterService.Services
                 Customer? customer = customerService.GetCustomers().FirstOrDefault(x => x.Name == options.CustomerName);
                 if (customer == null)
                 {
-                    customer = customerService.CreateCustomer(new Customer()
-                    {
-                        Name = options.CustomerName,
-                        Abbreviation = options.CustomerName.Substring(0, 2).ToUpper()
-                    });
+                    throw new Exception("Could not find defined customer with the given name " + options.CustomerName);
                 }
 
                 // get or create the warehouse entry for this import
@@ -110,7 +133,7 @@ namespace LogiEdge.ExcelImporterService.Services
                 foreach (string dayDirPath in Directory.GetDirectories(config.FolderPath))
                 {
                     string dayDirName = Path.GetFileName(dayDirPath);
-                    
+
                     DateTime day = DateTime
                         .SpecifyKind(DateTime.ParseExact(dayDirName, "yyyy-MM-dd", CultureInfo.InvariantCulture), DateTimeKind.Local)
                         .ToUniversalTime();
