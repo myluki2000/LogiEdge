@@ -1,0 +1,59 @@
+﻿@using LogiEdge.CustomerService.Data
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+@using LogiEdge.Warehouse.Components.PropertyValueInput
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+
+@code
+{
+    [Parameter]
+    public required Customer? SelectedCustomer { get; set; }
+    [Parameter]
+    public EventCallback<Customer?> SelectedCustomerChanged { get; set; }
+    [Parameter]
+    public required ItemSchema? SelectedItemSchema { get; set; }
+    [Parameter]
+    public EventCallback<ItemSchema?> SelectedItemSchemaChanged { get; set; }
+
+    private Guid SelectedItemSchemaId
+    {
+        get => SelectedItemSchema?.Id ?? Guid.Empty;
+        set
+        {
+            using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+            ItemSchema? schema = ctx.ItemSchemas.FirstOrDefault(sch => sch.Id == value) ?? null;
+            if (schema?.Id != SelectedItemSchema?.Id)
+            {
+                SelectedItemSchema = schema;
+                SelectedItemSchemaChanged.InvokeAsync(schema);
+            }
+        }
+    }
+}
+
+
+<div class="col-12 col-lg col-xxl-3 d-flex">
+    <label for="customerToAdd" class="col-form-label me-1">Customer:</label>
+    <CustomerPropertyValueInput Value="SelectedCustomer" 
+                                ValueChanged="SelectedCustomerChanged" 
+                                id="customerToAdd" />
+</div>
+<div class="col-12 col-lg col-xxl-3 d-flex">
+    <label for="schemaToAdd" class="col-form-label me-1">Item&nbsp;Schema:</label>
+    <InputSelect TValue="Guid" @bind-Value="SelectedItemSchemaId" class="form-select" id="schemaToAdd">
+        <option value="@Guid.Empty"></option>
+        @{
+            using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+            List<ItemSchema> itemSchemas = ctx.ItemSchemas
+                .Include(sch => sch.Customers)
+                .ToList();
+            foreach (ItemSchema schema in SelectedCustomer != null ? itemSchemas.Where(sch => sch.Customers.Any(cu => cu.Id == SelectedCustomer.Id)) : [])
+            {
+                <option value="@schema.Id">@schema.Name</option>
+            }
+        }
+    </InputSelect>
+</div>

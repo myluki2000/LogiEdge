@@ -14,7 +14,7 @@
         get => value;
         set
         {
-            if (this.value != value)
+            if (!Equals(this.value, value))
             {
                 this.value = value;
                 ValueChanged.InvokeAsync(value);

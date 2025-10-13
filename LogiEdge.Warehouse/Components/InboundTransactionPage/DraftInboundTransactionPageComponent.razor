@@ -1,0 +1,215 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.Shared.Attributes
+@using LogiEdge.Warehouse.Components.PropertyValueInput
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+
+@code {
+    [Parameter]
+    public Guid TransactionId { get; set; }
+
+    private List<InboundDraftItem> Items { get; set; } = [];
+    private Customer? SelectedCustomerToAdd { get; set; } = null;
+    private ItemSchema? SelectedItemSchemaToAdd { get; set; } = null;
+    private List<(Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
+
+    private Dictionary<(Customer customer, ItemSchema itemSchema), InboundDraftItem> NewItems { get; set; } = new();
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        InboundTransaction transaction = GetTransaction(ctx);
+
+        Items = transaction.DraftItems.ToList();
+        ItemSchemasToShow = transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList();
+    }
+
+    private void BtnAddSchemaOnClick()
+    {
+        if (SelectedCustomerToAdd == null || SelectedItemSchemaToAdd == null)
+            throw new Exception("No customer or item schema selected to add item schema for.");
+
+        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+        ItemSchemasToShow.Add((SelectedCustomerToAdd, SelectedItemSchemaToAdd));
+    }
+
+    private List<(string propertyName, Type propertyType)> GetPropertyColumns(ItemSchema schema)
+    {
+        List<(string propertyName, Type propertyType)> propertyColumns = typeof(InboundDraftItem)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
+                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
+            .Select(p => (p.Name, p.PropertyType))
+            .ToList();
+        propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x.Name, x.Type.ToType())));
+
+        return propertyColumns;
+    }
+
+    private void SaveChanges()
+    {
+        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+
+        InboundTransaction transaction = GetTransaction(ctx);
+
+        List<InboundDraftItem> newItemsToAdd = [];
+        foreach (InboundDraftItem newOrUpdatedItem in Items)
+        {
+            // Break navigation references to avoid duplicate tracking
+            newOrUpdatedItem.Customer = null!;
+            newOrUpdatedItem.ItemSchema = null!;
+
+            InboundDraftItem? existingItem = transaction.DraftItems
+                .FirstOrDefault(it => it.Id == newOrUpdatedItem.Id);
+
+            if (existingItem == null)
+            {
+                newItemsToAdd.Add(newOrUpdatedItem);
+            }
+            else
+            {
+                ctx.Entry(existingItem).CurrentValues.SetValues(newOrUpdatedItem);
+            }
+        }
+
+        transaction.DraftItems.AddRange(newItemsToAdd);
+
+        transaction.DraftItems.RemoveAll(it => Items.All(i => i.Id != it.Id));
+
+        ctx.SaveChanges();
+    }
+
+    private InboundTransaction GetTransaction(WarehouseDbContext ctx)
+    {
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
+            .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        if (transaction == null)
+            throw new InvalidOperationException($"Transaction {TransactionId} not found.");
+
+        if (transaction.State != TransactionState.DRAFT)
+            throw new InvalidOperationException($"Transaction {TransactionId} is not in DRAFT state.");
+
+        return transaction;
+    }
+
+    private void NewItemPropertyValueChanged(InboundDraftItem item)
+    {
+        Console.WriteLine("NewItemPropertyValueChanged");
+        if (!Items.Contains(item))
+        {
+            Items.Add(item);
+            NewItems.Remove((item.Customer, item.ItemSchema));
+            StateHasChanged();
+        }
+    }
+
+    private void DeleteItem(InboundDraftItem item)
+    {
+        if (item.Id == Guid.Empty)
+        {
+            Items.Remove(item);
+        }
+        else
+        {
+            Items.RemoveAll(it => it.Id == item.Id);
+        }
+    }
+}
+
+<div>
+    <button class="btn btn-primary" @onclick="SaveChanges">Save</button>
+    <button class="btn btn-primary">Book Transaction</button>
+</div>
+
+@foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
+{
+    List<InboundDraftItem> schemaItems = Items.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
+    List<(string propertyName, Type propertyType)> propertyColumns = GetPropertyColumns(schema);
+
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                @foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
+                {
+                    <th>@propertyColumn.propertyName</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @{
+                int tabIndex = 0;
+                foreach (InboundDraftItem item in schemaItems)
+                {
+                    <tr>
+                        @foreach ((string propertyName, Type propertyType) in propertyColumns)
+                        {
+                            <td>
+                                <InboundDraftItemPropertyValueInput DraftItem="@item"
+                                                                    PropertyName="@propertyName"
+                                                                    tabindex="@(tabIndex++)" />
+                            </td>
+                        }
+
+                        <td>
+                            <button 
+                                class="btn btn-secondary row-button"
+                                @onclick="() => DeleteItem(item)">
+                                <span class="material-symbols-rounded">
+                                    delete_forever
+                                </span>
+                            </button>
+                        </td>
+                    </tr>
+                }
+
+                <tr>
+                    @{
+                        if (!NewItems.ContainsKey((customer, schema)))
+                        {
+                            InboundDraftItem newItem = new InboundDraftItem
+                            {
+                                Customer = customer,
+                                CustomerId = customer.Id,
+                                ItemSchema = schema,
+                                ItemSchemaId = schema.Id,
+                            };
+                            NewItems[(customer, schema)] = newItem;
+                        }
+                        
+                        foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
+                        {
+                            string propertyName = propertyColumn.propertyName;
+                            <td>
+                                <InboundDraftItemPropertyValueInput DraftItem="@NewItems[(customer, schema)]"
+                                                                    PropertyName="@propertyName"
+                                                                    PropertyValueChanged="() => NewItemPropertyValueChanged(NewItems[(customer, schema)])"
+                                                                    tabindex="@(tabIndex++)" />
+                            </td>
+                        }
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<div class="container-fluid">
+    <h5>Add Customer with Schema</h5>
+    <div class="row g-3">
+        <CustomerItemSchemaSelectorComponent @bind-SelectedCustomer="SelectedCustomerToAdd" @bind-SelectedItemSchema="SelectedItemSchemaToAdd" />
+        <div class="col">
+            <button @onclick="BtnAddSchemaOnClick" class="btn btn-secondary">Add</button>
+        </div>
+    </div>
+</div>

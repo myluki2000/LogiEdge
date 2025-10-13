@@ -16,6 +16,11 @@ namespace LogiEdge.BaseService.Services
 
         }
 
+        public IEnumerable<DocumentGenerationTemplate<T>> GetTemplates<T>()
+        {
+            return documentGenerationTemplates.Where(t => t.InputType == typeof(T)).Cast<DocumentGenerationTemplate<T>>();
+        }
+
         public void RegisterDocumentGenerationTemplate()
         {
 
@@ -34,6 +39,8 @@ namespace LogiEdge.BaseService.Services
 
     public abstract class DocumentGenerationTemplate
     {
+        public Guid Id { get; set; }
+        public required string Name { get; set; }
         public abstract Type InputType { get; }
     }
 }
