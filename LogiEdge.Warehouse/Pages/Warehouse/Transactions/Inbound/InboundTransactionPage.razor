@@ -12,6 +12,7 @@
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Warehouse.Components.InboundTransactionPage
+@using Microsoft.AspNetCore.Components.Forms
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 @inject FileAttachmentService FileAttachmentService
 
@@ -22,7 +23,11 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
+    private InboundTransaction? Transaction { get; set; }
+
     private List<(Customer customer, ItemSchema itemSchema)> customerItemSchemasToShow = [];
+
+    private System.Timers.Timer? saveTimer;
 
     private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
     {
@@ -59,19 +64,19 @@
 
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
-        InboundTransaction? transaction = ctx.InboundTransactions
+        Transaction = ctx.InboundTransactions
             .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
             .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
             .Include(tr => tr.NewItemStates)
             .FirstOrDefault(t => t.Id == TransactionId);
 
-        if (transaction != null)
+        if (Transaction != null)
         {
-            customerItemSchemasToShow = transaction.State switch
+            customerItemSchemasToShow = Transaction.State switch
             {
-                TransactionState.DRAFT => transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
-                TransactionState.BOOKED => transaction.AffectedItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
-                _ => throw new Exception("Unexpected transaction state: " + transaction.State)
+                TransactionState.DRAFT => Transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
+                TransactionState.BOOKED => Transaction.AffectedItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
+                _ => throw new Exception("Unexpected transaction state: " + Transaction.State)
             };
         }
 
@@ -95,43 +100,69 @@
 
         return propertyColumns;
     }
+
+    private void OnTitleInput(ChangeEventArgs e)
+    {
+        Transaction!.Title = e.Value?.ToString() ?? string.Empty;
+
+        // Reset debounce timer
+        saveTimer?.Stop();
+        saveTimer?.Dispose();
+
+        saveTimer = new System.Timers.Timer(500);
+        saveTimer.Elapsed += async (_, _) => await InvokeAsync(SaveTitleToDatabaseAsync);
+        saveTimer.AutoReset = false;
+        saveTimer.Start();
+    }
+
+    private async Task SaveTitleToDatabaseAsync()
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        InboundTransaction? dbTransaction = await ctx.InboundTransactions
+            .FirstOrDefaultAsync(t => t.Id == Transaction!.Id);
+
+        if (dbTransaction != null)
+        {
+            dbTransaction.Title = Transaction!.Title;
+            await ctx.SaveChangesAsync();
+        }
+    }
 }
 @{
     using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-    InboundTransaction? transaction = ctx.InboundTransactions
-        .Include(t => t.DraftItems)
-        .Include(t => t.NewItemStates)
-        .ThenInclude(st => st.Item)
-        .FirstOrDefault(t => t.Id == TransactionId);
 
-    if (transaction == null)
-    {
-        <p>Could not find transaction with ID @TransactionId</p>
-        return;
-    }
-
-    List<FileAttachment> attachments = FileAttachmentService.GetAttachments(transaction.AttachmentIds);
+    List<FileAttachment> attachments = FileAttachmentService.GetAttachments(Transaction.AttachmentIds);
 
     List<ItemSchema> itemSchemas = ctx.ItemSchemas
         .Include(sch => sch.Customers)
         .ToList();
+
+    if (Transaction == null)
+    {
+        <p>Could not find transaction with ID @TransactionId</p>
+        return;
+    }
 }
 
-<h3>InboundTransactionPage</h3>
+<h3>
+    <InputText class="form-control"
+               @bind-Value="Transaction.Title"
+               @oninput="OnTitleInput" />
+    <span class="fs-6">@Transaction.Date</span>
+</h3>
 
-<DocumentGeneratorComponent TInputType="InboundTransaction" />
 
-<span>Date: @transaction.Date</span>
 
-@if (transaction.State == TransactionState.BOOKED)
+@if (Transaction.State == TransactionState.BOOKED)
 {
     @foreach ((Customer customer, ItemSchema schema) in customerItemSchemasToShow)
     {
         <h4>Items for @customer.Name - @schema.Name</h4>
 
         <span>Booked transactions are final and cannot be edited.</span>
-        <WarehouseItemTableComponent Items="transaction.AffectedItems.Where(it => it.ItemSchema == schema).ToList()"
-                                     ItemStateSelectionFunc="it => transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
+        <WarehouseItemTableComponent Items="Transaction.AffectedItems.Where(it => it.ItemSchema == schema).ToList()"
+                                     ItemStateSelectionFunc="it => Transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
                                      PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
                                          .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
     }
@@ -140,6 +171,8 @@ else
 {
     <DraftInboundTransactionPageComponent TransactionId="TransactionId" />
 }
+
+<DocumentGeneratorComponent TInputType="InboundTransaction" />
 
 <FileAttachmentManagerComponent Attachments="@attachments"
                                 OnAttachmentsUploaded="OnAttachmentsUploaded"

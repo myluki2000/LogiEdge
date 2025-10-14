@@ -13,6 +13,8 @@ public abstract class InventoryTransaction
 {
     [Key]
     public Guid Id { get; set; }
+    [MaxLength(255)]
+    public string Title { get; set; } = string.Empty;
     public required DateTime Date { get; set; }
     public required Guid CreatedByUserId { get; set; }
     public required string HandledByWorker { get; set; }

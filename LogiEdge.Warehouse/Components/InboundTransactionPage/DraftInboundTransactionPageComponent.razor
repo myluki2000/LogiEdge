@@ -137,6 +137,8 @@
     List<InboundDraftItem> schemaItems = Items.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
     List<(string propertyName, Type propertyType)> propertyColumns = GetPropertyColumns(schema);
 
+    <h4>[@customer.Abbreviation] @customer.Name - @schema.Name</h4>
+
     <table class="table table-striped table-hover">
         <thead>
             <tr>
