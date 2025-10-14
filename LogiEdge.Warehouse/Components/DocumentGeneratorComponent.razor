@@ -5,7 +5,9 @@
 @typeparam TInputType
 
 @code {
-    private List<DocumentGenerationTemplate<TInputType>> Templates { get; set; }
+    private List<DocumentGenerationTemplate<TInputType>> Templates { get; set; } = [];
+
+    private Guid ModalSelectedTemplateId { get; set; } = Guid.Empty;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -25,7 +27,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <InputSelect size="10">
+                <InputSelect @bind-Value="ModalSelectedTemplateId" TValue="Guid" size="10">
                     @foreach (DocumentGenerationTemplate<TInputType> template in Templates)
                     {
                         <option value="@template.Id">@template.Name</option>
