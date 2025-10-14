@@ -131,7 +131,7 @@
 
         <span>Booked transactions are final and cannot be edited.</span>
         <WarehouseItemTableComponent Items="transaction.AffectedItems.Where(it => it.ItemSchema == schema).ToList()"
-                                     ItemStateSelectionFunc="it => transaction.NewItemStates!.First(st => st.Item == it)"
+                                     ItemStateSelectionFunc="it => transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
                                      PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
                                          .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
     }
