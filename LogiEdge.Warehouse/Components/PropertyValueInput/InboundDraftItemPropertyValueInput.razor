@@ -10,7 +10,7 @@
     [Parameter]
     public required InboundDraftItem DraftItem { get; set; }
     [Parameter]
-    public EventCallback<string> PropertyValueChanged { get; set; }
+    public EventCallback<PropertyValueChangedEventArgs> PropertyValueChanged { get; set; }
     [Parameter]
     public int? TabIndex { get; set; }
 
@@ -18,6 +18,8 @@
     public bool LastInputInvalid { get; set; }
     [Parameter]
     public EventCallback<bool> LastInputInvalidChanged { get; set; }
+
+    private DraftPropertyValueInput draftPropertyValueInput;
 
     private object? GetPropertyValue()
     {
@@ -43,7 +45,11 @@
             if (!value?.Equals(oldValue) ?? oldValue != null)
             {
                 pi.SetValue(DraftItem, value);
-                PropertyValueChanged.InvokeAsync(PropertyName);
+                PropertyValueChanged.InvokeAsync(new PropertyValueChangedEventArgs()
+                {
+                    PropertyName = PropertyName,
+                    NewValue = value
+                });
             }
         }
         else
@@ -56,7 +62,11 @@
             {
                 jo[PropertyName] = newNode;
                 DraftItem.AdditionalProperties = jo.Deserialize<JsonDocument>();
-                PropertyValueChanged.InvokeAsync(PropertyName);
+                PropertyValueChanged.InvokeAsync(new PropertyValueChangedEventArgs()
+                {
+                    PropertyName = PropertyName,
+                    NewValue = value
+                });
             }
         }
     }
@@ -82,9 +92,21 @@
 
         LastInputInvalidChanged.InvokeAsync(LastInputInvalid);
     }
+
+    public async Task FocusAsync()
+    {
+        await draftPropertyValueInput.FocusAsync();
+    }
+
+    public class PropertyValueChangedEventArgs : EventArgs
+    {
+        public required string PropertyName { get; set; }
+        public required object? NewValue { get; set; }
+    }
 }
 
 <DraftPropertyValueInput 
+    @ref="draftPropertyValueInput"
     Value="GetPropertyValue()"
     OnInput="DraftPropertyValueInputOnInput"
     ValueType="GetPropertyType()"

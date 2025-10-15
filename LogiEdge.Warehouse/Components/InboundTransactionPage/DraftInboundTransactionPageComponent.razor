@@ -20,12 +20,15 @@
     private ItemSchema? SelectedItemSchemaToAdd { get; set; } = null;
     private List<(Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
 
-    private Dictionary<(Customer customer, ItemSchema itemSchema), InboundDraftItem> NewItems { get; set; } = new();
+    private Dictionary<(Guid customer, Guid itemSchema), InboundDraftItem> NewItems { get; set; } = new();
 
     private DebouncerComponent debouncer = null!;
 
     private Dictionary<(Guid item, string property), bool> LastInputInvalidMap { get; set; } = new();
     private bool IsAnyInputInvalid => LastInputInvalidMap.Values.Any(v => v);
+
+    private Dictionary<(Guid customer, Guid itemSchema, string propertyName), InboundDraftItemPropertyValueInput> lastItemInputComponents = [];
+    private (Guid customer, Guid itemSchema, string propertyName)? focusOnLastElement = null;
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
@@ -36,6 +39,20 @@
         Transaction = GetTransaction(ctx);
 
         ItemSchemasToShow = Transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (focusOnLastElement != null)
+        {
+            if (lastItemInputComponents.TryGetValue(focusOnLastElement.Value, out InboundDraftItemPropertyValueInput? inputComponent))
+            {
+                await inputComponent.FocusAsync();
+            }
+            focusOnLastElement = null;
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
     }
 
     private void BtnAddSchemaOnClick()
@@ -76,13 +93,24 @@
         return transaction;
     }
 
-    private void NewItemPropertyValueChanged(InboundDraftItem item)
+    private void NewItemPropertyValueChanged(InboundDraftItem item, string propertyName)
     {
-        Console.WriteLine("NewItemPropertyValueChanged");
         if (!Transaction.DraftItems.Contains(item))
         {
+            // Break navigation references to avoid duplicate tracking
+            item.Customer = null!;
+            item.ItemSchema = null!;
+
+            using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+            InboundTransaction transaction = GetTransaction(ctx);
+            transaction.DraftItems.Add(item);
+            ctx.SaveChanges();
+
+            // navigation references will have been fixed by EF Core after SaveChanges
             Transaction.DraftItems.Add(item);
-            NewItems.Remove((item.Customer, item.ItemSchema));
+
+            NewItems.Remove((item.CustomerId, item.ItemSchemaId));
+            focusOnLastElement = (item.CustomerId, item.ItemSchemaId, propertyName);
             StateHasChanged();
         }
     }
@@ -148,6 +176,9 @@
     }
 </div>
 
+@{
+    lastItemInputComponents.Clear();
+}
 @foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
 {
     List<InboundDraftItem> schemaItems = Transaction.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
@@ -172,14 +203,29 @@
                     <tr>
                         @foreach ((string propertyName, Type propertyType) in propertyColumns)
                         {
+                            InboundDraftItemPropertyValueInput lastInputRef = null!;
                             <td>
-                                <InboundDraftItemPropertyValueInput DraftItem="@item"
-                                                                    PropertyName="@propertyName"
-                                                                    PropertyValueChanged="propertyName => debouncer.Debounce(async Task () => {
-                                                                        await SaveItemPropertyValueToDatabaseAsync(item, propertyName);
-                                                                    })"
-                                                                    LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
-                                                                    tabindex="@(tabIndex++)" />
+                                @if (item == schemaItems.Last())
+                                {
+                                    <InboundDraftItemPropertyValueInput @ref="lastItemInputComponents[(customer.Id, schema.Id, propertyName)]"
+                                                                        DraftItem="@item"
+                                                                        PropertyName="@propertyName"
+                                                                        PropertyValueChanged="e => debouncer.Debounce(async Task () => {
+                                                                            await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
+                                                                        })"
+                                                                        LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
+                                                                        tabindex="@(tabIndex++)"/>
+                                }
+                                else
+                                {
+                                    <InboundDraftItemPropertyValueInput DraftItem="@item"
+                                                                        PropertyName="@propertyName"
+                                                                        PropertyValueChanged="e => debouncer.Debounce(async Task () => {
+                                                                            await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
+                                                                        })"
+                                                                        LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
+                                                                        tabindex="@(tabIndex++)"/>
+                                }
                             </td>
                         }
 
@@ -197,7 +243,7 @@
 
                 <tr>
                     @{
-                        if (!NewItems.ContainsKey((customer, schema)))
+                        if (!NewItems.ContainsKey((customer.Id, schema.Id)))
                         {
                             InboundDraftItem newItem = new InboundDraftItem
                             {
@@ -206,17 +252,19 @@
                                 ItemSchema = schema,
                                 ItemSchemaId = schema.Id,
                             };
-                            NewItems[(customer, schema)] = newItem;
+                            NewItems[(customer.Id, schema.Id)] = newItem;
                         }
                         
                         foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
                         {
                             string propertyName = propertyColumn.propertyName;
                             <td>
-                                <InboundDraftItemPropertyValueInput DraftItem="@NewItems[(customer, schema)]"
-                                                                    PropertyName="@propertyName"
-                                                                    PropertyValueChanged="() => NewItemPropertyValueChanged(NewItems[(customer, schema)])"
-                                                                    tabindex="@(tabIndex++)" />
+                                <InboundDraftItemPropertyValueInput 
+                                    DraftItem="@NewItems[(customer.Id, schema.Id)]"
+                                    PropertyName="@propertyName"
+                                    PropertyValueChanged="() => NewItemPropertyValueChanged(NewItems[(customer.Id, schema.Id)], propertyName)"
+                                    tabindex="@(tabIndex++)"
+                                    @key="NewItems[(customer.Id, schema.Id)]" />
                             </td>
                         }
                     }
