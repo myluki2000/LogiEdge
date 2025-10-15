@@ -18,6 +18,8 @@
     [Parameter]
     public EventCallback<ItemSchema?> SelectedItemSchemaChanged { get; set; }
 
+    private List<ItemSchema> ItemSchemas { get; set; } = [];
+
     private Guid SelectedItemSchemaId
     {
         get => SelectedItemSchema?.Id ?? Guid.Empty;
@@ -31,6 +33,16 @@
                 SelectedItemSchemaChanged.InvokeAsync(schema);
             }
         }
+    }
+
+    protected override Task OnInitializedAsync()
+    {
+        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+        ItemSchemas = ctx.ItemSchemas
+            .Include(sch => sch.Customers)
+            .ToList();
+
+        return base.OnInitializedAsync();
     }
 }
 
@@ -46,11 +58,8 @@
     <InputSelect TValue="Guid" @bind-Value="SelectedItemSchemaId" class="form-select" id="schemaToAdd">
         <option value="@Guid.Empty"></option>
         @{
-            using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-            List<ItemSchema> itemSchemas = ctx.ItemSchemas
-                .Include(sch => sch.Customers)
-                .ToList();
-            foreach (ItemSchema schema in SelectedCustomer != null ? itemSchemas.Where(sch => sch.Customers.Any(cu => cu.Id == SelectedCustomer.Id)) : [])
+            
+            foreach (ItemSchema schema in SelectedCustomer != null ? ItemSchemas.Where(sch => sch.Customers.Any(cu => cu.Id == SelectedCustomer.Id)) : [])
             {
                 <option value="@schema.Id">@schema.Name</option>
             }

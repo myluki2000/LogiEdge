@@ -5,6 +5,9 @@
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Shared.Components
+@using LogiEdge.WebUI.Shared.Utility
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
@@ -13,6 +16,7 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
+    private InboundTransaction Transaction { get; set; } = null!;
     private List<InboundDraftItem> Items { get; set; } = [];
     private Customer? SelectedCustomerToAdd { get; set; } = null;
     private ItemSchema? SelectedItemSchemaToAdd { get; set; } = null;
@@ -20,16 +24,21 @@
 
     private Dictionary<(Customer customer, ItemSchema itemSchema), InboundDraftItem> NewItems { get; set; } = new();
 
+    private DebouncerComponent debouncer = null!;
+
+    private Dictionary<(Guid item, string property), bool> LastInputInvalidMap { get; set; } = new();
+    private bool IsAnyInputInvalid => LastInputInvalidMap.Values.Any(v => v);
+
     public override async Task SetParametersAsync(ParameterView parameters)
     {
         await base.SetParametersAsync(parameters);
 
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
-        InboundTransaction transaction = GetTransaction(ctx);
+        Transaction = GetTransaction(ctx);
 
-        Items = transaction.DraftItems.ToList();
-        ItemSchemasToShow = transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList();
+        Items = Transaction.DraftItems.ToList();
+        ItemSchemasToShow = Transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList();
     }
 
     private void BtnAddSchemaOnClick()
@@ -125,11 +134,57 @@
             Items.RemoveAll(it => it.Id == item.Id);
         }
     }
+
+    private async Task SaveTitleToDatabaseAsync()
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        InboundTransaction? dbTransaction = await ctx.InboundTransactions
+            .FirstOrDefaultAsync(t => t.Id == Transaction!.Id);
+
+        if (dbTransaction != null)
+        {
+            dbTransaction.Title = Transaction!.Title;
+            await ctx.SaveChangesAsync();
+        }
+    }
+
+    private async Task SaveItemPropertyValueToDatabaseAsync(InboundDraftItem item, string propertyName)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        ctx.Update(item);
+        await ctx.SaveChangesAsync();
+    }
 }
 
+<h3>
+    <InputText class="form-control"
+               @bind-Value="Transaction.Title"
+               @oninput="e => debouncer.Debounce(async Task () => {
+                   Transaction!.Title = e.Value?.ToString() ?? string.Empty;
+                   await SaveTitleToDatabaseAsync();
+               })" />
+    <span class="fs-6">@Transaction.Date</span>
+</h3>
+
 <div>
-    <button class="btn btn-primary" @onclick="SaveChanges">Save</button>
     <button class="btn btn-primary">Book Transaction</button>
+
+    <DebouncerComponent 
+        @ref="debouncer" 
+        DelayMilliseconds="3000" 
+        style="@(IsAnyInputInvalid ? "display: none;" : "")" 
+        class="ms-2"/>
+    @if (IsAnyInputInvalid)
+    {
+        <span class="ms-2">
+            <span class="material-symbols-rounded text-danger align-middle">
+                error
+            </span>
+            <span class="text-danger align-middle">There are invalid inputs. Please correct them before saving.</span>
+        </span>
+    }
 </div>
 
 @foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
@@ -159,6 +214,10 @@
                             <td>
                                 <InboundDraftItemPropertyValueInput DraftItem="@item"
                                                                     PropertyName="@propertyName"
+                                                                    PropertyValueChanged="propertyName => debouncer.Debounce(async Task () => {
+                                                                        await SaveItemPropertyValueToDatabaseAsync(item, propertyName);
+                                                                    })"
+                                                                    LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
                                                                     tabindex="@(tabIndex++)" />
                             </td>
                         }

@@ -1,5 +1,4 @@
-﻿@using System.Diagnostics.Eventing.Reader
-@using System.Reflection
+﻿@using System.Reflection
 @using System.Text.Json
 @using System.Text.Json.Nodes
 @using LogiEdge.WarehouseService.Data
@@ -15,11 +14,10 @@
     [Parameter]
     public int? TabIndex { get; set; }
 
-    private object? Value
-    {
-        get => GetPropertyValue();
-        set => SetPropertyValue(value);
-    }
+    [Parameter]
+    public bool LastInputInvalid { get; set; }
+    [Parameter]
+    public EventCallback<bool> LastInputInvalidChanged { get; set; }
 
     private object? GetPropertyValue()
     {
@@ -74,9 +72,20 @@
 
         return propertyType;
     }
+
+    private void DraftPropertyValueInputOnInput(DraftPropertyValueInput.DraftPropertyValueInputEventArgs e)
+    { 
+        LastInputInvalid = !e.IsValid;
+
+        if (e.IsValid)
+            SetPropertyValue(e.Value);
+
+        LastInputInvalidChanged.InvokeAsync(LastInputInvalid);
+    }
 }
 
-<PropertyValueInput
-    @bind-Value="Value"
+<DraftPropertyValueInput 
+    Value="GetPropertyValue()"
+    OnInput="DraftPropertyValueInputOnInput"
     ValueType="GetPropertyType()"
     TabIndex="TabIndex" />

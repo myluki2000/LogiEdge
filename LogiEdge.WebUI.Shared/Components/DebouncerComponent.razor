@@ -1,0 +1,90 @@
+﻿@using System.Collections.Concurrent
+@using System.Timers
+
+@implements IAsyncDisposable
+
+@code {
+    [Parameter]
+    public int DelayMilliseconds { get; set; } = 500;
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? InputAttributes { get; set; }
+
+    private Timer saveTimer = new(500);
+
+    private readonly ConcurrentQueue<Func<Task>> actionsQueue = [];
+
+    public bool HasEnqueuedActions => !actionsQueue.IsEmpty;
+
+
+    protected override void OnInitialized()
+    {
+        lock (saveTimer)
+        {
+            saveTimer?.Dispose();
+            saveTimer = new Timer(DelayMilliseconds);
+            saveTimer.Elapsed += OnSaveTimerElapsed;
+            saveTimer.AutoReset = false;
+        }
+
+        base.OnInitialized();
+    }
+
+    public void Debounce(Func<Task> action)
+    {
+        actionsQueue.Enqueue(action);
+        StateHasChanged();
+
+        lock (saveTimer)
+        {
+            saveTimer.Stop();
+            saveTimer.Start();
+        }
+    }
+
+    // ReSharper disable once AsyncVoidMethod
+    private async void OnSaveTimerElapsed(object? sender, ElapsedEventArgs e)
+    {
+        lock (saveTimer)
+        {
+            saveTimer.Stop();
+        }
+
+        await InvokeActionsAsync();
+    }
+
+    private async Task InvokeActionsAsync()
+    {
+        while (actionsQueue.TryDequeue(out Func<Task>? action))
+        {
+            await action.Invoke();
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        lock (saveTimer)
+        {
+            saveTimer.Dispose();
+        }
+
+        // Any outstanding tasks may not be properly executed, but this is the best we can do in Dispose.
+        await InvokeActionsAsync();
+    }
+
+}
+
+<span @attributes="InputAttributes">
+    @if (HasEnqueuedActions)
+    {
+            <span>Saving changes...</span>
+            <div class="spinner-grow spinner-grow-sm align-middle ms-1" role="status" aria-hidden="true">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+    }
+    else
+    {
+        <span>All changes saved.</span>
+    }
+</span>

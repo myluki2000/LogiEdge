@@ -26,19 +26,22 @@
             }
         }
     }
-}
 
-@{
-    List<Customer> customers = CustomerService.GetCustomers().ToList();
+    private List<Customer> Customers { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Customers = await CustomerService.GetCustomersAsync();
+    }
 }
 
 <InputSelect TValue="Guid"
              @bind-Value:get="SelectedCustomerId"
-             @bind-Value:set="v => ValueChanged.InvokeAsync(customers.Find(cu => cu.Id == v))"
+             @bind-Value:set="v => ValueChanged.InvokeAsync(Customers.Find(cu => cu.Id == v))"
              class="@((Class ?? "") + "form-select")"
              @attributes="InputAttributes">
     <option value="@Guid.Empty"> </option>
-    @foreach (Customer customer in customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
+    @foreach (Customer customer in Customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
     {
         <option value="@customer.Id">[@customer.Abbreviation] @customer.Name</option>
     }

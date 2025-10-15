@@ -26,8 +26,7 @@
     private InboundTransaction? Transaction { get; set; }
 
     private List<(Customer customer, ItemSchema itemSchema)> customerItemSchemasToShow = [];
-
-    private System.Timers.Timer? saveTimer;
+    private List<FileAttachment> Attachments { get; set; } = [];
 
     private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
     {
@@ -43,6 +42,7 @@
         {
             FileAttachment entity = await FileAttachmentService.CreateAttachmentAsync(attachment);
             transaction.AttachmentIds.Add(entity.Id);
+            Attachments.Add(entity);
         }
 
         await ctx.SaveChangesAsync();
@@ -55,6 +55,7 @@
             .FirstOrDefault(t => t.Id == TransactionId);
         transaction?.AttachmentIds.Remove(attachmentId);
         await FileAttachmentService.DeleteAttachmentAsync(attachmentId);
+        Attachments.RemoveAll(a => a.Id == attachmentId);
         await ctx.SaveChangesAsync();
     }
 
@@ -78,6 +79,8 @@
                 TransactionState.BOOKED => Transaction.AffectedItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
                 _ => throw new Exception("Unexpected transaction state: " + Transaction.State)
             };
+
+            Attachments = await FileAttachmentService.GetAttachmentsAsync(Transaction.AttachmentIds);
         }
 
         await base.SetParametersAsync(parameters);
@@ -100,62 +103,21 @@
 
         return propertyColumns;
     }
-
-    private void OnTitleInput(ChangeEventArgs e)
-    {
-        Transaction!.Title = e.Value?.ToString() ?? string.Empty;
-
-        // Reset debounce timer
-        saveTimer?.Stop();
-        saveTimer?.Dispose();
-
-        saveTimer = new System.Timers.Timer(500);
-        saveTimer.Elapsed += async (_, _) => await InvokeAsync(SaveTitleToDatabaseAsync);
-        saveTimer.AutoReset = false;
-        saveTimer.Start();
-    }
-
-    private async Task SaveTitleToDatabaseAsync()
-    {
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-
-        InboundTransaction? dbTransaction = await ctx.InboundTransactions
-            .FirstOrDefaultAsync(t => t.Id == Transaction!.Id);
-
-        if (dbTransaction != null)
-        {
-            dbTransaction.Title = Transaction!.Title;
-            await ctx.SaveChangesAsync();
-        }
-    }
-}
-@{
-    using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-
-    List<FileAttachment> attachments = FileAttachmentService.GetAttachments(Transaction.AttachmentIds);
-
-    List<ItemSchema> itemSchemas = ctx.ItemSchemas
-        .Include(sch => sch.Customers)
-        .ToList();
-
-    if (Transaction == null)
-    {
-        <p>Could not find transaction with ID @TransactionId</p>
-        return;
-    }
 }
 
-<h3>
-    <InputText class="form-control"
-               @bind-Value="Transaction.Title"
-               @oninput="OnTitleInput" />
-    <span class="fs-6">@Transaction.Date</span>
-</h3>
-
+@if (Transaction == null)
+{
+    <p>Could not find transaction with ID @TransactionId</p>
+    return;
+}
 
 
 @if (Transaction.State == TransactionState.BOOKED)
 {
+    <h3>
+        <span>@Transaction.Title</span>
+        <span class="fs-6">@Transaction.Date</span>
+    </h3>
     @foreach ((Customer customer, ItemSchema schema) in customerItemSchemasToShow)
     {
         <h4>Items for @customer.Name - @schema.Name</h4>
@@ -174,6 +136,6 @@ else
 
 <DocumentGeneratorComponent TInputType="InboundTransaction" />
 
-<FileAttachmentManagerComponent Attachments="@attachments"
+<FileAttachmentManagerComponent Attachments="@Attachments"
                                 OnAttachmentsUploaded="OnAttachmentsUploaded"
                                 OnAttachmentRemoved="OnAttachmentRemoved" />
