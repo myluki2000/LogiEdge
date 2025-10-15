@@ -6,7 +6,6 @@
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WebUI.Shared.Components
-@using LogiEdge.WebUI.Shared.Utility
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 
@@ -17,7 +16,6 @@
     public Guid TransactionId { get; set; }
 
     private InboundTransaction Transaction { get; set; } = null!;
-    private List<InboundDraftItem> Items { get; set; } = [];
     private Customer? SelectedCustomerToAdd { get; set; } = null;
     private ItemSchema? SelectedItemSchemaToAdd { get; set; } = null;
     private List<(Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
@@ -37,7 +35,6 @@
 
         Transaction = GetTransaction(ctx);
 
-        Items = Transaction.DraftItems.ToList();
         ItemSchemasToShow = Transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList();
     }
 
@@ -63,39 +60,6 @@
         return propertyColumns;
     }
 
-    private void SaveChanges()
-    {
-        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-
-        InboundTransaction transaction = GetTransaction(ctx);
-
-        List<InboundDraftItem> newItemsToAdd = [];
-        foreach (InboundDraftItem newOrUpdatedItem in Items)
-        {
-            // Break navigation references to avoid duplicate tracking
-            newOrUpdatedItem.Customer = null!;
-            newOrUpdatedItem.ItemSchema = null!;
-
-            InboundDraftItem? existingItem = transaction.DraftItems
-                .FirstOrDefault(it => it.Id == newOrUpdatedItem.Id);
-
-            if (existingItem == null)
-            {
-                newItemsToAdd.Add(newOrUpdatedItem);
-            }
-            else
-            {
-                ctx.Entry(existingItem).CurrentValues.SetValues(newOrUpdatedItem);
-            }
-        }
-
-        transaction.DraftItems.AddRange(newItemsToAdd);
-
-        transaction.DraftItems.RemoveAll(it => Items.All(i => i.Id != it.Id));
-
-        ctx.SaveChanges();
-    }
-
     private InboundTransaction GetTransaction(WarehouseDbContext ctx)
     {
         InboundTransaction? transaction = ctx.InboundTransactions
@@ -115,24 +79,21 @@
     private void NewItemPropertyValueChanged(InboundDraftItem item)
     {
         Console.WriteLine("NewItemPropertyValueChanged");
-        if (!Items.Contains(item))
+        if (!Transaction.DraftItems.Contains(item))
         {
-            Items.Add(item);
+            Transaction.DraftItems.Add(item);
             NewItems.Remove((item.Customer, item.ItemSchema));
             StateHasChanged();
         }
     }
 
-    private void DeleteItem(InboundDraftItem item)
+    private async Task DeleteItem(InboundDraftItem item)
     {
-        if (item.Id == Guid.Empty)
-        {
-            Items.Remove(item);
-        }
-        else
-        {
-            Items.RemoveAll(it => it.Id == item.Id);
-        }
+        Transaction.DraftItems.Remove(item);
+
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        ctx.Remove(item);
+        await ctx.SaveChangesAsync();
     }
 
     private async Task SaveTitleToDatabaseAsync()
@@ -189,7 +150,7 @@
 
 @foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
 {
-    List<InboundDraftItem> schemaItems = Items.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
+    List<InboundDraftItem> schemaItems = Transaction.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
     List<(string propertyName, Type propertyType)> propertyColumns = GetPropertyColumns(schema);
 
     <h4>[@customer.Abbreviation] @customer.Name - @schema.Name</h4>
@@ -225,7 +186,7 @@
                         <td>
                             <button 
                                 class="btn btn-secondary row-button"
-                                @onclick="() => DeleteItem(item)">
+                                @onclick="async Task () => await DeleteItem(item)">
                                 <span class="material-symbols-rounded">
                                     delete_forever
                                 </span>
