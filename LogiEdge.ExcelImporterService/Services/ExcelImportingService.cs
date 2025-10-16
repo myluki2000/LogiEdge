@@ -151,7 +151,7 @@ namespace LogiEdge.ExcelImporterService.Services
                             {
                                 ItemNumber = item.ItemNumber,
                                 CustomerId = customer.Id,
-                                ItemSchema = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema),
+                                ItemSchemaId = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema).Id,
                                 ItemStates = [
                                     new ItemState()
                                     {
@@ -232,7 +232,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                 {
                                     ItemNumber = x.ItemNumber,
                                     CustomerId = customer.Id,
-                                    ItemSchema = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema),
+                                    ItemSchemaId = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema).Id,
                                     ItemStates = [
                                         new ItemState()
                                         {

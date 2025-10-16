@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20251014063931_add_transaction_title")]
-    partial class add_transaction_title
+    [Migration("20251016073353_2")]
+    partial class _2
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -183,15 +183,16 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.Property<string>("ItemNumber")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<Guid>("ItemSchemaId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Location")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
 
@@ -268,6 +269,11 @@ namespace LogiEdge.WarehouseService.Migrations
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasDiscriminator().HasValue("InboundTransaction");
                 });
@@ -413,6 +419,15 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Navigation("Customer");
 
                     b.Navigation("ItemSchema");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
+                {
+                    b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId");
+
+                    b.Navigation("Warehouse");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>

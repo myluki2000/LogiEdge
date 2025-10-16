@@ -37,25 +37,27 @@ namespace LogiEdge
             builder.Services.AddServerSideBlazor();
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
             builder.Services.AddSingleton<WeatherForecastService>();
-
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
 
             // modules
-            List<IServiceModuleConfiguration> modules = new()
-            {
+            List<IServiceModuleConfiguration> modules =
+            [
                 new BaseServiceModuleConfiguration(),
                 new CustomerManagementModuleConfiguration(),
                 new CustomerServiceModuleConfiguration(),
                 new WarehouseModuleConfiguration(),
                 new WarehouseServiceModuleConfiguration(),
                 new ExcelImporterServiceModuleConfiguration()
-            };
+            ];
 
             // add services of modules
             foreach (IServiceModuleConfiguration module in modules)
             {
                 module.RegisterServices(builder);
             }
+
+            // auto mapper profiles
+            builder.Services.AddAutoMapper(cfg => { }, [typeof(Program).Assembly, ..modules.Select(x => x.Assembly).Distinct()]);
 
             // build app
             var app = builder.Build();

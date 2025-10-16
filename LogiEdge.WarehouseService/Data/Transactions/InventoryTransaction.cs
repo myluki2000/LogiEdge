@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -28,9 +29,10 @@ public abstract class InventoryTransaction
     /// </summary>
     public List<ItemState>? NewItemStates { get; set; } = null;
 
+    [NotMapped]
     public IEnumerable<Item>? AffectedItems => NewItemStates?.Select(st => st.Item);
 }
-    public enum TransactionState
+public enum TransactionState
 {
     DRAFT,
     BOOKED,

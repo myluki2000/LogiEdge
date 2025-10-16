@@ -19,12 +19,13 @@ namespace LogiEdge.WarehouseService.Data.Transactions
         public Guid CustomerId { get; set; }
         public required Customer Customer { get; set; }
         [DisplayColumnProperty]
+        [MaxLength(128)]
         public string ItemNumber { get; set; } = string.Empty;
         public JsonDocument AdditionalProperties { get; set; } = JsonDocument.Parse("{}");
         [DisplayColumnProperty]
         public string Comments { get; set; } = string.Empty;
         [DisplayColumnProperty]
-        [MaxLength(32)]
+        [MaxLength(64)]
         public string Location { get; set; } = string.Empty;
         [DisplayColumnProperty]
         public int Count { get; set; }

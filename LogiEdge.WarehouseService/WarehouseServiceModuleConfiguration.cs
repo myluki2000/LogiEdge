@@ -2,7 +2,7 @@
 using LogiEdge.CustomerService.Persistence;
 using LogiEdge.Shared;
 using LogiEdge.WarehouseService.Persistence;
-using LogiEdge.WarehouseService.Services;
+using LogiEdge.WarehouseService.Services.WarehouseManagement;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;

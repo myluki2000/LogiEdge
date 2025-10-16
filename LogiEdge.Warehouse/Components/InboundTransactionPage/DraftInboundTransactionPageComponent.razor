@@ -5,10 +5,13 @@
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 
+@inject WarehouseManagementService warehouseService
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 
 @code {
@@ -80,6 +83,7 @@
     private InboundTransaction GetTransaction(WarehouseDbContext ctx)
     {
         InboundTransaction? transaction = ctx.InboundTransactions
+            .Include(tr => tr.Warehouse)
             .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
             .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
             .FirstOrDefault(t => t.Id == TransactionId);
@@ -145,6 +149,24 @@
         ctx.Update(item);
         await ctx.SaveChangesAsync();
     }
+
+    private async Task SaveWarehouseSelectionToDatabaseAsync(Warehouse? warehouse)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        InboundTransaction? dbTransaction = await ctx.InboundTransactions
+            .Include(t => t.Warehouse)
+            .FirstOrDefaultAsync(t => t.Id == Transaction!.Id);
+        if (dbTransaction != null)
+        {
+            dbTransaction.WarehouseId = Transaction.WarehouseId;
+            await ctx.SaveChangesAsync();
+        }
+    }
+
+    private async Task BookTransaction()
+    {
+        await warehouseService.BookInboundTransactionAsync(Transaction.Id);
+    }
 }
 
 <h3>
@@ -158,11 +180,11 @@
 </h3>
 
 <div>
-    <button class="btn btn-primary">Book Transaction</button>
+    <button class="btn btn-primary" @onclick="BookTransaction">Book Transaction</button>
 
     <DebouncerComponent 
         @ref="debouncer" 
-        DelayMilliseconds="3000" 
+        DelayMilliseconds="1000" 
         style="@(IsAnyInputInvalid ? "display: none;" : "")" 
         class="ms-2"/>
     @if (IsAnyInputInvalid)
@@ -179,6 +201,16 @@
 @{
     lastItemInputComponents.Clear();
 }
+
+<span>Warehouse:</span>
+<WarehousePropertyValueInput 
+    Value="Transaction.Warehouse"
+    ValueChanged="e => {
+        Transaction.Warehouse = e;
+        Transaction.WarehouseId = e?.Id;
+        debouncer.Debounce(async Task () => await SaveWarehouseSelectionToDatabaseAsync(e));
+    }"/>
+
 @foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
 {
     List<InboundDraftItem> schemaItems = Transaction.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();

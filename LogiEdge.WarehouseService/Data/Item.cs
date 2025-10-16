@@ -12,7 +12,9 @@ namespace LogiEdge.WarehouseService.Data
         [DisplayColumnProperty]
         public Guid Id { get; set; }
 
-        public required ItemSchema ItemSchema { get; set; }
+        [ForeignKey("ItemSchema")]
+        public required Guid ItemSchemaId { get; set; }
+        public ItemSchema ItemSchema { get; set; }
 
         [ForeignKey("Customer")]
         public required Guid CustomerId { get; set; }
@@ -35,6 +37,7 @@ namespace LogiEdge.WarehouseService.Data
 
         // TODO: This property should probably be removed because it does not account for the fact that we might be
         // inspecting the item at a different point in time
+        [NotMapped]
         public bool InWarehouse
         {
             get
@@ -53,6 +56,7 @@ namespace LogiEdge.WarehouseService.Data
         /// is not in the PRE_ARRIVAL or SHIPPED location.
         /// </summary>
         [DisplayColumnProperty]
+        [NotMapped]
         public DateTime? EntryDate
         {
             get

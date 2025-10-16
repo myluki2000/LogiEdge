@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20250623010418_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20251016075640_3")]
+    partial class _3
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -81,9 +81,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("InventoryTransactionId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("ItemNumber")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -98,8 +95,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
-
-                    b.HasIndex("InventoryTransactionId");
 
                     b.HasIndex("ItemSchemaId");
 
@@ -183,15 +178,16 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.Property<string>("ItemNumber")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<Guid>("ItemSchemaId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Location")
                         .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.HasKey("Id");
 
@@ -236,6 +232,11 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<int>("State")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
                     b.HasKey("Id");
 
                     b.ToTable("InventoryTransaction");
@@ -263,6 +264,11 @@ namespace LogiEdge.WarehouseService.Migrations
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasDiscriminator().HasValue("InboundTransaction");
                 });
@@ -303,10 +309,6 @@ namespace LogiEdge.WarehouseService.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", null)
-                        .WithMany("AffectedItems")
-                        .HasForeignKey("InventoryTransactionId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.ItemSchema", "ItemSchema")
                         .WithMany()
@@ -410,6 +412,15 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Navigation("ItemSchema");
                 });
 
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
+                {
+                    b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId");
+
+                    b.Navigation("Warehouse");
+                });
+
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>
                 {
                     b.Navigation("ItemStates");
@@ -417,8 +428,6 @@ namespace LogiEdge.WarehouseService.Migrations
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
                 {
-                    b.Navigation("AffectedItems");
-
                     b.Navigation("NewItemStates");
                 });
 

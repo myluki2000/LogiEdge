@@ -19,6 +19,7 @@ namespace LogiEdge.WarehouseService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     HandledByWorker = table.Column<string>(type: "text", nullable: false),
@@ -87,10 +88,10 @@ namespace LogiEdge.WarehouseService.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false),
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ItemNumber = table.Column<string>(type: "text", nullable: false),
+                    ItemNumber = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
                     AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: false),
                     Comments = table.Column<string>(type: "text", nullable: false),
-                    Location = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    Location = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     Count = table.Column<int>(type: "integer", nullable: false),
                     InboundTransactionId = table.Column<Guid>(type: "uuid", nullable: true)
                 },

@@ -5,6 +5,7 @@ using System.Text.Json;
 using LogiEdge.WarehouseService.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -13,9 +14,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    partial class WarehouseDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251016072904_1")]
+    partial class _1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -78,6 +81,9 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("InventoryTransactionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("ItemNumber")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -92,6 +98,8 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("InventoryTransactionId");
 
                     b.HasIndex("ItemSchemaId");
 
@@ -262,7 +270,7 @@ namespace LogiEdge.WarehouseService.Migrations
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
 
-                    b.Property<Guid?>("WarehouseId")
+                    b.Property<Guid>("WarehouseId")
                         .HasColumnType("uuid");
 
                     b.HasIndex("WarehouseId");
@@ -306,6 +314,10 @@ namespace LogiEdge.WarehouseService.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", null)
+                        .WithMany("AffectedItems")
+                        .HasForeignKey("InventoryTransactionId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.ItemSchema", "ItemSchema")
                         .WithMany()
@@ -413,7 +425,9 @@ namespace LogiEdge.WarehouseService.Migrations
                 {
                     b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
                         .WithMany()
-                        .HasForeignKey("WarehouseId");
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Warehouse");
                 });
@@ -425,6 +439,8 @@ namespace LogiEdge.WarehouseService.Migrations
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
                 {
+                    b.Navigation("AffectedItems");
+
                     b.Navigation("NewItemStates");
                 });
 
