@@ -203,28 +203,29 @@
                     <tr>
                         @foreach ((string propertyName, Type propertyType) in propertyColumns)
                         {
-                            InboundDraftItemPropertyValueInput lastInputRef = null!;
                             <td>
                                 @if (item == schemaItems.Last())
                                 {
-                                    <InboundDraftItemPropertyValueInput @ref="lastItemInputComponents[(customer.Id, schema.Id, propertyName)]"
-                                                                        DraftItem="@item"
-                                                                        PropertyName="@propertyName"
-                                                                        PropertyValueChanged="e => debouncer.Debounce(async Task () => {
-                                                                            await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
-                                                                        })"
-                                                                        LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
-                                                                        tabindex="@(tabIndex++)"/>
+                                    <InboundDraftItemPropertyValueInput 
+                                        @ref="lastItemInputComponents[(customer.Id, schema.Id, propertyName)]"
+                                        DraftItem="@item"
+                                        PropertyName="@propertyName"
+                                        PropertyValueChanged="e => debouncer.Debounce(async Task () => {
+                                            await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
+                                        })"
+                                        LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
+                                        tabindex="@(tabIndex++)"/>
                                 }
                                 else
                                 {
-                                    <InboundDraftItemPropertyValueInput DraftItem="@item"
-                                                                        PropertyName="@propertyName"
-                                                                        PropertyValueChanged="e => debouncer.Debounce(async Task () => {
-                                                                            await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
-                                                                        })"
-                                                                        LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
-                                                                        tabindex="@(tabIndex++)"/>
+                                    <InboundDraftItemPropertyValueInput 
+                                        DraftItem="@item"
+                                        PropertyName="@propertyName"
+                                        PropertyValueChanged="e => debouncer.Debounce(async Task () => {
+                                            await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
+                                        })"
+                                        LastInputInvalidChanged="e => LastInputInvalidMap[(item.Id, propertyName)] = e"
+                                        tabindex="@(tabIndex++)"/>
                                 }
                             </td>
                         }
