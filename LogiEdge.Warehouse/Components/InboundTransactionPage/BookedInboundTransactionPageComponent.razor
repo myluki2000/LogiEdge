@@ -1,5 +1,82 @@
-﻿<h3>BookedInboundTransactionPageComponent</h3>
+﻿@using System.ComponentModel.DataAnnotations
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.Shared.Attributes
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
 
-@code {
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 
+@code
+{
+    [Parameter]
+    public Guid TransactionId { get; set; }
+
+    private InboundTransaction Transaction { get; set; } = null!;
+    private List<(Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        Transaction = GetTransaction(ctx);
+
+        ItemSchemasToShow = Transaction.GetAffectedItems()!
+            .Select(it => (it.Customer, it.ItemSchema))
+            .Distinct()
+            .ToList();
+
+        await base.SetParametersAsync(parameters);
+    }
+
+    private InboundTransaction GetTransaction(WarehouseDbContext ctx)
+    {
+        InboundTransaction? transaction = ctx.InboundTransactions
+            .Include(tr => tr.Warehouse)
+            .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
+            .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        if (transaction == null)
+            throw new InvalidOperationException($"Transaction {TransactionId} not found.");
+
+        if (transaction.State != TransactionState.BOOKED)
+            throw new InvalidOperationException($"Transaction {TransactionId} is not in BOOKED state.");
+
+        return transaction;
+    }
+
+    private List<(string propertyName, Type propertyType)> GetItemPropertyColumns(ItemSchema schema)
+    {
+        List<(string propertyName, Type propertyType)> propertyColumns = typeof(Item)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
+                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
+            .Select(p => (p.Name, p.PropertyType))
+            .ToList();
+        propertyColumns.AddRange(typeof(ItemState)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
+                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
+            .Select(p => (p.Name, p.PropertyType)));
+        propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x.Name, x.Type.ToType())));
+
+        return propertyColumns;
+    }
+}
+
+<h3>
+    <span>@Transaction.Title</span>
+    <span class="fs-6">@Transaction.Date</span>
+</h3>
+@foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
+{
+    <h4>Items for @customer.Name - @schema.Name</h4>
+
+    <span>Booked transactions are final and cannot be edited.</span>
+    <WarehouseItemTableComponent Items="Transaction.GetAffectedItems()!.Where(it => it.ItemSchema == schema).ToList()"
+                                 ItemStateSelectionFunc="it => Transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
+                                 PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
+                                     .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
 }

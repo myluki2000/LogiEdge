@@ -66,44 +66,14 @@
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
         Transaction = ctx.InboundTransactions
-            .Include(tr => tr.NewItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer)
-            .Include(tr => tr.NewItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.ItemSchema)
-            .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
-            .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
-            .Include(tr => tr.NewItemStates)
             .FirstOrDefault(t => t.Id == TransactionId);
 
         if (Transaction != null)
         {
-            customerItemSchemasToShow = Transaction.State switch
-            {
-                TransactionState.DRAFT => Transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
-                TransactionState.BOOKED => Transaction.GetAffectedItems()!.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
-                _ => throw new Exception("Unexpected transaction state: " + Transaction.State)
-            };
-
             Attachments = await FileAttachmentService.GetAttachmentsAsync(Transaction.AttachmentIds);
         }
 
         await base.SetParametersAsync(parameters);
-    }
-
-    private List<(string propertyName, Type propertyType)> GetItemPropertyColumns(ItemSchema schema)
-    {
-        List<(string propertyName, Type propertyType)> propertyColumns = typeof(Item)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
-                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
-            .Select(p => (p.Name, p.PropertyType))
-            .ToList();
-        propertyColumns.AddRange(typeof(ItemState)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
-                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
-            .Select(p => (p.Name, p.PropertyType)));
-        propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x.Name, x.Type.ToType())));
-
-        return propertyColumns;
     }
 }
 
@@ -116,20 +86,7 @@
 
 @if (Transaction.State == TransactionState.BOOKED)
 {
-    <h3>
-        <span>@Transaction.Title</span>
-        <span class="fs-6">@Transaction.Date</span>
-    </h3>
-    @foreach ((Customer customer, ItemSchema schema) in customerItemSchemasToShow)
-    {
-        <h4>Items for @customer.Name - @schema.Name</h4>
-
-        <span>Booked transactions are final and cannot be edited.</span>
-        <WarehouseItemTableComponent Items="Transaction.GetAffectedItems()!.Where(it => it.ItemSchema == schema).ToList()"
-                                     ItemStateSelectionFunc="it => Transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
-                                     PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
-                                         .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
-    }
+    <BookedInboundTransactionPageComponent TransactionId="TransactionId" />
 }
 else
 {
