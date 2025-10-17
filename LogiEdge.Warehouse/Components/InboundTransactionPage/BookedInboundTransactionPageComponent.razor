@@ -18,6 +18,8 @@
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
+        await base.SetParametersAsync(parameters);
+
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
         Transaction = GetTransaction(ctx);
@@ -26,16 +28,14 @@
             .Select(it => (it.Customer, it.ItemSchema))
             .Distinct()
             .ToList();
-
-        await base.SetParametersAsync(parameters);
     }
 
     private InboundTransaction GetTransaction(WarehouseDbContext ctx)
     {
         InboundTransaction? transaction = ctx.InboundTransactions
             .Include(tr => tr.Warehouse)
-            .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
-            .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
+            .Include(tr => tr.NewItemStates)!.ThenInclude(st => st.Item).ThenInclude(it => it.Customer)
+            .Include(tr => tr.NewItemStates)!.ThenInclude(st => st.Item).ThenInclude(it => it.ItemSchema)
             .FirstOrDefault(t => t.Id == TransactionId);
 
         if (transaction == null)
