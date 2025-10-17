@@ -100,17 +100,17 @@
     {
         if (!Transaction.DraftItems.Contains(item))
         {
-            // Break navigation references to avoid duplicate tracking
-            item.Customer = null!;
-            item.ItemSchema = null!;
-
             using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
+
+            ctx.Attach(item.Customer);
+            ctx.Attach(item.ItemSchema);
+
             InboundTransaction transaction = GetTransaction(ctx);
             transaction.DraftItems.Add(item);
             ctx.SaveChanges();
 
             // navigation references will have been fixed by EF Core after SaveChanges
-            Transaction.DraftItems.Add(item);
+            Transaction = transaction;
 
             NewItems.Remove((item.CustomerId, item.ItemSchemaId));
             focusOnLastElement = (item.CustomerId, item.ItemSchemaId, propertyName);

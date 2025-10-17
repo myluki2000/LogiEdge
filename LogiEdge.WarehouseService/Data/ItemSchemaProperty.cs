@@ -13,6 +13,7 @@ namespace LogiEdge.WarehouseService.Data
     public class ItemSchemaProperty
     {
         [MaxLength(64)]
+        [Key]
         public required string Name { get; set; } = string.Empty;
         [MaxLength(256)]
         public required SupportedTypes Type { get; set; }
