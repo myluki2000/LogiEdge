@@ -4,6 +4,7 @@
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Routing
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject NavigationManager NavigationManager
@@ -109,31 +110,33 @@
         resultSelector: (key, gi) => (key, gi.GroupBy(x => x.ItemNumber)))
         ?? [];
 
-        <div>
-            <span>@transactionTypeString</span>
-            <span>@transaction.Date</span>
-            <span>Created by @transaction.CreatedByUserId - Handled by @transaction.HandledByWorker</span>
+        <NavLink href="@($"/warehouse/transactions/{transaction.Id}")">
+            <div>
+                <span>@transactionTypeString</span>
+                <span>@transaction.Date</span>
+                <span>Created by @transaction.CreatedByUserId - Handled by @transaction.HandledByWorker</span>
 
-            <table>
-                <tr>
-                    <th>Item Number</th>
-                    <th>Count</th>
-                </tr>
-                @foreach (var customerGroup in groupedItems)
-                {
+                <table>
                     <tr>
-                        <td colspan="2" align="center">@customerGroup.key</td>
+                        <th>Item Number</th>
+                        <th>Count</th>
                     </tr>
-                    @foreach (IGrouping<string, Item> itemGroup in customerGroup.Item2)
+                    @foreach (var customerGroup in groupedItems)
                     {
                         <tr>
-                            <td>@itemGroup.Key</td>
-                            <td>@itemGroup.Count()</td>
+                            <td colspan="2" align="center">@customerGroup.key</td>
                         </tr>
+                        @foreach (IGrouping<string, Item> itemGroup in customerGroup.Item2)
+                        {
+                            <tr>
+                                <td>@itemGroup.Key</td>
+                                <td>@itemGroup.Count()</td>
+                            </tr>
+                        }
                     }
-                }
-            </table>
-        </div>
+                </table>
+            </div>
+        </NavLink>
     }
 </div>
 
