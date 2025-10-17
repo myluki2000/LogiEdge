@@ -1,20 +1,14 @@
-using System.Diagnostics;
-using System.Reflection;
 using LogiEdge.Areas.Identity;
 using LogiEdge.BaseService;
 using LogiEdge.CustomerManagement;
 using LogiEdge.CustomerService;
-using LogiEdge.CustomerService.Persistence;
 using LogiEdge.Data;
 using LogiEdge.ExcelImporterService;
 using LogiEdge.Shared;
-using LogiEdge.Warehouse;
+using LogiEdge.WebUI.Warehouse;
 using LogiEdge.WarehouseService;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI;
 using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge

@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\LogiEdge.Warehouse\Pages\Warehouse\Transactions\Inbound\Component.razor" Link="Component.razor" />
+    <None Include="..\LogiEdge.WebUI.Warehouse\Pages\Warehouse\Transactions\Inbound\Component.razor" Link="Component.razor" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,7 +26,7 @@
     <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
     <ProjectReference Include="..\LogiEdge.CustomerManagement\LogiEdge.CustomerManagement.csproj" />
     <ProjectReference Include="..\LogiEdge.ExcelImporterService\LogiEdge.ExcelImporterService.csproj" />
-    <ProjectReference Include="..\LogiEdge.Warehouse\LogiEdge.Warehouse.csproj" />
+    <ProjectReference Include="..\LogiEdge.WebUI.Warehouse\LogiEdge.WebUI.Warehouse.csproj" />
   </ItemGroup>
 
 </Project>

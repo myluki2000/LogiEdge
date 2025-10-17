@@ -9,7 +9,7 @@ using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using Microsoft.Extensions.Primitives;
 
-namespace LogiEdge.Warehouse
+namespace LogiEdge.WebUI.Warehouse
 {
     internal class ItemsPageQueryParameters
     {

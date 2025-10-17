@@ -8,7 +8,7 @@ using LogiEdge.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace LogiEdge.Warehouse
+namespace LogiEdge.WebUI.Warehouse
 {
     public class WarehouseModuleConfiguration : IServiceModuleConfiguration
     {

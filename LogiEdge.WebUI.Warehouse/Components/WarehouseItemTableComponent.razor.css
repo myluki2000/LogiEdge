@@ -15,7 +15,7 @@ td a {
     text-decoration: none;
 }
 
-td a:hover {
-    color: blue;
-    text-decoration: underline;
-}
+    td a:hover {
+        color: blue;
+        text-decoration: underline;
+    }

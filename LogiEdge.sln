@@ -5,7 +5,7 @@ VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge", "LogiEdge\LogiEdge.csproj", "{17505919-F6B6-4EFE-9B77-37F69FA817E4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Warehouse", "LogiEdge.Warehouse\LogiEdge.Warehouse.csproj", "{BD0136F2-2422-41E4-9E5B-FC4EC8625AB6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.WebUI.Warehouse", "LogiEdge.WebUI.Warehouse\LogiEdge.WebUI.Warehouse.csproj", "{BD0136F2-2422-41E4-9E5B-FC4EC8625AB6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Shared", "LogiEdge.Shared\LogiEdge.Shared.csproj", "{905B1710-C85C-4602-83C5-438CF6DA6BA0}"
 EndProject
