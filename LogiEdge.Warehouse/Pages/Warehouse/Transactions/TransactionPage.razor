@@ -1,0 +1,47 @@
+﻿@page "/warehouse/transactions/{TransactionId:guid}"
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+@using LogiEdge.Warehouse.Components.Transaction.InboundTransaction
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+@code {
+    /// <summary>
+    /// The ID of the transaction this page will show
+    /// </summary>
+    [Parameter]
+    public Guid TransactionId { get; set; }
+
+    private bool IsInboundTransaction { get; set; }
+    private bool IsOutboundTransaction { get; set; }
+    private bool IsRelocationTransaction { get; set; }
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        IsInboundTransaction = ctx.InboundTransactions.Any(tr => tr.Id == TransactionId);
+        IsOutboundTransaction = ctx.OutboundTransactions.Any(tr => tr.Id == TransactionId);
+        IsRelocationTransaction = ctx.RelocationTransactions.Any(tr => tr.Id == TransactionId);
+    }
+}
+
+@if (IsInboundTransaction)
+{
+    <InboundTransactionComponent TransactionId="TransactionId" />
+}
+else if (IsOutboundTransaction)
+{
+    // TODO: Implement OutboundTransactionDetails component
+}
+else if (IsRelocationTransaction)
+{
+    // TODO: Implement RelocationTransactionDetails component
+}
+else
+{
+    <p class="text-danger">Transaction with ID '@TransactionId' not found.</p>
+}
+

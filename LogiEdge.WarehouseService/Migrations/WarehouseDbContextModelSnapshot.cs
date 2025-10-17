@@ -217,11 +217,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Discriminator")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
-
                     b.Property<string>("HandledByWorker")
                         .IsRequired()
                         .HasColumnType("text");
@@ -236,11 +231,9 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InventoryTransaction");
+                    b.ToTable((string)null);
 
-                    b.HasDiscriminator().HasValue("InventoryTransaction");
-
-                    b.UseTphMappingStrategy();
+                    b.UseTpcMappingStrategy();
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>
@@ -267,21 +260,21 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.HasDiscriminator().HasValue("InboundTransaction");
+                    b.ToTable("InboundTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
 
-                    b.HasDiscriminator().HasValue("OutboundTransaction");
+                    b.ToTable("OutboundTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
 
-                    b.HasDiscriminator().HasValue("RelocationTransaction");
+                    b.ToTable("RelocationTransactions");
                 });
 
             modelBuilder.Entity("CustomerItemSchema", b =>

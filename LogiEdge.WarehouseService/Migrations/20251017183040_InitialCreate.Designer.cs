@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20251017062919_affecteditems")]
-    partial class affecteditems
+    [Migration("20251017183040_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -81,9 +81,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("InventoryTransactionId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("ItemNumber")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -98,8 +95,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
-
-                    b.HasIndex("InventoryTransactionId");
 
                     b.HasIndex("ItemSchemaId");
 
@@ -133,13 +128,7 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("InventoryTransactionId")
-                        .HasColumnType("uuid");
-
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ItemId1")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Location")
@@ -155,17 +144,13 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InventoryTransactionId");
-
                     b.HasIndex("ItemId");
-
-                    b.HasIndex("ItemId1");
 
                     b.HasIndex("RelatedTransactionId");
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("ItemStates", (string)null);
+                    b.ToTable("ItemState");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundDraftItem", b =>
@@ -235,11 +220,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Discriminator")
-                        .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
-
                     b.Property<string>("HandledByWorker")
                         .IsRequired()
                         .HasColumnType("text");
@@ -254,11 +234,9 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InventoryTransaction");
+                    b.ToTable((string)null);
 
-                    b.HasDiscriminator().HasValue("InventoryTransaction");
-
-                    b.UseTphMappingStrategy();
+                    b.UseTpcMappingStrategy();
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>
@@ -285,21 +263,21 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.HasDiscriminator().HasValue("InboundTransaction");
+                    b.ToTable("InboundTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
 
-                    b.HasDiscriminator().HasValue("OutboundTransaction");
+                    b.ToTable("OutboundTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
 
-                    b.HasDiscriminator().HasValue("RelocationTransaction");
+                    b.ToTable("RelocationTransactions");
                 });
 
             modelBuilder.Entity("CustomerItemSchema", b =>
@@ -324,10 +302,6 @@ namespace LogiEdge.WarehouseService.Migrations
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", null)
-                        .WithMany("AffectedItems")
-                        .HasForeignKey("InventoryTransactionId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.ItemSchema", "ItemSchema")
                         .WithMany()
@@ -385,22 +359,14 @@ namespace LogiEdge.WarehouseService.Migrations
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemState", b =>
                 {
-                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", null)
-                        .WithMany("NewItemStates")
-                        .HasForeignKey("InventoryTransactionId");
-
                     b.HasOne("LogiEdge.WarehouseService.Data.Item", "Item")
-                        .WithMany()
+                        .WithMany("ItemStates")
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LogiEdge.WarehouseService.Data.Item", null)
-                        .WithMany("ItemStates")
-                        .HasForeignKey("ItemId1");
-
                     b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", "RelatedTransaction")
-                        .WithMany()
+                        .WithMany("NewItemStates")
                         .HasForeignKey("RelatedTransactionId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
@@ -455,8 +421,6 @@ namespace LogiEdge.WarehouseService.Migrations
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
                 {
-                    b.Navigation("AffectedItems");
-
                     b.Navigation("NewItemStates");
                 });
 

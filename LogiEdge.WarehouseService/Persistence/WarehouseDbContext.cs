@@ -11,28 +11,24 @@ using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LogiEdge.WarehouseService.Persistence
 {
     public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : DbContext(options)
     {
-        public DbSet<Warehouse> Warehouses { get; init; }
+        public DbSet<Warehouse> Warehouses { get; set; }
 
-        public DbSet<Item> Items { get; init; }
+        public DbSet<Item> Items { get; set; }
 
-        public DbSet<ItemSchema> ItemSchemas { get; init; }
+        public DbSet<ItemSchema> ItemSchemas { get; set; }
 
-        public DbSet<InboundTransaction> InboundTransactions { get; init; }
-        public DbSet<OutboundTransaction> OutboundTransactions { get; init; }
-        public DbSet<RelocationTransaction> RelocationTransactions { get; init; }
+        public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+        public DbSet<InboundTransaction> InboundTransactions { get; set; }
+        public DbSet<OutboundTransaction> OutboundTransactions { get; set; }
+        public DbSet<RelocationTransaction> RelocationTransactions { get; set; }
 
-        public IEnumerable<InventoryTransaction> InventoryTransactions => Enumerable.Concat(
-            InboundTransactions,
-            Enumerable.Concat<InventoryTransaction>(
-                OutboundTransactions,
-                RelocationTransactions)
-        );
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -44,6 +40,9 @@ namespace LogiEdge.WarehouseService.Persistence
                 .WithOne(x => x.Item)
                 .HasForeignKey(x => x.ItemId)
                 .IsRequired();
+
+            modelBuilder.Entity<InventoryTransaction>()
+                .UseTpcMappingStrategy();
         }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

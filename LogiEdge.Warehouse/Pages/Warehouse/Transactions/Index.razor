@@ -4,18 +4,95 @@
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
 @using Microsoft.EntityFrameworkCore
+
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@inject NavigationManager NavigationManager
 
 <h3>Transactions</h3>
 
-@{
-    using WarehouseDbContext ctx = WarehouseDbContextFactory.CreateDbContext();
+@code
+{
+    private List<InventoryTransaction> Transactions { get; set; } = null!;
 
-    List<InventoryTransaction> transactions = ctx.InventoryTransactions.ToList();
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        Transactions = ctx.InventoryTransactions
+            .Include(tr => tr.NewItemStates)!.ThenInclude(st => st.Item)
+            .ToList();
+    }
+
+    private async Task BtnCreateInboundTransactionOnClick()
+    {
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        InboundTransaction transaction = new()
+        {
+            Date = DateTime.UtcNow,
+            CreatedByUserId = Guid.Empty, // TODO: Pass current user's ID
+            HandledByWorker = "",
+            AttachmentIds = []
+        };
+
+        ctx.InboundTransactions.Add(transaction);
+
+        await ctx.SaveChangesAsync();
+        NavigationManager.NavigateTo($"/warehouse/transactions/{transaction.Id}");
+    }
+
+    private async Task BtnCreateOutboundTransactionOnClick()
+    {
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        OutboundTransaction transaction = new()
+        {
+            Date = DateTime.UtcNow,
+            CreatedByUserId = Guid.Empty, // TODO: Pass current user's ID
+            HandledByWorker = "",
+            AttachmentIds = []
+        };
+
+        ctx.OutboundTransactions.Add(transaction);
+
+        await ctx.SaveChangesAsync();
+        NavigationManager.NavigateTo($"/warehouse/transactions/{transaction.Id}");
+    }
+
+    private async Task BtnCreateRelocationTransactionOnClick()
+    {
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        RelocationTransaction transaction = new()
+        {
+            Date = DateTime.UtcNow,
+            CreatedByUserId = Guid.Empty, // TODO: Pass current user's ID
+            HandledByWorker = "",
+            AttachmentIds = []
+        };
+
+        ctx.RelocationTransactions.Add(transaction);
+
+        await ctx.SaveChangesAsync();
+        NavigationManager.NavigateTo($"/warehouse/transactions/{transaction.Id}");
+    }
 }
 
+<div class="dropdown">
+    <button class="btn btn-primary dropdown-toggle" type="button" id="btnCreateTransactionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+        Create Transaction
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="btnCreateTransactionDropdown">
+        <li><a class="dropdown-item" @onclick="BtnCreateInboundTransactionOnClick">Inbound Transaction</a></li>
+        <li><a class="dropdown-item" @onclick="BtnCreateOutboundTransactionOnClick">Outbound Transaction</a></li>
+        <li><a class="dropdown-item" @onclick="BtnCreateRelocationTransactionOnClick">Relocation Transaction</a></li>
+    </ul>
+</div>
+
 <div>
-    @foreach(InventoryTransaction transaction in transactions)
+    @foreach (InventoryTransaction transaction in Transactions)
     {
         string transactionTypeString = transaction switch
         {
@@ -26,10 +103,10 @@
         };
 
         // group items first by customer and then by item number
-        var groupedItems = 
-            transaction.GetAffectedItems()?.GroupBy(
-                it => it.Customer,
-                resultSelector: (key, gi) => (key, gi.GroupBy(x => x.ItemNumber)))
+        var groupedItems =
+        transaction.GetAffectedItems()?.GroupBy(
+        it => it.Customer,
+        resultSelector: (key, gi) => (key, gi.GroupBy(x => x.ItemNumber)))
         ?? [];
 
         <div>
@@ -42,11 +119,12 @@
                     <th>Item Number</th>
                     <th>Count</th>
                 </tr>
-                @foreach(var customerGroup in groupedItems) {
+                @foreach (var customerGroup in groupedItems)
+                {
                     <tr>
                         <td colspan="2" align="center">@customerGroup.key</td>
                     </tr>
-                    @foreach(IGrouping<string, Item> itemGroup in customerGroup.Item2)
+                    @foreach (IGrouping<string, Item> itemGroup in customerGroup.Item2)
                     {
                         <tr>
                             <td>@itemGroup.Key</td>

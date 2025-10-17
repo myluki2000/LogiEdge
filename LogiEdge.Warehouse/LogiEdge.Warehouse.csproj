@@ -20,8 +20,4 @@
     <ProjectReference Include="..\LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Pages\Customer\" />
-  </ItemGroup>
-
 </Project>

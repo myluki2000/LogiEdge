@@ -1,9 +1,5 @@
-﻿@page "/warehouse/transactions/inbound/{TransactionId:guid}"
-@using System.ComponentModel.DataAnnotations
-@using System.Reflection
-@using LogiEdge.BaseService.Data
+﻿@using LogiEdge.BaseService.Data
 @using LogiEdge.BaseService.Services
-@using LogiEdge.Shared.Attributes
 @using LogiEdge.Warehouse.Components
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
@@ -11,8 +7,6 @@
 @using LogiEdge.WebUI.Shared.Components
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.CustomerService.Data
-@using LogiEdge.Warehouse.Components.InboundTransactionPage
-@using Microsoft.AspNetCore.Components.Forms
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 @inject FileAttachmentService FileAttachmentService
 
@@ -86,11 +80,11 @@
 
 @if (Transaction.State == TransactionState.BOOKED)
 {
-    <BookedInboundTransactionPageComponent TransactionId="TransactionId" />
+    <BookedInboundTransactionComponent TransactionId="TransactionId" />
 }
 else
 {
-    <DraftInboundTransactionPageComponent TransactionId="TransactionId" />
+    <DraftInboundTransactionComponent TransactionId="TransactionId" />
 }
 
 <DocumentGeneratorComponent TInputType="InboundTransaction" />
