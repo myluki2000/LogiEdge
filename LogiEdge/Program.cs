@@ -1,6 +1,6 @@
 using LogiEdge.Areas.Identity;
 using LogiEdge.BaseService;
-using LogiEdge.CustomerManagement;
+using LogiEdge.WebUI.Customers;
 using LogiEdge.CustomerService;
 using LogiEdge.Data;
 using LogiEdge.ExcelImporterService;

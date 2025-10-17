@@ -1,7 +1,7 @@
 ﻿using LogiEdge.Shared;
 using System.Reflection;
 
-namespace LogiEdge.CustomerManagement
+namespace LogiEdge.WebUI.Customers
 {
     public class CustomerManagementModuleConfiguration : IServiceModuleConfiguration
     {
