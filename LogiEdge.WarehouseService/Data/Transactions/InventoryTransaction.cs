@@ -29,8 +29,18 @@ public abstract class InventoryTransaction
     /// </summary>
     public List<ItemState>? NewItemStates { get; set; } = null;
 
-    [NotMapped]
-    public IEnumerable<Item>? AffectedItems => NewItemStates?.Select(st => st.Item);
+    /// <summary>
+    /// If this transaction has been booked, this will contain the items affected.
+    /// If this transaction has not been booked, this will be NULL.
+    /// </summary>
+    public IEnumerable<Item>? GetAffectedItems()
+    {
+        if (State == TransactionState.BOOKED && NewItemStates == null)
+            throw new Exception("For InventoryTransaction.AffectedItems to work, InventoryTransaction.ItemStates " +
+                                "and InventoryTransaction.ItemStates.Item need to be .Include()-ed");
+
+        return NewItemStates?.Select(st => st.Item);
+    }
 }
 public enum TransactionState
 {

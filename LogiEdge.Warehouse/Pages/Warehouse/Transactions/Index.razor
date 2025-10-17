@@ -27,7 +27,7 @@
 
         // group items first by customer and then by item number
         var groupedItems = 
-            transaction.AffectedItems?.GroupBy(
+            transaction.GetAffectedItems()?.GroupBy(
                 it => it.Customer,
                 resultSelector: (key, gi) => (key, gi.GroupBy(x => x.ItemNumber)))
         ?? [];

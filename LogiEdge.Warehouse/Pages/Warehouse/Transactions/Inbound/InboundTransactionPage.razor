@@ -66,6 +66,8 @@
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
         Transaction = ctx.InboundTransactions
+            .Include(tr => tr.NewItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer)
+            .Include(tr => tr.NewItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.ItemSchema)
             .Include(tr => tr.DraftItems).ThenInclude(di => di.Customer)
             .Include(tr => tr.DraftItems).ThenInclude(di => di.ItemSchema)
             .Include(tr => tr.NewItemStates)
@@ -76,7 +78,7 @@
             customerItemSchemasToShow = Transaction.State switch
             {
                 TransactionState.DRAFT => Transaction.DraftItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
-                TransactionState.BOOKED => Transaction.AffectedItems.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
+                TransactionState.BOOKED => Transaction.GetAffectedItems()!.Select(it => (it.Customer, it.ItemSchema)).Distinct().ToList(),
                 _ => throw new Exception("Unexpected transaction state: " + Transaction.State)
             };
 
@@ -123,7 +125,7 @@
         <h4>Items for @customer.Name - @schema.Name</h4>
 
         <span>Booked transactions are final and cannot be edited.</span>
-        <WarehouseItemTableComponent Items="Transaction.AffectedItems.Where(it => it.ItemSchema == schema).ToList()"
+        <WarehouseItemTableComponent Items="Transaction.GetAffectedItems()!.Where(it => it.ItemSchema == schema).ToList()"
                                      ItemStateSelectionFunc="it => Transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
                                      PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
                                          .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
