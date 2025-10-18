@@ -1,0 +1,51 @@
+﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Services
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Shared.Components
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject FileAttachmentService FileAttachmentService
+
+@code {
+    [Parameter]
+    public required InventoryTransaction Transaction { get; set; }
+    private List<FileAttachment> Attachments { get; set; } = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        Attachments = await FileAttachmentService.GetAttachmentsAsync(Transaction.AttachmentIds);
+    }
+
+    private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        ctx.Attach(Transaction);
+
+        foreach (FileAttachment attachment in newAttachments)
+        {
+            FileAttachment entity = await FileAttachmentService.CreateAttachmentAsync(attachment);
+            Transaction.AttachmentIds.Add(entity.Id);
+            Attachments.Add(entity);
+        }
+
+        await ctx.SaveChangesAsync();
+    }
+
+    private async Task OnAttachmentRemoved(Guid attachmentId)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        ctx.Attach(Transaction);
+        Transaction.AttachmentIds.Remove(attachmentId);
+        await FileAttachmentService.DeleteAttachmentAsync(attachmentId);
+        Attachments.RemoveAll(a => a.Id == attachmentId);
+        await ctx.SaveChangesAsync();
+    }
+}
+
+<FileAttachmentManagerComponent Attachments="@Attachments"
+                                OnAttachmentsUploaded="OnAttachmentsUploaded"
+                                OnAttachmentRemoved="OnAttachmentRemoved" />

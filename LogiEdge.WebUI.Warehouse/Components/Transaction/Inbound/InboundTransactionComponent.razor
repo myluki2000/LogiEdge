@@ -1,0 +1,55 @@
+﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Services
+@using LogiEdge.WebUI.Warehouse.Components
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Shared.Components
+@using Microsoft.EntityFrameworkCore
+@using LogiEdge.CustomerService.Data
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject FileAttachmentService FileAttachmentService
+
+@code {
+    /// <summary>
+    /// The ID of the transaction this page will show
+    /// </summary>
+    [Parameter]
+    public required Guid TransactionId { get; set; }
+
+    private InboundTransaction? Transaction { get; set; }
+
+    private List<(Customer customer, ItemSchema itemSchema)> customerItemSchemasToShow = [];
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        TransactionId = parameters.GetValueOrDefault<Guid>("TransactionId");
+
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        Transaction = ctx.InboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        await base.SetParametersAsync(parameters);
+    }
+}
+
+@if (Transaction == null)
+{
+    <p>Could not find transaction with ID @TransactionId</p>
+    return;
+}
+
+
+@if (Transaction.State == TransactionState.BOOKED)
+{
+    <BookedInboundTransactionComponent TransactionId="TransactionId" />
+}
+else
+{
+    <DraftInboundTransactionComponent TransactionId="TransactionId" />
+}
+
+<DocumentGeneratorComponent TInputType="InboundTransaction" />
+
+<TransactionFileAttachmentManagerComponent Transaction="Transaction" />
