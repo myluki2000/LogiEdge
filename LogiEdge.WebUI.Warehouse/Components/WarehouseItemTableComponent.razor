@@ -113,7 +113,7 @@
     {
         (string propertyName, object? propertyValue) = data;
 
-        if(PropertyValueClickableFunc?.Invoke((propertyName, propertyValue)) ?? false)
+        if(PropertyValueClickableFunc != null)
         {
             
             <td>
