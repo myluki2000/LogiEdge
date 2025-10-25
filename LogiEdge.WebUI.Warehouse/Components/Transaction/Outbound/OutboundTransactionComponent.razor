@@ -1,0 +1,49 @@
+﻿@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+
+<h3>OutboundTransactionComponent</h3>
+
+@code {
+    [Parameter]
+    public Guid TransactionId { get; set; }
+
+    private OutboundTransaction? Transaction { get; set; }
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        TransactionId = parameters.GetValueOrDefault<Guid>("TransactionId");
+
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        Transaction = ctx.OutboundTransactions
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        await base.SetParametersAsync(parameters);
+    }
+}
+
+@if (Transaction == null)
+{
+    <p>Transaction with ID @TransactionId could not be found.</p>
+    return;
+}
+
+@switch (Transaction.State)
+{
+    case TransactionState.BOOKED:
+        <BookedOutboundTransactionComponent TransactionId="TransactionId" />
+        break;
+    case TransactionState.DRAFT:
+        <DraftOutboundTransactionComponent TransactionId="TransactionId" />
+        break;
+    default:
+        <p>Unknown transaction state @Transaction.State</p>
+        break;
+}
+
+<DocumentGeneratorComponent TInputType="OutboundTransaction" />
+
+<TransactionFileAttachmentManagerComponent Transaction="Transaction" />
