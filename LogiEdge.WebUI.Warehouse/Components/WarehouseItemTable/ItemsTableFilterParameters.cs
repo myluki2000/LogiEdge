@@ -9,48 +9,62 @@ using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using Microsoft.Extensions.Primitives;
 
-namespace LogiEdge.WebUI.Warehouse
+namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {
-    internal class ItemsPageQueryParameters
+    public record ItemsTableFilterParameters
     {
         public required DateTime? AtTime { get; init; }
-        public required string? GroupByProperty { get; init; }
-        public required string? SortByProperty { get; init; }
-        public required bool SortOrderDescending { get; init; }
         public required bool ShowShipped { get; init; }
-        public required Dictionary<string, object> BaseParameters { get; init; }
-        public required Dictionary<string, object> StateParameters { get; init; }
-        public required Dictionary<string, string> AdditionalPropertyParameters { get; init; }
+        public required IReadOnlyDictionary<string, object> BaseParameters { get; init; }
+        public required IReadOnlyDictionary<string, object> StateParameters { get; init; }
+        public required IReadOnlyDictionary<string, string> AdditionalPropertyParameters { get; init; }
 
-        private readonly List<string> columnsToDisplayParam;
-
-        private ItemsPageQueryParameters(List<string> columnsToDisplayParam)
+        public virtual bool Equals(ItemsTableFilterParameters? other)
         {
-            this.columnsToDisplayParam = columnsToDisplayParam;
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Nullable.Equals(AtTime, other.AtTime) 
+                   && ShowShipped == other.ShowShipped 
+                   && BaseParameters.SequenceEqual(other.BaseParameters) 
+                   && StateParameters.SequenceEqual(other.StateParameters) 
+                   && AdditionalPropertyParameters.SequenceEqual(other.AdditionalPropertyParameters);
         }
 
-        public IEnumerable<string> GetColumnsToDisplay(IList<ItemSchema> itemSchemas)
+        public override int GetHashCode()
         {
-            if (columnsToDisplayParam.Count > 0)
-                return columnsToDisplayParam;
-            else
-                return
-                    new List<string>
-                    {
-                        nameof(Item.Id),
-                        nameof(Item.Customer),
-                        nameof(Item.ItemNumber),
-                        nameof(ItemState.Warehouse),
-                        nameof(ItemState.Location),
-                        nameof(Item.EntryDate)
-                    }.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name));
-
+            return HashCode.Combine(AtTime, ShowShipped, BaseParameters, StateParameters, AdditionalPropertyParameters);
         }
 
-        public static ItemsPageQueryParameters FromQueryParameters(Dictionary<string, StringValues> queryParametersInput)
+        public Dictionary<string, StringValues> ToQueryParameters()
         {
-            Dictionary<string, StringValues> queryParameters = new(queryParametersInput);
+            Dictionary<string, StringValues> result = [];
 
+            if (AtTime.HasValue)
+                result["at"] = AtTime.Value.ToString("o");
+
+            if (ShowShipped)
+                result["showShipped"] = ShowShipped.ToString();
+
+            foreach (KeyValuePair<string, object> kvp in BaseParameters)
+            {
+                result[kvp.Key] = PropertyToString(kvp.Value);
+            }
+
+            foreach (KeyValuePair<string, object> kvp in StateParameters)
+            {
+                result[kvp.Key] = PropertyToString(kvp.Value);
+            }
+
+            foreach (KeyValuePair<string, string> kvp in AdditionalPropertyParameters)
+            {
+                result[kvp.Key] = kvp.Value;
+            }
+
+            return result;
+        }
+
+        public static ItemsTableFilterParameters FromQueryParameters(Dictionary<string, StringValues> queryParameters)
+        {
             List<PropertyInfo> basePropInfos = typeof(Item)
                 .GetProperties()
                 .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
@@ -60,26 +74,8 @@ namespace LogiEdge.WebUI.Warehouse
                 .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
                 .ToList();
 
-            List<string> columnsToDisplayParam = queryParameters
-                .PopWhere(x => x.Key == "col")
-                .SelectMany(x => x.Value.ToList())
-                .OfType<string>()
-                .ToList();
-
-            return new ItemsPageQueryParameters(columnsToDisplayParam)
+            return new ItemsTableFilterParameters()
             {
-                SortByProperty = queryParameters
-                    .PopWhere(param => param.Key == "sortBy")
-                    .Select(param => param.Value.FirstOrDefault())
-                    .FirstOrDefault(),
-                SortOrderDescending = queryParameters
-                    .PopWhere(param => param.Key == "orderDescending")
-                    .Select(param => bool.Parse(param.Value.FirstOrDefault()!))
-                    .FirstOrDefault(),
-                GroupByProperty = queryParameters
-                    .PopWhere(param => param.Key == "groupBy")
-                    .Select(param => param.Value.FirstOrDefault())
-                    .FirstOrDefault(),
                 AtTime = queryParameters
                     .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
                     .Select(param => DateTime.SpecifyKind(DateTime.Parse(param.Value.First()!), DateTimeKind.Utc))
@@ -91,7 +87,7 @@ namespace LogiEdge.WebUI.Warehouse
                     .FirstOrDefault(),
                 BaseParameters = queryParameters
                 .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
-                .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
+                .ToDictionary(
                     x => x.Key,
                     x =>
                     {
@@ -120,7 +116,7 @@ namespace LogiEdge.WebUI.Warehouse
                     }),
                 StateParameters = queryParameters
                     .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
-                    .ToDictionary<KeyValuePair<string, StringValues>, string, object>(
+                    .ToDictionary(
                         x => x.Key,
                         x =>
                         {
@@ -149,7 +145,7 @@ namespace LogiEdge.WebUI.Warehouse
                         }),
                 AdditionalPropertyParameters = queryParameters
                     .Where(x => x.Value.Count > 0)
-                    .ToDictionary<KeyValuePair<string, StringValues>, string, string>(
+                    .ToDictionary(
                         x => x.Key,
                         x => x.Value.First()!)
             };
@@ -159,11 +155,21 @@ namespace LogiEdge.WebUI.Warehouse
         {
             return propertyType switch
             {
-                { } t when t == typeof(int) => int.Parse(propertyValue),
-                { } t when t == typeof(decimal) => decimal.Parse(propertyValue),
-                { } t when t == typeof(DateTime) => DateTime.SpecifyKind(DateTime.Parse(propertyValue), DateTimeKind.Utc),
-                { } t when t == typeof(Guid) => Guid.Parse(propertyValue),
+                { } when propertyType == typeof(int) => int.Parse(propertyValue),
+                not null when propertyType == typeof(decimal) => decimal.Parse(propertyValue),
+                not null when propertyType == typeof(DateTime) => DateTime.SpecifyKind(DateTime.Parse(propertyValue), DateTimeKind.Utc),
+                not null when propertyType == typeof(Guid) => Guid.Parse(propertyValue),
                 _ => propertyValue
+            };
+        }
+
+        private static string PropertyToString(object propertyValue)
+        {
+            Type propertyType = propertyValue.GetType();
+            return propertyType switch
+            {
+                not null when propertyType == typeof(DateTime) => ((DateTime)propertyValue).ToString("o"),
+                _ => propertyValue.ToString() ?? string.Empty
             };
         }
     }

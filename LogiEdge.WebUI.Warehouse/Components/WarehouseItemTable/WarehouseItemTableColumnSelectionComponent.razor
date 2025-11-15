@@ -1,0 +1,79 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public required OrderedDictionary<string, bool> ColumnsToDisplay { get; set; }
+    [Parameter]
+    public EventCallback<OrderedDictionary<string, bool>> ColumnsToDisplayChanged { get; set; }
+    [Parameter]
+    public required List<string> AllowedColumns { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private OrderedDictionary<string, bool> _modalPropertyColumns = [];
+    private readonly List<DraggableList<string>.ListItem> _propertyListItems = [];
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+
+        _modalPropertyColumns = new OrderedDictionary<string, bool>(ColumnsToDisplay);
+    }
+
+    private void BtnCloseModalClicked()
+    {
+        OrderedDictionary<string, bool> properties = new((_modalPropertyColumns ?? [])
+            .OrderBy(x => _propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList());
+
+        ColumnsToDisplay = properties;
+        ColumnsToDisplayChanged.InvokeAsync(ColumnsToDisplay);
+    }
+}
+
+<button type="button"
+        @attributes="AdditionalAttributes"
+        style="float: right;"
+        data-bs-toggle="modal"
+        data-bs-target="#modal-column-select">
+    <span class="material-symbols-rounded">
+        splitscreen_vertical_add
+    </span>
+</button>
+
+<div class="modal" id="modal-column-select" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Table Columns</h5>
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Close"
+                        @onclick="BtnCloseModalClicked">
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="width: 100%; text-align: center;">Select columns to display in the table. Drag the handles to change column order.</p>
+                <div id="modal-property-list" class="rounded border">
+                    @{
+                        RenderFragment<string> listItemFragment = item => @<span>
+                                                                              <InputCheckbox @bind-Value="_modalPropertyColumns[item]" />
+                                                                              <label>@item</label>
+                                                                          </span>;
+                        _propertyListItems.Clear();
+                        foreach (string propertyName in ColumnsToDisplay.Keys)
+                        {
+                            _propertyListItems.Add(new DraggableList<string>.ListItem
+                            {
+                                Order = ColumnsToDisplay.Keys.ToList().IndexOf(propertyName),
+                                ListElement = listItemFragment,
+                                BackingElement = propertyName
+                            });
+                        }
+                    }
+
+                    <DraggableList TItem="string" Items="_propertyListItems" Style="list-style-type: none;"></DraggableList>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

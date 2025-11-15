@@ -1,11 +1,11 @@
-﻿.table-button {
+﻿::deep .table-button {
     height: 24px;
     width: 24px;
     padding: 0;
     margin-left: 4px;
 }
 
-    .table-button .material-symbols-rounded {
+    ::deep .table-button .material-symbols-rounded {
         font-size: 16px;
         line-height: 24px;
     }

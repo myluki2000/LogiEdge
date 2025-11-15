@@ -1,0 +1,231 @@
+﻿@using System.Reflection
+@using System.Text.Json
+@using System.Diagnostics.CodeAnalysis
+@using LogiEdge.Shared.Attributes
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+@code {
+    [Parameter]
+    public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableColumnDisplayParameters> ColumnDisplayParametersChanged { get; set; }
+
+    [Parameter]
+    public required ItemsTableFilterParameters FilterParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableFilterParameters> FilterParametersChanged { get; set; }
+
+    [Parameter]
+    public required ItemsTableSortParameters SortParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
+
+    /// <summary>
+    /// Set an action to this property which is run if the user clicks on a property value
+    /// to filter the table by it. If no function is set, clicking on property values is disabled.
+    /// </summary>
+    [Parameter]
+    public Action<(string propertyName, object? propertyValue)>? OnPropertyValueClicked { get; set; } = null;
+    /// <summary>
+    /// This function defines whether a property value of a property is clickable or not. If the value is clickable
+    /// and is then clicked, the OnPropertyValueClicked action is run.
+    /// </summary>
+    [Parameter]
+    public Func<(string propertyName, object? propertyValue), bool>? PropertyValueClickableFunc { get; set; } = null;
+
+    private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
+    private OrderedDictionary<string, bool> propertyColumns;
+
+    private OrderedDictionary<string, bool> DisplayPropertyColumns { get; set; } = [];
+    private List<ItemState> ItemsAtMoment { get; set; } = [];
+
+    private void BtnSortClicked(string columnName)
+    {
+        // sort the column in ascending order if it is not already sorted by it
+        bool descending = (SortParameters.SortByProperty == columnName) && !SortParameters.SortOrderDescending;
+
+        SortParameters = SortParameters with
+        {
+            SortByProperty = columnName,
+            SortOrderDescending = descending,
+        };
+
+        SortParametersChanged.InvokeAsync(SortParameters);
+    }
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+
+        ItemsTableFilter itemsTableFilter = new();
+
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        IQueryable<Item> itemsQueryable = ctx.Items
+            .Include(it => it.ItemStates).ThenInclude(st => st.Warehouse)
+            .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer);
+
+        IQueryable<ItemState> itemStatesQueryable = itemsTableFilter.Filter(itemsQueryable, FilterParameters);
+
+        // get the used item schemas and extract the additional properties our items could have
+        // When we get the schema entities directly, for some reason Distinct() does not work properly,
+        // so we first get the distinct IDs and then query the schemas by their IDs.
+        List<ItemSchema> itemSchemas = itemStatesQueryable
+            .Select(st => st.Item.ItemSchemaId)
+            .Distinct()
+            .ToList()
+            .Select(id => ctx.ItemSchemas.Include(sch => sch.AdditionalProperties).First(sch => sch.Id == id))
+            .ToList();
+        List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name).ToList();
+
+        // get a list of column property names which are allowed
+        List<string> allowedPropertyColumns = typeof(Item)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+            .Select(p => p.Name)
+            .ToList();
+        allowedPropertyColumns.AddRange(typeof(ItemState)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
+            .Select(p => p.Name));
+        allowedPropertyColumns.AddRange(schemasAdditionalProperties);
+
+        DisplayPropertyColumns = [];
+
+        foreach (string columnName in ColumnDisplayParameters.GetColumnsToDisplayOrDefault(itemSchemas))
+        {
+            if (allowedPropertyColumns.Contains(columnName))
+                DisplayPropertyColumns.Add(columnName, true);
+        }
+
+        foreach (string columnName in allowedPropertyColumns)
+        {
+            DisplayPropertyColumns.TryAdd(columnName, false);
+        }
+
+        int itemCount = itemStatesQueryable.Count();
+
+        // sort items
+        ItemsTableSorter itemsSorter = new();
+        ItemsAtMoment = itemsSorter.Sort(itemStatesQueryable.ToList(), SortParameters);
+    }
+
+    private async Task OnColumnsToDisplayChanged(OrderedDictionary<string, bool> columnsToDisplay)
+    {
+        ColumnDisplayParameters = ColumnDisplayParameters with
+        {
+            ColumnsToDisplay = columnsToDisplay.Where(col => col.Value).Select(col => col.Key).ToList()
+        };
+        await ColumnDisplayParametersChanged.InvokeAsync(ColumnDisplayParameters);
+    }
+}
+
+@{
+    propertyRenderFragment = (ValueTuple<string, object?> data) => builder =>
+    {
+        (string propertyName, object? propertyValue) = data;
+
+        if(PropertyValueClickableFunc != null)
+        {
+            
+            <td>
+                <a href="" @onclick="() => OnPropertyValueClicked?.Invoke((propertyName, propertyValue))">
+                    <PropertyValueComponent PropertyValue="propertyValue"/>
+                </a>
+            </td>
+        }
+        else
+        {
+            <td>
+                <PropertyValueComponent PropertyValue="propertyValue" />
+            </td>
+        }
+    };
+}
+
+<span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
+<table class="table table-striped table-hover">
+    <thead class="table-primary">
+        <tr>
+            @foreach ((string propertyName, bool _) in DisplayPropertyColumns.Where(x => x.Value))
+            {
+                <th style="line-height: 24px;">
+                    <span style="vertical-align: bottom;">@propertyName</span>
+
+                    <button type="button"
+                            class="btn btn-secondary table-button"
+                            @onclick="() => BtnSortClicked(propertyName)">
+                        @if (SortParameters.SortByProperty == propertyName)
+                        {
+                            @if (SortParameters.SortOrderDescending)
+                            {
+                                <span class="material-symbols-rounded">
+                                    arrow_upward
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="material-symbols-rounded">
+                                    arrow_downward
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="material-symbols-rounded">
+                                swap_vert
+                            </span>
+                        }
+                    </button>
+
+                    @if (propertyName == DisplayPropertyColumns.Last(x => x.Value).Key)
+                    {
+                        @* button to select which columns to show *@
+                        <WarehouseItemTableColumnSelectionComponent 
+                            class="btn btn-secondary table-button"
+                            ColumnsToDisplay="DisplayPropertyColumns"
+                            ColumnsToDisplayChanged="OnColumnsToDisplayChanged" />
+                    }
+                </th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (ItemState itemState in ItemsAtMoment)
+        {
+            Item item = itemState.Item;
+
+            <tr>
+                @foreach (string propertyName in DisplayPropertyColumns.Where(x => x.Value).Select(x => x.Key))
+                {
+                    PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
+                    object? propertyValue = null;
+                    if (itemProperty != null)
+                    {
+                        propertyValue = itemProperty.GetValue(item);
+                    }
+                    else if (stateProperty != null)
+                    {
+                        propertyValue = stateProperty?.GetValue(itemState);
+                    }
+                    else
+                    {
+                        // try finding it in the additional properties
+                        // TODO: Support additional properties with non-string types
+                        if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
+                            propertyValue = propertyElement.GetString();
+                    }
+
+                    @propertyRenderFragment((propertyName, propertyValue))
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
