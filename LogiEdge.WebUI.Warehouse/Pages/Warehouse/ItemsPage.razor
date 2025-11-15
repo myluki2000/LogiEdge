@@ -1,21 +1,13 @@
 ﻿@page "/warehouse/items"
-@using System.Linq.Expressions
-@using System.Reflection
-@using System.Text.Json
-@using System.Text.Json.Nodes
 @using LogiEdge.CustomerService.Data
-@using LogiEdge.Shared.Attributes
-@using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WebUI.Warehouse.Components
-@using LogiEdge.WebUI.Warehouse.Components.PropertyFilterBadge
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Primitives
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject NavigationManager NavigationManager
 
 <h3>Items by Property</h3>
@@ -96,7 +88,7 @@
 
         if (changed)
         {
-            NavigationManager.NavigateTo(newUrl, forceLoad: true);
+            NavigationManager.NavigateTo(newUrl, forceLoad: false);
         }
 
         return;
@@ -140,34 +132,40 @@
 
 @if (true)
 {
-    Action<(string propertyName, object? propertyValue)> onPropertyValueClick =
-        ((string propertyName, object? propertyValue) e) =>
-    {
-        switch (e.propertyName)
+    RenderFragment<(Item item, ItemState state, string property, object propertyValue)> cellRenderFragment =
+        data =>
         {
-            case nameof(Item.Id):
-                NavigationManager.NavigateTo($"/item/{e.propertyValue}");
-                break;
-            case nameof(Item.Customer):
-                Customer c = (Customer)e.propertyValue;
-                //AddOrUpdateQueryParamAndNavigate("Customer", c.Id.ToString());
-                break;
-            case nameof(ItemState.Warehouse):
-                Warehouse w = (Warehouse)e.propertyValue;
-                //AddOrUpdateQueryParamAndNavigate("Warehouse", w.Id.ToString());
-                break;
-            default:
-                //AddOrUpdateQueryParamAndNavigate(e.propertyName, e.propertyValue?.ToString() ?? "");
-                break;
-        }
+            switch (data.property)
+            {
+                case nameof(Item.Id):
+                    return @<a href="/warehouse/item/@data.item.Id">
+                        <PropertyValueComponent PropertyValue="@data.propertyValue" />
+                    </a>
+                    ;
+                case nameof(Item.Customer):
+                    Customer c = (Customer)data.propertyValue;
+                    return @<a @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
+                        <PropertyValueComponent PropertyValue="@data.propertyValue" />
+                    </a>;
+                case nameof(ItemState.Warehouse):
+                    Warehouse w = (Warehouse)data.propertyValue;
+                    return @<a @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
+                         <PropertyValueComponent PropertyValue="@data.propertyValue" />
+                    </a>;
+                    break;
+                default:
+                    return @<a @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(data.property, data.propertyValue.ToString()))">
+                        <PropertyValueComponent PropertyValue="@data.propertyValue"/>
+                    </a>;
+            }
+            return @<PropertyValueComponent PropertyValue="@data.propertyValue" />;
+        };
 
-    };
-
-    <WarehouseItemTableComponent 
-        ColumnDisplayParameters="ColumnDisplayParameters"
-        ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
-        FilterParameters="FilterParameters"
-        FilterParametersChanged="OnFilterParametersChanged"
-        SortParameters="SortParameters"
-        SortParametersChanged="OnSortParametersChanged"/>
+    <WarehouseItemTableComponent ColumnDisplayParameters="ColumnDisplayParameters"
+                                 ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
+                                 FilterParameters="FilterParameters"
+                                 FilterParametersChanged="OnFilterParametersChanged"
+                                 SortParameters="SortParameters"
+                                 SortParametersChanged="OnSortParametersChanged"
+                                 CellRenderFragment="cellRenderFragment" />
 }

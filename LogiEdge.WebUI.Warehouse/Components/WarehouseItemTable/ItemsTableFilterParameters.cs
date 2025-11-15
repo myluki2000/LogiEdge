@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Reflection;
 using LogiEdge.Shared.Attributes;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
@@ -18,6 +13,15 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         public required IReadOnlyDictionary<string, object> BaseParameters { get; init; }
         public required IReadOnlyDictionary<string, object> StateParameters { get; init; }
         public required IReadOnlyDictionary<string, string> AdditionalPropertyParameters { get; init; }
+
+        private static readonly IReadOnlyCollection<PropertyInfo> BASE_PROP_INFOS = typeof(Item)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
+            .ToList();
+        private static readonly IReadOnlyCollection<PropertyInfo> STATE_PROP_INFOS = typeof(ItemState)
+            .GetProperties()
+            .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
+            .ToList();
 
         public virtual bool Equals(ItemsTableFilterParameters? other)
         {
@@ -63,17 +67,51 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             return result;
         }
 
+        public ItemsTableFilterParameters WithParameter(string propertyName, object propertyValue)
+        {
+            if(IsBaseProperty(propertyName))
+            {
+                return WithBaseParameter(propertyName, propertyValue);
+            }
+            
+            if(IsStateProperty(propertyName))
+            {
+                return WithStateParameter(propertyName, propertyValue);
+            }
+            
+            return WithAdditionalPropertyParameter(propertyName, propertyValue.ToString() ?? string.Empty);
+        }
+
+        public ItemsTableFilterParameters WithBaseParameter(string propertyName, object propertyValue)
+        {
+            Dictionary<string, object> newBaseParameters = new(BaseParameters)
+                {
+                    [propertyName] = propertyValue
+                };
+
+            return this with { BaseParameters = newBaseParameters };
+        }
+
+        public ItemsTableFilterParameters WithStateParameter(string propertyName, object propertyValue)
+        {
+            Dictionary<string, object> newStateParameters = new(StateParameters)
+                {
+                    [propertyName] = propertyValue
+                };
+            return this with { StateParameters = newStateParameters };
+        }
+
+        public ItemsTableFilterParameters WithAdditionalPropertyParameter(string propertyName, string propertyValue)
+        {
+            Dictionary<string, string> newAdditionalPropertyParameters = new(AdditionalPropertyParameters)
+                {
+                    [propertyName] = propertyValue
+                };
+            return this with { AdditionalPropertyParameters = newAdditionalPropertyParameters };
+        }
+
         public static ItemsTableFilterParameters FromQueryParameters(Dictionary<string, StringValues> queryParameters)
         {
-            List<PropertyInfo> basePropInfos = typeof(Item)
-                .GetProperties()
-                .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
-                .ToList();
-            List<PropertyInfo> statePropInfos = typeof(ItemState)
-                .GetProperties()
-                .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
-                .ToList();
-
             return new ItemsTableFilterParameters()
             {
                 AtTime = queryParameters
@@ -86,14 +124,14 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
                     .Select(param => bool.Parse(param.Value.First()!))
                     .FirstOrDefault(),
                 BaseParameters = queryParameters
-                .PopWhere(param => basePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
+                .PopWhere(param => IsBaseProperty(param.Key) && param.Value.Count > 0)
                 .ToDictionary(
                     x => x.Key,
                     x =>
                     {
                         string stringValue = x.Value.First()!;
 
-                        PropertyInfo propInfo = basePropInfos.FirstOrDefault(prop => prop.Name == x.Key)
+                        PropertyInfo propInfo = BASE_PROP_INFOS.FirstOrDefault(prop => prop.Name == x.Key)
                                                 ?? throw new Exception("Could not find property with name " + x.Key);
 
                         Type propertyType;
@@ -115,14 +153,14 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
                         return PropertyToType(stringValue, propertyType);
                     }),
                 StateParameters = queryParameters
-                    .PopWhere(param => statePropInfos.Any(prop => prop.Name == param.Key) && param.Value.Count > 0)
+                    .PopWhere(param => IsStateProperty(param.Key) && param.Value.Count > 0)
                     .ToDictionary(
                         x => x.Key,
                         x =>
                         {
                             string stringValue = x.Value.First()!;
 
-                            PropertyInfo propInfo = statePropInfos.FirstOrDefault(prop => prop.Name == x.Key)
+                            PropertyInfo propInfo = STATE_PROP_INFOS.FirstOrDefault(prop => prop.Name == x.Key)
                                                     ?? throw new Exception("Could not find property with name " + x.Key);
 
                             Type propertyType;
@@ -149,6 +187,16 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
                         x => x.Key,
                         x => x.Value.First()!)
             };
+        }
+
+        private static bool IsBaseProperty(string propertyName)
+        {
+            return BASE_PROP_INFOS.Any(prop => prop.Name == propertyName);
+        }
+
+        private static bool IsStateProperty(string propertyName)
+        {
+            return STATE_PROP_INFOS.Any(prop => prop.Name == propertyName);
         }
 
         private static object PropertyToType(string propertyValue, Type propertyType)

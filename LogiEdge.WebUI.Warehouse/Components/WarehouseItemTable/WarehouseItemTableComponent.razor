@@ -25,20 +25,11 @@
     [Parameter]
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
-    /// <summary>
-    /// Set an action to this property which is run if the user clicks on a property value
-    /// to filter the table by it. If no function is set, clicking on property values is disabled.
-    /// </summary>
     [Parameter]
-    public Action<(string propertyName, object? propertyValue)>? OnPropertyValueClicked { get; set; } = null;
-    /// <summary>
-    /// This function defines whether a property value of a property is clickable or not. If the value is clickable
-    /// and is then clicked, the OnPropertyValueClicked action is run.
-    /// </summary>
-    [Parameter]
-    public Func<(string propertyName, object? propertyValue), bool>? PropertyValueClickableFunc { get; set; } = null;
+    public RenderFragment<(Item item, ItemState state, string property, object? propertyValue)> CellRenderFragment { get; set; } =
+        data => @<PropertyValueComponent PropertyValue="@data.propertyValue"/>;
 
-    private RenderFragment<(string propertyName, object? propertyValue)>? propertyRenderFragment = null;
+
     private OrderedDictionary<string, bool> propertyColumns;
 
     private OrderedDictionary<string, bool> DisplayPropertyColumns { get; set; } = [];
@@ -125,29 +116,6 @@
     }
 }
 
-@{
-    propertyRenderFragment = (ValueTuple<string, object?> data) => builder =>
-    {
-        (string propertyName, object? propertyValue) = data;
-
-        if(PropertyValueClickableFunc != null)
-        {
-            
-            <td>
-                <a href="" @onclick="() => OnPropertyValueClicked?.Invoke((propertyName, propertyValue))">
-                    <PropertyValueComponent PropertyValue="propertyValue"/>
-                </a>
-            </td>
-        }
-        else
-        {
-            <td>
-                <PropertyValueComponent PropertyValue="propertyValue" />
-            </td>
-        }
-    };
-}
-
 <span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
 <table class="table table-striped table-hover">
     <thead class="table-primary">
@@ -222,7 +190,9 @@
                             propertyValue = propertyElement.GetString();
                     }
 
-                    @propertyRenderFragment((propertyName, propertyValue))
+                    <td>
+                        @CellRenderFragment((item, itemState, propertyName, propertyValue))
+                    </td>
                 }
             </tr>
         }
