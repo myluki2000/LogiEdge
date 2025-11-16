@@ -130,45 +130,11 @@
                ValueExpression="() => FilterParameters.AtTime" />
 </div>
 
-@if (true)
-{
-    RenderFragment<(Item item, ItemState state, string property, object propertyValue)> cellRenderFragment =
-        data =>
-        {
-            switch (data.property)
-            {
-                case nameof(Item.Id):
-                    return @<a href="/warehouse/item/@data.item.Id">
-                        <PropertyValueComponent PropertyValue="@data.propertyValue" />
-                    </a>
-                    ;
-                case nameof(Item.Customer):
-                    Customer c = (Customer)data.propertyValue;
-                    return @<a href="javascript:void(0);" 
-                               @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
-                        <PropertyValueComponent PropertyValue="@data.propertyValue" />
-                    </a>;
-                case nameof(ItemState.Warehouse):
-                    Warehouse w = (Warehouse)data.propertyValue;
-                    return @<a href="javascript:void(0);" 
-                               @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
-                         <PropertyValueComponent PropertyValue="@data.propertyValue" />
-                    </a>;
-                    break;
-                default:
-                    return @<a href="javascript:void(0);" 
-                               @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(data.property, data.propertyValue.ToString()))">
-                        <PropertyValueComponent PropertyValue="@data.propertyValue"/>
-                    </a>;
-            }
-            return @<PropertyValueComponent PropertyValue="@data.propertyValue" />;
-        };
 
-    <WarehouseItemTableComponent ColumnDisplayParameters="ColumnDisplayParameters"
-                                 ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
-                                 FilterParameters="FilterParameters"
-                                 FilterParametersChanged="OnFilterParametersChanged"
-                                 SortParameters="SortParameters"
-                                 SortParametersChanged="OnSortParametersChanged"
-                                 CellRenderFragment="cellRenderFragment" />
-}
+
+<FilterableWarehouseItemTableComponent ColumnDisplayParameters="ColumnDisplayParameters"
+                                       ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
+                                       FilterParameters="FilterParameters"
+                                       FilterParametersChanged="OnFilterParametersChanged"
+                                       SortParameters="SortParameters"
+                                       SortParametersChanged="OnSortParametersChanged" />

@@ -26,9 +26,18 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
-    public RenderFragment<(Item item, ItemState state, string property, object? propertyValue)> CellRenderFragment { get; set; } =
-        data => @<PropertyValueComponent PropertyValue="@data.propertyValue"/>;
-
+    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)> TableRowRenderFragment { get; set; } =
+        data => __builder =>
+        {
+            <tr>
+                @foreach ((string propertyName, object? propertyValue) in data.properties)
+                {
+                    <td>
+                        <PropertyValueComponent PropertyValue="@propertyValue" />
+                    </td>
+                }
+            </tr>
+        };
 
     private OrderedDictionary<string, bool> propertyColumns;
 
@@ -154,10 +163,9 @@
                     @if (propertyName == DisplayPropertyColumns.Last(x => x.Value).Key)
                     {
                         @* button to select which columns to show *@
-                        <WarehouseItemTableColumnSelectionComponent 
-                            class="btn btn-secondary table-button"
-                            ColumnsToDisplay="DisplayPropertyColumns"
-                            ColumnsToDisplayChanged="OnColumnsToDisplayChanged" />
+                        <WarehouseItemTableColumnSelectionComponent class="btn btn-secondary table-button"
+                                                                    ColumnsToDisplay="DisplayPropertyColumns"
+                                                                    ColumnsToDisplayChanged="OnColumnsToDisplayChanged" />
                     }
                 </th>
             }
@@ -168,33 +176,33 @@
         {
             Item item = itemState.Item;
 
-            <tr>
-                @foreach (string propertyName in DisplayPropertyColumns.Where(x => x.Value).Select(x => x.Key))
-                {
-                    PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
-                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-                    object? propertyValue = null;
-                    if (itemProperty != null)
-                    {
-                        propertyValue = itemProperty.GetValue(item);
-                    }
-                    else if (stateProperty != null)
-                    {
-                        propertyValue = stateProperty?.GetValue(itemState);
-                    }
-                    else
-                    {
-                        // try finding it in the additional properties
-                        // TODO: Support additional properties with non-string types
-                        if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
-                            propertyValue = propertyElement.GetString();
-                    }
+            OrderedDictionary<string, object?> properties = new();
 
-                    <td>
-                        @CellRenderFragment((item, itemState, propertyName, propertyValue))
-                    </td>
+            @foreach (string propertyName in DisplayPropertyColumns.Where(x => x.Value).Select(x => x.Key))
+            {
+                PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+                PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
+                object? propertyValue = null;
+                if (itemProperty != null)
+                {
+                    propertyValue = itemProperty.GetValue(item);
                 }
-            </tr>
+                else if (stateProperty != null)
+                {
+                    propertyValue = stateProperty?.GetValue(itemState);
+                }
+                else
+                {
+                    // try finding it in the additional properties
+                    // TODO: Support additional properties with non-string types
+                    if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
+                        propertyValue = propertyElement.GetString();
+                }
+
+                properties.Add(propertyName, propertyValue);
+            }
+
+            @TableRowRenderFragment((item, itemState, properties))
         }
     </tbody>
 </table>
