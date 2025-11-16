@@ -144,17 +144,20 @@
                     ;
                 case nameof(Item.Customer):
                     Customer c = (Customer)data.propertyValue;
-                    return @<a @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
+                    return @<a href="javascript:void(0);" 
+                               @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
                         <PropertyValueComponent PropertyValue="@data.propertyValue" />
                     </a>;
                 case nameof(ItemState.Warehouse):
                     Warehouse w = (Warehouse)data.propertyValue;
-                    return @<a @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
+                    return @<a href="javascript:void(0);" 
+                               @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
                          <PropertyValueComponent PropertyValue="@data.propertyValue" />
                     </a>;
                     break;
                 default:
-                    return @<a @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(data.property, data.propertyValue.ToString()))">
+                    return @<a href="javascript:void(0);" 
+                               @onclick="() => OnFilterParametersChanged(FilterParameters.WithParameter(data.property, data.propertyValue.ToString()))">
                         <PropertyValueComponent PropertyValue="@data.propertyValue"/>
                     </a>;
             }
