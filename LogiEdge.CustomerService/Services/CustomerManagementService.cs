@@ -41,6 +41,18 @@ namespace LogiEdge.CustomerService.Services
             return await dbContext.Customers.FirstOrDefaultAsync(x => x.Abbreviation == abbreviation);
         }
 
+        public Customer? GetCustomerById(Guid id)
+        {
+            using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
+            return dbContext.Customers.Find(id);
+        }
+
+        public async Task<Customer?> GetCustomerByIdAsync(Guid id)
+        {
+            await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
+            return await dbContext.Customers.FindAsync(id);
+        }
+
         public Customer CreateCustomer(Customer customer)
         {
             using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
