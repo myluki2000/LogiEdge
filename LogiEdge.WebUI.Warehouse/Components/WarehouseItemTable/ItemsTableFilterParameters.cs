@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using LogiEdge.CustomerService.Data;
 using LogiEdge.Shared.Attributes;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
@@ -23,6 +24,10 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             .Where(p => Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)))
             .ToList();
 
+        public static IEnumerable<string> FilterableProperties => BASE_PROP_INFOS
+            .Concat(STATE_PROP_INFOS)
+            .Select(x => x.Name);
+
         public virtual bool Equals(ItemsTableFilterParameters? other)
         {
             if (other is null) return false;
@@ -37,6 +42,41 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         public override int GetHashCode()
         {
             return HashCode.Combine(AtTime, ShowShipped, BaseParameters, StateParameters, AdditionalPropertyParameters);
+        }
+
+        public Type GetParameterType(IReadOnlySet<ItemSchema> itemSchemas, string parameterName)
+        {
+            Type? type = BASE_PROP_INFOS.FirstOrDefault(x => x.Name == parameterName)?.PropertyType;
+
+            if (type != null)
+                return type;
+
+            type = STATE_PROP_INFOS.FirstOrDefault(x => x.Name == parameterName)?.PropertyType;
+            if (type != null)
+                return type;
+
+            foreach (ItemSchema schema in itemSchemas)
+            {
+                ItemSchemaProperty? additionalProperty = schema.AdditionalProperties
+                    .FirstOrDefault(prop => prop.Name == parameterName);
+                if (additionalProperty != null)
+                {
+                    return additionalProperty.Type.ToType();
+                }
+            }
+
+            throw new Exception("Could not find property with name " + parameterName);
+        }
+
+        public object? GetParameter(string parameterName)
+        {
+            return BaseParameters
+                .Concat(StateParameters)
+                .Concat(AdditionalPropertyParameters.Select(x => new KeyValuePair<string, object>(x.Key, x.Value)))
+                .Where(x => x.Key == parameterName)
+                .Select(x => (KeyValuePair<string, object>?)x)
+                .FirstOrDefault()?
+                .Value;
         }
 
         public Dictionary<string, StringValues> ToQueryParameters()
@@ -69,7 +109,7 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 
         public ItemsTableFilterParameters WithParameter(string propertyName, object propertyValue)
         {
-            if(IsBaseProperty(propertyName))
+            if (IsBaseProperty(propertyName))
             {
                 return WithBaseParameter(propertyName, propertyValue);
             }
@@ -78,8 +118,23 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             {
                 return WithStateParameter(propertyName, propertyValue);
             }
-            
+
             return WithAdditionalPropertyParameter(propertyName, propertyValue.ToString() ?? string.Empty);
+        }
+
+        public ItemsTableFilterParameters WithoutParameter(string propertyName)
+        {
+            if (IsBaseProperty(propertyName))
+            {
+                return WithoutBaseParameter(propertyName);
+            }
+
+            if (IsStateProperty(propertyName))
+            {
+                return WithoutStateParameter(propertyName);
+            }
+
+            return WithoutAdditionalPropertyParameter(propertyName);
         }
 
         public ItemsTableFilterParameters WithBaseParameter(string propertyName, object propertyValue)
@@ -92,6 +147,11 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             return this with { BaseParameters = newBaseParameters };
         }
 
+        public ItemsTableFilterParameters WithoutBaseParameter(string propertyName)
+        {
+            return this with { BaseParameters = new Dictionary<string, object>(BaseParameters.Where(x => x.Key != propertyName)) };
+        }
+
         public ItemsTableFilterParameters WithStateParameter(string propertyName, object propertyValue)
         {
             Dictionary<string, object> newStateParameters = new(StateParameters)
@@ -101,6 +161,11 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             return this with { StateParameters = newStateParameters };
         }
 
+        public ItemsTableFilterParameters WithoutStateParameter(string propertyName)
+        {
+            return this with { StateParameters = new Dictionary<string, object>(StateParameters.Where(x => x.Key != propertyName)) };
+        }
+
         public ItemsTableFilterParameters WithAdditionalPropertyParameter(string propertyName, string propertyValue)
         {
             Dictionary<string, string> newAdditionalPropertyParameters = new(AdditionalPropertyParameters)
@@ -108,6 +173,11 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
                     [propertyName] = propertyValue
                 };
             return this with { AdditionalPropertyParameters = newAdditionalPropertyParameters };
+        }
+
+        public ItemsTableFilterParameters WithoutAdditionalPropertyParameter(string propertyName)
+        {
+            return this with { AdditionalPropertyParameters = new Dictionary<string, string>(AdditionalPropertyParameters.Where(x => x.Key != propertyName)) };
         }
 
         public static ItemsTableFilterParameters FromQueryParameters(Dictionary<string, StringValues> queryParameters)

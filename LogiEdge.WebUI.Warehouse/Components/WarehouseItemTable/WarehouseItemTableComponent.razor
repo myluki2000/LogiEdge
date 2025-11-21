@@ -1,6 +1,7 @@
 ﻿@using System.Reflection
 @using System.Text.Json
 @using System.Diagnostics.CodeAnalysis
+@using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
@@ -26,23 +27,31 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
-    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)> TableRowRenderFragment { get; set; } =
-        data => __builder =>
-        {
-            <tr>
-                @foreach ((string propertyName, object? propertyValue) in data.properties)
-                {
-                    <td>
-                        <PropertyValueComponent PropertyValue="@propertyValue" />
-                    </td>
-                }
-            </tr>
-        };
+    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)> TableRowRenderFragment { get; set; }
 
     private OrderedDictionary<string, bool> propertyColumns;
 
     private OrderedDictionary<string, bool> DisplayPropertyColumns { get; set; } = [];
     private List<ItemState> ItemsAtMoment { get; set; } = [];
+
+    private string? _editingFilterProperty;
+
+    private IReadOnlySet<ItemSchema> _itemSchemas;
+
+    private void PropertyBadgeIsEditingChanged(string property, bool isEditing)
+    {
+        if (isEditing)
+        {
+            _editingFilterProperty = property;
+        }
+        else
+        {
+            if (property == _editingFilterProperty)
+            {
+                _editingFilterProperty = null;
+            }
+        }
+    }
 
     private void BtnSortClicked(string columnName)
     {
@@ -75,13 +84,13 @@
         // get the used item schemas and extract the additional properties our items could have
         // When we get the schema entities directly, for some reason Distinct() does not work properly,
         // so we first get the distinct IDs and then query the schemas by their IDs.
-        List<ItemSchema> itemSchemas = itemStatesQueryable
+        _itemSchemas = itemStatesQueryable
             .Select(st => st.Item.ItemSchemaId)
             .Distinct()
             .ToList()
             .Select(id => ctx.ItemSchemas.Include(sch => sch.AdditionalProperties).First(sch => sch.Id == id))
-            .ToList();
-        List<string> schemasAdditionalProperties = itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name).ToList();
+            .ToHashSet();
+        List<string> schemasAdditionalProperties = _itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name).ToList();
 
         // get a list of column property names which are allowed
         List<string> allowedPropertyColumns = typeof(Item)
@@ -97,7 +106,7 @@
 
         DisplayPropertyColumns = [];
 
-        foreach (string columnName in ColumnDisplayParameters.GetColumnsToDisplayOrDefault(itemSchemas))
+        foreach (string columnName in ColumnDisplayParameters.GetColumnsToDisplayOrDefault(_itemSchemas))
         {
             if (allowedPropertyColumns.Contains(columnName))
                 DisplayPropertyColumns.Add(columnName, true);
@@ -107,8 +116,6 @@
         {
             DisplayPropertyColumns.TryAdd(columnName, false);
         }
-
-        int itemCount = itemStatesQueryable.Count();
 
         // sort items
         ItemsTableSorter itemsSorter = new();
@@ -123,6 +130,58 @@
         };
         await ColumnDisplayParametersChanged.InvokeAsync(ColumnDisplayParameters);
     }
+}
+
+@{
+    TableRowRenderFragment =
+        data => __builder =>
+        {
+            <tr>
+                @foreach ((string propertyName, object? propertyValue) in data.properties)
+                {
+                    <td>
+                        @switch (propertyName)
+                        {
+                            case nameof(Item.Id):
+                                <a href="/warehouse/item/@data.item.Id">
+                                    <PropertyValueComponent PropertyValue="@propertyValue" />
+                                </a>
+                                break;
+                            case nameof(Item.Customer):
+                                Customer c = (Customer)propertyValue;
+                                <a href="javascript:void(0);"
+                                   @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
+                                    <PropertyValueComponent PropertyValue="@propertyValue" />
+                                </a>
+                                break;
+                            case nameof(ItemState.Warehouse):
+                                Warehouse w = (Warehouse)propertyValue;
+                                <a href="javascript:void(0);"
+                                   @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
+                                    <PropertyValueComponent PropertyValue="@propertyValue" />
+                                </a>
+                                break;
+                            default:
+                                <a href="javascript:void(0);"
+                                   @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(propertyName, propertyValue.ToString()))">
+                                    <PropertyValueComponent PropertyValue="@propertyValue" />
+                                </a>
+                                break;
+                        }
+                    </td>
+                }
+            </tr>
+        };
+}
+
+@foreach (string property in ItemsTableFilterParameters.FilterableProperties)
+{
+    <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
+                                  FilterParametersChanged="FilterParametersChanged"
+                                  PropertyName="@property"
+                                  PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
+                                  IsEditing="_editingFilterProperty == property"
+                                  IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
 }
 
 <span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>

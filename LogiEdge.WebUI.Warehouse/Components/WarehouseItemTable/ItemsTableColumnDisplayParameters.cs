@@ -30,7 +30,7 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         /// </summary>
         /// <param name="itemSchemas">The item schemas of the items.</param>
         /// <returns></returns>
-        public IEnumerable<string> GetColumnsToDisplayOrDefault(IList<ItemSchema> itemSchemas)
+        public IEnumerable<string> GetColumnsToDisplayOrDefault(IReadOnlySet<ItemSchema> itemSchemas)
         {
             if (ColumnsToDisplay.Count > 0)
                 return ColumnsToDisplay;

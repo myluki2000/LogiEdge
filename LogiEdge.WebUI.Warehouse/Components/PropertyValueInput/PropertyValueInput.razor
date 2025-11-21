@@ -8,6 +8,8 @@
     public EventCallback<object?> ValueChanged { get; set; }
     [Parameter]
     public int? TabIndex { get; set; }
+    [Parameter] 
+    public bool UseIdForEntities { get; set; } = false;
     [Parameter]
     public required object? Value
     {
@@ -58,10 +60,19 @@
         get => Value as Warehouse;
         set => Value = value;
     }
+
+    private Guid ValueAsGuid
+    {
+        get => Value as Guid? ?? Guid.Empty;
+        set => Value = (value == Guid.Empty) ? null : value;
+    }
 }
 
 @{
-    if (Value != null && Value.GetType() != ValueType && !Value.GetType().IsSubclassOf(ValueType))
+    if (Value != null 
+        && Value.GetType() != ValueType 
+        && !Value.GetType().IsSubclassOf(ValueType)
+        && (!UseIdForEntities || Value.GetType() != typeof(Guid)))
         throw new Exception($"PropertyValueInput: Passed Value's type ({Value.GetType()}) was different than the ValueType which was passed ({ValueType}).");
 }
 
@@ -94,11 +105,25 @@ else if (ValueType == typeof(DateTime?))
 }
 else if (ValueType == typeof(Customer))
 {
-    <CustomerPropertyValueInput @bind-Value="ValueAsCustomer" />
+    if (UseIdForEntities)
+    {
+        <CustomerIdPropertyValueInput @bind-Value="ValueAsGuid" />
+    }
+    else
+    {
+        <CustomerPropertyValueInput @bind-Value="ValueAsCustomer" />
+    }
 }
 else if (ValueType == typeof(Warehouse))
 {
-    <WarehousePropertyValueInput @bind-Value="ValueAsWarehouse" />
+    if (UseIdForEntities)
+    {
+        <WarehouseIdPropertyValueInput @bind-Value="ValueAsGuid" />
+    }
+    else
+    {
+        <WarehousePropertyValueInput @bind-Value="ValueAsWarehouse" />
+    }
 }
 else
 {

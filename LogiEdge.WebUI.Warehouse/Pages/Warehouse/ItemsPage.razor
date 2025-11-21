@@ -1,12 +1,7 @@
 ﻿@page "/warehouse/items"
-@using LogiEdge.CustomerService.Data
-@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
-@using LogiEdge.WebUI.Warehouse.Components
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.WebUtilities
-@using Microsoft.EntityFrameworkCore
 @using Microsoft.Extensions.Primitives
 @inject NavigationManager NavigationManager
 
@@ -132,9 +127,9 @@
 
 
 
-<FilterableWarehouseItemTableComponent ColumnDisplayParameters="ColumnDisplayParameters"
-                                       ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
-                                       FilterParameters="FilterParameters"
-                                       FilterParametersChanged="OnFilterParametersChanged"
-                                       SortParameters="SortParameters"
-                                       SortParametersChanged="OnSortParametersChanged" />
+<WarehouseItemTableComponent ColumnDisplayParameters="ColumnDisplayParameters"
+                             ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
+                             FilterParameters="FilterParameters"
+                             FilterParametersChanged="OnFilterParametersChanged"
+                             SortParameters="SortParameters"
+                             SortParametersChanged="OnSortParametersChanged" />

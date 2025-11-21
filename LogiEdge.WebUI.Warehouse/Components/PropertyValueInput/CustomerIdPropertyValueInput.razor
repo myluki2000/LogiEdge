@@ -1,0 +1,35 @@
+﻿@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject CustomerManagementService CustomerService
+
+@code {
+    [Parameter]
+    public required Guid Value { get; set; }
+    [Parameter]
+    public EventCallback<Guid> ValueChanged { get; set; }
+    [Parameter]
+    public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? InputAttributes { get; set; }
+
+    private List<Customer> Customers { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Customers = await CustomerService.GetCustomersAsync();
+    }
+}
+
+<InputSelect TValue="Guid"
+             @bind-Value:get="Value"
+             @bind-Value:set="ValueChanged"
+             class="@((Class ?? "") + "form-select")"
+             @attributes="InputAttributes"
+             @onclick:stopPropagation="true">
+    <option value="@Guid.Empty"> </option>
+    @foreach (Customer customer in Customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
+    {
+        <option value="@customer.Id">[@customer.Abbreviation] @customer.Name</option>
+    }
+</InputSelect>

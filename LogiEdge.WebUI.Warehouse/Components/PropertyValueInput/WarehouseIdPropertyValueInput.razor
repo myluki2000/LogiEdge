@@ -6,25 +6,11 @@
 
 @code {
     [Parameter]
-    public required Warehouse? Value { get; set; }
+    public required Guid Value { get; set; }
     [Parameter]
-    public EventCallback<Warehouse?> ValueChanged { get; set; }
+    public EventCallback<Guid> ValueChanged { get; set; }
 
     private List<Warehouse> _warehouses = [];
-
-    private Guid SelectedWarehouseId
-    {
-        get => Value?.Id ?? Guid.Empty;
-        set
-        {
-            Warehouse? selectedWarehouse = _warehouses.Find(w => w.Id == value);
-            if (selectedWarehouse != Value)
-            {
-                Value = selectedWarehouse;
-                ValueChanged.InvokeAsync(Value);
-            }
-        }
-    }
 
     protected override Task OnInitializedAsync()
     {
@@ -37,8 +23,10 @@
 }
 
 <InputSelect TValue="Guid"
-             @bind-Value="SelectedWarehouseId"
-             class="form-select">
+             Value="Value"
+             ValueChanged="ValueChanged"
+             class="form-select"
+             @onclick:stopPropagation="true">
     <option value="@Guid.Empty"> </option>
     @foreach (Warehouse warehouse in _warehouses.OrderBy(w => w.Name.ToUpper()))
     {

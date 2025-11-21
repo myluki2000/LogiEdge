@@ -1,0 +1,103 @@
+﻿@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.WebUI.Warehouse.Components.PropertyValueInput
+@using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+@using Microsoft.EntityFrameworkCore
+@inject CustomerManagementService CustomerService
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+@code {
+    [Parameter]
+    public bool IsEditing { get; set; }
+    [Parameter]
+    public EventCallback<bool> IsEditingChanged { get; set; }
+
+    [Parameter]
+    public required string PropertyName { get; set; }
+    [Parameter]
+    public required Type PropertyType { get; set; }
+    [Parameter]
+    public required ItemsTableFilterParameters FilterParameters { get; set; }
+    [Parameter]
+    public required EventCallback<ItemsTableFilterParameters> FilterParametersChanged { get; set; }
+
+    private bool _valueDisplayed;
+    private object? _propertyValue;
+    private object? _propertyDisplayValue;
+
+    private Dictionary<Guid, string>? _customerNameLookup = null;
+    private Dictionary<Guid, string>? _warehouseNameLookup = null;
+
+    private void OnValueChanged(object? value)
+    {
+        if (FilterParameters.GetParameter(PropertyName) == value)
+            return;
+
+        FilterParameters = value != null 
+            ? FilterParameters.WithParameter(PropertyName, value) 
+            : FilterParameters.WithoutParameter(PropertyName);
+        IsEditing = false;
+        FilterParametersChanged.InvokeAsync(FilterParameters);
+        IsEditingChanged.InvokeAsync(false);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PropertyType == typeof(Customer) && _customerNameLookup == null)
+        {
+            _customerNameLookup = (await CustomerService.GetCustomersAsync())
+                .ToDictionary(c => c.Id, c => c.Name);
+        } 
+        else if (PropertyType == typeof(Warehouse) && _warehouseNameLookup == null)
+        {
+            await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+            _warehouseNameLookup = ctx.Warehouses
+                .ToDictionary(w => w.Id, w => w.Name);
+        }
+
+        _valueDisplayed = FilterParameters.GetParameter(PropertyName) != null || IsEditing;
+        _propertyValue = FilterParameters.GetParameter(PropertyName);
+
+        if (PropertyType == typeof(Customer) && _propertyValue != null)
+        {
+            _propertyDisplayValue = _customerNameLookup![(Guid)_propertyValue];
+        }
+        else if (PropertyType == typeof(Warehouse) && _propertyValue != null)
+        {
+            _propertyDisplayValue = _warehouseNameLookup![(Guid)_propertyValue];
+        }
+        else
+        {
+            _propertyDisplayValue = _propertyValue;
+        }
+    }
+}
+
+<span class="filter-badge badge rounded-pill @(!_valueDisplayed ? "fw-lighter" : "")"
+      @onclick="() => IsEditingChanged.InvokeAsync(true)">
+    <span>@PropertyName</span>
+    @if (_valueDisplayed)
+    {
+        <span>=</span>
+        if (IsEditing)
+        {
+            <PropertyValueInput Value="_propertyValue"
+                                ValueType="PropertyType"
+                                ValueChanged="EventCallback.Factory.Create<object?>(this, OnValueChanged)"
+                                UseIdForEntities="true" />
+        }
+        else
+        {
+            <PropertyValueComponent PropertyValue="_propertyDisplayValue" />
+        }
+
+        <span class="btn-filter-remove material-symbols-rounded"
+              @onclick="() => OnValueChanged(null)"
+              @onclick:stopPropagation="true">
+            close
+        </span>
+    }
+</span>
