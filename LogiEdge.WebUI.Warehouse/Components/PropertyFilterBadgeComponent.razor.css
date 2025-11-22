@@ -1,11 +1,16 @@
 ﻿.filter-badge {
-    background-color: var(--bs-gray-300);
-    color: black;
+    border-style: solid;
+    border-width: 1px;
+    border-color: var(--bs-indigo);
+    color: var(--bs-gray-800);
     cursor: pointer;
     margin-left: 4px;
-    line-height: 2em;
+    line-height: 2.25em;
     display: inline-flex;
     align-items: center;
+    border-radius: 50px;
+    font-weight: lighter;
+    margin: 4px;
 }
 
     .filter-badge .btn-filter {
@@ -28,4 +33,15 @@
 
     .filter-badge .btn-filter-save {
         color: var(--bs-green);
+    }
+
+    .filter-badge.active {
+        color: var(--bs-gray-900);
+        border: none;
+        background: #ded5f2;
+        background: linear-gradient(135deg,rgba(222, 213, 242, 1) 0%, rgba(157, 142, 230, 1) 70%);
+    }
+
+    .filter-badge.active .value {
+        font-weight: bold;
     }

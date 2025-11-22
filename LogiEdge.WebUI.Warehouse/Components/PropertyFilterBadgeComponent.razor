@@ -76,12 +76,12 @@
     }
 }
 
-<span class="filter-badge badge rounded-pill @(!_valueDisplayed ? "fw-lighter" : "")"
+<span class="filter-badge badge rounded-pill @(_valueDisplayed ? "active" : "")"
       @onclick="() => IsEditingChanged.InvokeAsync(true)">
     <span>@PropertyName</span>
     @if (_valueDisplayed)
     {
-        <span>=</span>
+        <span class="mx-1">=</span>
         if (IsEditing)
         {
             <PropertyValueInput Value="_propertyValue"
@@ -95,7 +95,9 @@
         }
         else
         {
-            <PropertyValueComponent PropertyValue="_propertyDisplayValue" />
+            <span class="value">
+                <PropertyValueComponent PropertyValue="_propertyDisplayValue" />
+            </span>
         }
 
         <span class="btn-filter btn-filter-remove material-symbols-rounded"

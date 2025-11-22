@@ -174,15 +174,18 @@
         };
 }
 
-@foreach (string property in ItemsTableFilterParameters.FilterableProperties)
-{
-    <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
-                                  FilterParametersChanged="FilterParametersChanged"
-                                  PropertyName="@property"
-                                  PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
-                                  IsEditing="_editingFilterProperty == property"
-                                  IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
-}
+<div>
+    Filter:
+    @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
+    {
+        <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
+                                      FilterParametersChanged="FilterParametersChanged"
+                                      PropertyName="@property"
+                                      PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
+                                      IsEditing="_editingFilterProperty == property"
+                                      IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)"/>
+    }
+</div>
 
 <span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
 <table class="table table-striped table-hover">
