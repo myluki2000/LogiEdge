@@ -3,21 +3,29 @@
     color: black;
     cursor: pointer;
     margin-left: 4px;
-    line-height: 1.5em;
+    line-height: 2em;
     display: inline-flex;
     align-items: center;
 }
 
-    .filter-badge .btn-filter-remove {
+    .filter-badge .btn-filter {
         cursor: pointer;
-        font-size: 1.5em;
-        color: var(--bs-red);
+        font-size: 2em;
         border-radius: 50%;
         margin-left: 4px;
         filter: grayscale(40%);
     }
 
-        .filter-badge .btn-filter-remove:hover {
+        .filter-badge .btn-filter:hover {
             background-color: var(--bs-gray-500);
             filter: grayscale(0%);
         }
+
+    .filter-badge .btn-filter-remove {
+        color: var(--bs-red);
+        
+    }
+
+    .filter-badge .btn-filter-save {
+        color: var(--bs-green);
+    }

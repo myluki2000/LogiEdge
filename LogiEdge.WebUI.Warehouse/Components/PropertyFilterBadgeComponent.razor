@@ -88,13 +88,17 @@
                                 ValueType="PropertyType"
                                 ValueChanged="EventCallback.Factory.Create<object?>(this, OnValueChanged)"
                                 UseIdForEntities="true" />
+            <span class="btn-filter btn-filter-save material-symbols-rounded"
+                  @onclick:stopPropagation="true">
+                check
+            </span>
         }
         else
         {
             <PropertyValueComponent PropertyValue="_propertyDisplayValue" />
         }
 
-        <span class="btn-filter-remove material-symbols-rounded"
+        <span class="btn-filter btn-filter-remove material-symbols-rounded"
               @onclick="() => OnValueChanged(null)"
               @onclick:stopPropagation="true">
             close
