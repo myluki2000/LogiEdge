@@ -96,7 +96,7 @@ else if (ValueType == typeof(Single))
                  tabindex="@TabIndex"
                  class="form-control" />
 }
-else if (ValueType == typeof(DateTime?))
+else if (ValueType == typeof(DateTime?) || ValueType == typeof(DateTime))
 {
     <InputDate Type="InputDateType.DateTimeLocal"
                @bind-Value="ValueAsDateTime"

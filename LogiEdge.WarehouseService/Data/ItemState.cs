@@ -13,7 +13,6 @@ namespace LogiEdge.WarehouseService.Data
 
         public Item Item { get; set; } = null!;
 
-        [QueryFilterableProperty]
         public required DateTime Date { get; set; }
 
         public required Guid WarehouseId { get; set; }
