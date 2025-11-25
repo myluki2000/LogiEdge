@@ -127,7 +127,8 @@
 
 
 
-<WarehouseItemTableComponent ColumnDisplayParameters="ColumnDisplayParameters"
+<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items"
+                             ColumnDisplayParameters="ColumnDisplayParameters"
                              ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
                              FilterParameters="FilterParameters"
                              FilterParametersChanged="OnFilterParametersChanged"

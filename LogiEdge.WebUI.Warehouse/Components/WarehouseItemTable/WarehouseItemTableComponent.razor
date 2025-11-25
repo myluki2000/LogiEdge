@@ -12,6 +12,9 @@
 
 @code {
     [Parameter]
+    public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
+
+    [Parameter]
     public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
     [Parameter]
     public EventCallback<ItemsTableColumnDisplayParameters> ColumnDisplayParametersChanged { get; set; }
@@ -27,7 +30,7 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
-    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)> TableRowRenderFragment { get; set; }
+    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     private OrderedDictionary<string, bool> propertyColumns;
 
@@ -75,7 +78,7 @@
 
         await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
 
-        IQueryable<Item> itemsQueryable = ctx.Items
+        IQueryable<Item> itemsQueryable = ItemsQueryableFactory.Invoke(ctx)
             .Include(it => it.ItemStates).ThenInclude(st => st.Warehouse)
             .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer);
 
@@ -133,7 +136,7 @@
 }
 
 @{
-    TableRowRenderFragment =
+    TableRowRenderFragment ??=
         data => __builder =>
         {
             <tr>
