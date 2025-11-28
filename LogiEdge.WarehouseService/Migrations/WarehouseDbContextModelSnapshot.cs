@@ -22,6 +22,7 @@ namespace LogiEdge.WarehouseService.Migrations
                 .HasAnnotation("ProductVersion", "9.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("CustomerItemSchema", b =>
@@ -271,6 +272,9 @@ namespace LogiEdge.WarehouseService.Migrations
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransaction", b =>
                 {
                     b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
+
+                    b.PrimitiveCollection<List<Dictionary<string, string>>>("DraftPlaceholderItems")
+                        .HasColumnType("hstore[]");
 
                     b.ToTable("OutboundTransactions");
                 });

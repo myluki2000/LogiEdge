@@ -76,7 +76,7 @@
     }
 }
 
-<span class="filter-badge badge rounded-pill @(_valueDisplayed ? "active" : "")"
+<span class="filter-badge badge @(_valueDisplayed ? "active" : "")"
       @onclick="() => IsEditingChanged.InvokeAsync(true)">
     <span>@PropertyName</span>
     @if (_valueDisplayed)

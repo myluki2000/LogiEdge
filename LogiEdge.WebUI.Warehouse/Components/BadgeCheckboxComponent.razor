@@ -1,0 +1,20 @@
+﻿@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public bool Value { get; set; }
+    [Parameter]
+    public EventCallback<bool> ValueChanged { get; set; }
+
+    private void OnClick()
+    {
+        Value = !Value;
+        ValueChanged.InvokeAsync(Value);
+    }
+
+}
+
+<span class="badge rounded-pill @(Value ? "checked" : "")" @onclick="OnClick">
+    @ChildContent
+</span>

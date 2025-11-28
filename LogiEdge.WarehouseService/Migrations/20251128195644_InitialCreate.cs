@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -14,6 +13,9 @@ namespace LogiEdge.WarehouseService.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:hstore", ",,");
+
             migrationBuilder.CreateTable(
                 name: "ItemSchemas",
                 columns: table => new
@@ -37,7 +39,8 @@ namespace LogiEdge.WarehouseService.Migrations
                     HandledByWorker = table.Column<string>(type: "text", nullable: false),
                     Comments = table.Column<string>(type: "text", nullable: false),
                     AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
-                    State = table.Column<int>(type: "integer", nullable: false)
+                    State = table.Column<int>(type: "integer", nullable: false),
+                    DraftPlaceholderItems = table.Column<List<Dictionary<string, string>>>(type: "hstore[]", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -102,17 +105,15 @@ namespace LogiEdge.WarehouseService.Migrations
                 name: "ItemSchemaProperty",
                 columns: table => new
                 {
-                    ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     Type = table.Column<int>(type: "integer", maxLength: 256, nullable: false),
                     IsRequired = table.Column<bool>(type: "boolean", nullable: false),
-                    IsUnique = table.Column<bool>(type: "boolean", nullable: false)
+                    IsUnique = table.Column<bool>(type: "boolean", nullable: false),
+                    ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ItemSchemaProperty", x => new { x.ItemSchemaId, x.Id });
+                    table.PrimaryKey("PK_ItemSchemaProperty", x => x.Name);
                     table.ForeignKey(
                         name: "FK_ItemSchemaProperty_ItemSchemas_ItemSchemaId",
                         column: x => x.ItemSchemaId,
@@ -155,6 +156,7 @@ namespace LogiEdge.WarehouseService.Migrations
                     ItemNumber = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: false),
                     Comments = table.Column<string>(type: "text", nullable: false),
+                    OutboundTransactionId = table.Column<Guid>(type: "uuid", nullable: true),
                     WarehouseId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
@@ -172,6 +174,11 @@ namespace LogiEdge.WarehouseService.Migrations
                         principalTable: "ItemSchemas",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Items_OutboundTransactions_OutboundTransactionId",
+                        column: x => x.OutboundTransactionId,
+                        principalTable: "OutboundTransactions",
+                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Items_Warehouses_WarehouseId",
                         column: x => x.WarehouseId,
@@ -279,9 +286,19 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "ItemSchemaId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Items_OutboundTransactionId",
+                table: "Items",
+                column: "OutboundTransactionId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Items_WarehouseId",
                 table: "Items",
                 column: "WarehouseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ItemSchemaProperty_ItemSchemaId",
+                table: "ItemSchemaProperty",
+                column: "ItemSchemaId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ItemState_ItemId",
@@ -315,9 +332,6 @@ namespace LogiEdge.WarehouseService.Migrations
                 name: "ItemState");
 
             migrationBuilder.DropTable(
-                name: "OutboundTransactions");
-
-            migrationBuilder.DropTable(
                 name: "RelocationTransactions");
 
             migrationBuilder.DropTable(
@@ -328,6 +342,9 @@ namespace LogiEdge.WarehouseService.Migrations
 
             migrationBuilder.DropTable(
                 name: "ItemSchemas");
+
+            migrationBuilder.DropTable(
+                name: "OutboundTransactions");
 
             migrationBuilder.DropTable(
                 name: "Warehouses");

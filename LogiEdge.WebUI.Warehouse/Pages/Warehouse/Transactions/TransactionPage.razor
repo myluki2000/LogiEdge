@@ -2,6 +2,7 @@
 @using LogiEdge.WarehouseService.Persistence
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
+@using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 
@@ -34,7 +35,7 @@
 }
 else if (IsOutboundTransaction)
 {
-    // TODO: Implement OutboundTransactionDetails component
+    <OutboundTransactionComponent TransactionId="TransactionId" />
 }
 else if (IsRelocationTransaction)
 {

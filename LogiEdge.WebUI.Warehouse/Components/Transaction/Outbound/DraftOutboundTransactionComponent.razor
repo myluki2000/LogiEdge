@@ -1,26 +1,87 @@
-﻿@using LogiEdge.WarehouseService.Data.Transactions
+﻿@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
-
-<h3>DraftOutboundTransactionComponent</h3>
 
 @code {
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private OutboundTransaction? Transaction { get; set; }
+    private OutboundTransaction Transaction { get; set; } = null!;
+
+    private ItemsTableColumnDisplayParameters _transactionColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
+    private ItemsTableFilterParameters _transactionFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
+    private ItemsTableSortParameters _transactionSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
         TransactionId = parameters.GetValueOrDefault<Guid>("TransactionId");
 
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-
-        Transaction = ctx.OutboundTransactions
-            .FirstOrDefault(t => t.Id == TransactionId);
+        Transaction = await GetTransaction(TransactionId);
 
         await base.SetParametersAsync(parameters);
     }
+
+    private async Task<OutboundTransaction> GetTransaction(Guid transactionId)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+
+        OutboundTransaction? transaction = ctx.OutboundTransactions
+            .Include(t => t.DraftPlaceholderItems)
+            .Include(t => t.DraftSelectedItems)
+            .FirstOrDefault(t => t.Id == TransactionId);
+
+        if (transaction == null)
+            throw new InvalidOperationException($"Transaction {transactionId} not found!");
+
+        if (transaction.State != TransactionState.DRAFT)
+            throw new InvalidOperationException($"Transaction {transactionId} is not in a DRAFT state!");
+
+        return transaction;
+    }
+}
+
+<h3>DraftOutboundTransactionComponent</h3>
+
+<h4>Chosen Items</h4>
+
+<button type="button" class="btn-filter btn-primary">
+    <span class="material-symbols-rounded">
+        add_box
+    </span>
+    Add Item
+</button>
+
+<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
+                             @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
+                             @bind-FilterParameters="_transactionFilterParameters"
+                             @bind-SortParameters="_transactionSortParameters" />
+
+@if (Transaction.DraftPlaceholderItems is { Count: > 0 })
+{
+    <h4>Items to be Selected</h4>
+    <ul>
+        @foreach (Dictionary<string, string> item in Transaction.DraftPlaceholderItems)
+        {
+            <li>
+                <button type="button" class="btn-filter btn-sm btn-success">
+                    <span class="material-symbols-rounded">
+                        ink_selection
+                    </span>
+                </button>
+
+                @foreach ((string propertyName, string propertyValue) in item)
+                {
+                    <span>
+                        @propertyName
+                        <text>=</text>
+                        @propertyValue
+                    </span>
+                }
+            </li>
+        }
+    </ul>
 }

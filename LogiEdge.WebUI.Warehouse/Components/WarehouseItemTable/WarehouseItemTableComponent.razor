@@ -1,6 +1,5 @@
 ﻿@using System.Reflection
 @using System.Text.Json
-@using System.Diagnostics.CodeAnalysis
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WarehouseService.Data
@@ -32,9 +31,11 @@
     [Parameter]
     public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
-    private OrderedDictionary<string, bool> propertyColumns;
+    [Parameter]
+    public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?> properties)>? GroupedTableRowRenderFragment { get; set; }
 
-    private OrderedDictionary<string, bool> DisplayPropertyColumns { get; set; } = [];
+    private OrderedDictionary<string, bool> DisplayPropertyColumnsSetting { get; set; } = [];
+
     private List<ItemState> ItemsAtMoment { get; set; } = [];
 
     private string? _editingFilterProperty;
@@ -54,6 +55,14 @@
                 _editingFilterProperty = null;
             }
         }
+    }
+
+    private void GroupByBadgeValueChanged(string property, bool newValue)
+    {
+        SortParameters = newValue
+            ? SortParameters = SortParameters.WithGroupByProperty(property)
+            : SortParameters = SortParameters.WithoutGroupByProperty(property);
+        SortParametersChanged.InvokeAsync(SortParameters);
     }
 
     private void BtnSortClicked(string columnName)
@@ -107,17 +116,17 @@
             .Select(p => p.Name));
         allowedPropertyColumns.AddRange(schemasAdditionalProperties);
 
-        DisplayPropertyColumns = [];
+        DisplayPropertyColumnsSetting = [];
 
         foreach (string columnName in ColumnDisplayParameters.GetColumnsToDisplayOrDefault(_itemSchemas))
         {
             if (allowedPropertyColumns.Contains(columnName))
-                DisplayPropertyColumns.Add(columnName, true);
+                DisplayPropertyColumnsSetting.Add(columnName, true);
         }
 
         foreach (string columnName in allowedPropertyColumns)
         {
-            DisplayPropertyColumns.TryAdd(columnName, false);
+            DisplayPropertyColumnsSetting.TryAdd(columnName, false);
         }
 
         // sort items
@@ -175,7 +184,44 @@
                 }
             </tr>
         };
+
+    GroupedTableRowRenderFragment ??=
+        data => __builder =>
+        {
+            <tr>
+                <td>@data.itemStates.Count</td>
+
+                @foreach ((string propertyName, object? propertyValue) in data.properties)
+                {
+                    <td>
+                        <PropertyValueComponent PropertyValue="@propertyValue" />
+                    </td>
+                }
+            </tr>
+        };
+
+    List<string> propertyColumnsToDisplay = SortParameters.GroupByProperties.Length == 0
+        ? DisplayPropertyColumnsSetting
+            .Where(x => x.Value)
+            .Select(x => x.Key)
+            .ToList()
+        : DisplayPropertyColumnsSetting
+            .Where(x => x.Value)
+            .Where(x => SortParameters.GroupByProperties.Contains(x.Key))
+            .Select(x => x.Key)
+            .ToList();
 }
+
+<div>
+    Group By:
+    @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
+    {
+        <BadgeCheckboxComponent Value="SortParameters.GroupByProperties.Contains(property)"
+                                ValueChanged="newValue => GroupByBadgeValueChanged(property, newValue)">
+            @property
+        </BadgeCheckboxComponent>
+    }
+</div>
 
 <div>
     Filter:
@@ -186,7 +232,7 @@
                                       PropertyName="@property"
                                       PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
                                       IsEditing="_editingFilterProperty == property"
-                                      IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)"/>
+                                      IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
     }
 </div>
 
@@ -194,7 +240,14 @@
 <table class="table table-striped table-hover">
     <thead class="table-primary">
         <tr>
-            @foreach ((string propertyName, bool _) in DisplayPropertyColumns.Where(x => x.Value))
+            @if (SortParameters.GroupByProperties.Length > 0)
+            {
+                <th style="line-height: 24px;">
+                    <span style="vertical-align: bottom;">Count</span>
+                </th>
+            }
+
+            @foreach (string propertyName in propertyColumnsToDisplay)
             {
                 <th style="line-height: 24px;">
                     <span style="vertical-align: bottom;">@propertyName</span>
@@ -225,11 +278,11 @@
                         }
                     </button>
 
-                    @if (propertyName == DisplayPropertyColumns.Last(x => x.Value).Key)
+                    @if (propertyName == propertyColumnsToDisplay.Last())
                     {
                         @* button to select which columns to show *@
                         <WarehouseItemTableColumnSelectionComponent class="btn btn-secondary table-button"
-                                                                    ColumnsToDisplay="DisplayPropertyColumns"
+                                                                    ColumnsToDisplay="DisplayPropertyColumnsSetting"
                                                                     ColumnsToDisplayChanged="OnColumnsToDisplayChanged" />
                     }
                 </th>
@@ -237,37 +290,61 @@
         </tr>
     </thead>
     <tbody>
-        @foreach (ItemState itemState in ItemsAtMoment)
+        @if (SortParameters.GroupByProperties.Length > 0)
         {
-            Item item = itemState.Item;
+            ItemsTableGrouper itemsGrouper = new();
+            List<IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState>> groupedItems = itemsGrouper.Group(ItemsAtMoment, SortParameters).ToList();
 
-            OrderedDictionary<string, object?> properties = new();
-
-            @foreach (string propertyName in DisplayPropertyColumns.Where(x => x.Value).Select(x => x.Key))
+            @foreach (IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState> itemGroup in groupedItems)
             {
-                PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
-                PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-                object? propertyValue = null;
-                if (itemProperty != null)
+                OrderedDictionary<string, object?> properties = new();
+
+                // only display properties which are activated as display properties and which at the same time exist in the
+                // group key (i.e. the items were grouped by that property) - we can't display other properties here since the values
+                // might be different for different items in the group
+                @foreach (string propertyName in propertyColumnsToDisplay)
                 {
-                    propertyValue = itemProperty.GetValue(item);
-                }
-                else if (stateProperty != null)
-                {
-                    propertyValue = stateProperty?.GetValue(itemState);
-                }
-                else
-                {
-                    // try finding it in the additional properties
-                    // TODO: Support additional properties with non-string types
-                    if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
-                        propertyValue = propertyElement.GetString();
+                    object? propertyValue = itemGroup.Key[propertyName];
+                    properties.Add(propertyName, propertyValue);
                 }
 
-                properties.Add(propertyName, propertyValue);
+                @GroupedTableRowRenderFragment((itemGroup.Select(st => st.Item).ToList(), itemGroup.ToList(), properties))
             }
+        }
+        else
+        {
+            @foreach (ItemState itemState in ItemsAtMoment)
+            {
+                Item item = itemState.Item;
 
-            @TableRowRenderFragment((item, itemState, properties))
+                OrderedDictionary<string, object?> properties = new();
+
+                @foreach (string propertyName in propertyColumnsToDisplay)
+                {
+                    PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
+                    object? propertyValue = null;
+                    if (itemProperty != null)
+                    {
+                        propertyValue = itemProperty.GetValue(item);
+                    }
+                    else if (stateProperty != null)
+                    {
+                        propertyValue = stateProperty?.GetValue(itemState);
+                    }
+                    else
+                    {
+                        // try finding it in the additional properties
+                        // TODO: Support additional properties with non-string types
+                        if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
+                            propertyValue = propertyElement.GetString();
+                    }
+
+                    properties.Add(propertyName, propertyValue);
+                }
+
+                @TableRowRenderFragment((item, itemState, properties))
+            }
         }
     </tbody>
 </table>

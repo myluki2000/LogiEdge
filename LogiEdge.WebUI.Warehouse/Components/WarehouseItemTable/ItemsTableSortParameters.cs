@@ -10,20 +10,40 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {
     public record ItemsTableSortParameters
     {
-        public required string? GroupByProperty { get; init; }
+        public required string[] GroupByProperties { get; init; } = [];
         public required string? SortByProperty { get; init; }
         public required bool SortOrderDescending { get; init; }
+
+        public ItemsTableSortParameters WithGroupByProperty(string propertyName)
+        {
+            return this with
+            {
+                GroupByProperties = this.GroupByProperties.Contains(propertyName)
+                    ? this.GroupByProperties
+                    : this.GroupByProperties.Append(propertyName).ToArray(),
+            };
+        }
+
+        public ItemsTableSortParameters WithoutGroupByProperty(string propertyName)
+        {
+            return this with
+            {
+                GroupByProperties = this.GroupByProperties.Where(x => x != propertyName).ToArray(),
+            };
+        }
 
         public virtual bool Equals(ItemsTableSortParameters? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
-            return GroupByProperty == other.GroupByProperty && SortByProperty == other.SortByProperty && SortOrderDescending == other.SortOrderDescending;
+            if (!ReferenceEquals(GroupByProperties, other.GroupByProperties))
+                return false;
+            return GroupByProperties.SequenceEqual(other.GroupByProperties) && SortByProperty == other.SortByProperty && SortOrderDescending == other.SortOrderDescending;
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(GroupByProperty, SortByProperty, SortOrderDescending);
+            return HashCode.Combine(GroupByProperties?.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())), SortByProperty, SortOrderDescending);
         }
 
         public Dictionary<string, StringValues> ToQueryParameters()
@@ -34,9 +54,9 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
                 result["sortBy"] = SortByProperty;
             }
             result["orderDescending"] = SortOrderDescending.ToString();
-            if (GroupByProperty is not null)
+            if (GroupByProperties.Length > 0)
             {
-                result["groupBy"] = GroupByProperty;
+                result["groupBy"] = new StringValues(GroupByProperties);
             }
             return result;
         }
@@ -53,10 +73,11 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
                     .PopWhere(param => param.Key == "orderDescending")
                     .Select(param => bool.Parse(param.Value.FirstOrDefault()!))
                     .FirstOrDefault(),
-                GroupByProperty = queryParameters
+                GroupByProperties = queryParameters
                     .PopWhere(param => param.Key == "groupBy")
-                    .Select(param => param.Value.FirstOrDefault())
-                    .FirstOrDefault(),
+                    .Select(param => param.Value.Cast<string>())
+                    .FirstOrDefault()?
+                    .ToArray() ?? [],
             };
         }
     }

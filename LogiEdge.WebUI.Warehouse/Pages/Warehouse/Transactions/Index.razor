@@ -53,7 +53,8 @@
             Date = DateTime.UtcNow,
             CreatedByUserId = Guid.Empty, // TODO: Pass current user's ID
             HandledByWorker = "",
-            AttachmentIds = []
+            AttachmentIds = [],
+            DraftSelectedItems = [],
         };
 
         ctx.OutboundTransactions.Add(transaction);

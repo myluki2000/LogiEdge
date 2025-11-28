@@ -32,6 +32,8 @@ namespace LogiEdge.WarehouseService.Persistence
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.HasPostgresExtension("hstore");
+
             modelBuilder.Entity<Customer>().ToTable("Customers", t => t.ExcludeFromMigrations());
             modelBuilder.Entity<ItemSchema>().HasMany(sch => sch.Customers).WithMany();
 
