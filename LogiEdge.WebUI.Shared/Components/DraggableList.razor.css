@@ -1,0 +1,50 @@
+﻿@keyframes pulse {
+    0% {
+        border-color: color-mix(in hsl, var(--bs-indigo) 20%, transparent);
+    }
+
+    50% {
+        border-color: color-mix(in hsl, var(--bs-indigo) 70%, transparent);
+    }
+
+    100% {
+        border-color: color-mix(in hsl, var(--bs-indigo) 20%, transparent);
+    }
+}
+
+#list > li {
+    padding-left: 16px;
+    padding-right: 16px;
+    line-height: 2em;
+}
+
+.item-drag-over {
+    border-style: solid none none none;
+    border-width: 3px;
+    border-color: transparent;
+    animation: pulse 1s infinite;
+}
+
+.item-dragging .item-wrapper {
+    opacity: 0.4;
+}
+
+.item-handle {
+    cursor: grab;
+}
+
+.item-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+#list {
+    /* 
+        Same padding as the size of the pseudo element at the bottom of the list,
+        so it's symmetrical.
+    */
+    padding-top: 1em;
+    padding-left: 16px;
+    padding-right: 16px;
+    margin: 0;
+}
