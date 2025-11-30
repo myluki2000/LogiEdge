@@ -16,6 +16,10 @@
     private ItemsTableFilterParameters _transactionFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
     private ItemsTableSortParameters _transactionSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
 
+    private ItemsTableColumnDisplayParameters _selectionModalColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
+    private ItemsTableFilterParameters _selectionModalFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
+    private ItemsTableSortParameters _selectionModalSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
+
     public override async Task SetParametersAsync(ParameterView parameters)
     {
         TransactionId = parameters.GetValueOrDefault<Guid>("TransactionId");
@@ -30,7 +34,6 @@
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
         OutboundTransaction? transaction = ctx.OutboundTransactions
-            .Include(t => t.DraftPlaceholderItems)
             .Include(t => t.DraftSelectedItems)
             .FirstOrDefault(t => t.Id == TransactionId);
 
@@ -48,7 +51,7 @@
 
 <h4>Chosen Items</h4>
 
-<button type="button" class="btn-filter btn-primary">
+<button type="button" class="btn btn-filter btn-primary">
     <span class="material-symbols-rounded">
         add_box
     </span>
@@ -85,3 +88,8 @@
         }
     </ul>
 }
+
+<WarehouseItemSelectionTableModalComponent
+    @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
+    @bind-FilterParameters="_selectionModalFilterParameters"
+    @bind-SortParameters="_selectionModalSortParameters" />

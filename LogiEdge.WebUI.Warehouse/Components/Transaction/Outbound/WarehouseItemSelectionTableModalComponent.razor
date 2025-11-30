@@ -1,0 +1,110 @@
+﻿@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public int SuggestedSelectedItemCount { get; set; }
+
+    [Parameter]
+    public List<ItemState> SelectedItems { get; set; } = [];
+    [Parameter]
+    public EventCallback<List<ItemState>> SelectedItemsChanged { get; set; } = EventCallback<List<ItemState>>.Empty;
+
+    [Parameter]
+    public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableColumnDisplayParameters> ColumnDisplayParametersChanged { get; set; }
+
+    [Parameter]
+    public required ItemsTableFilterParameters FilterParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableFilterParameters> FilterParametersChanged { get; set; }
+
+    [Parameter]
+    public required ItemsTableSortParameters SortParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
+
+    private RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
+
+    private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?> properties)>? _groupedTableRowRenderFragment;
+
+    private void OnItemSelectionCheckboxChanged(ItemState item, bool isChecked)
+    {
+
+    }
+
+    private void OnItemSelectionInputNumberChanged(List<ItemState> items, int newValue)
+    {
+
+    }
+}
+
+@{
+    _tableRowRenderFragment ??=
+    data => __builder =>
+    {
+        <tr>
+            @foreach (KeyValuePair<string, object?> property in data.properties)
+            {
+                <td>
+                    @if (property.Equals(data.properties.First()))
+                    {
+                        <input type="checkbox"
+                               checked="@SelectedItems.Any(it => it.Id == data.item.Id)"
+                               @onchange="args => OnItemSelectionCheckboxChanged(data.itemState, (bool)(args.Value ?? false))" />
+                    }
+
+                    <PropertyValueComponent PropertyValue="@property.Value"/>
+                </td>
+            }
+        </tr>
+    };
+
+    _groupedTableRowRenderFragment ??=
+        data => __builder =>
+        {
+            <tr>
+                <td>@data.itemStates.Count</td>
+
+                @foreach (KeyValuePair<string, object?> property in data.properties)
+                {
+                    <td>
+                        @if (property.Equals(data.properties.First()))
+                        {
+                            <InputNumber TValue="int"
+                                         Value="data.items.Count(it => SelectedItems.Any(si => si.Id == it.Id))"
+                                         ValueChanged="newValue => OnItemSelectionInputNumberChanged(data.itemStates, newValue)" />
+                        }
+
+                        <PropertyValueComponent PropertyValue="@property.Value"/>
+                    </td>
+                }
+            </tr>
+        };
+}
+
+<div class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title">Choose an Item</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Modal body text goes here.</p>
+                
+                <WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items"
+                                             ColumnDisplayParameters="ColumnDisplayParameters"
+                                             ColumnDisplayParametersChanged="ColumnDisplayParametersChanged"
+                                             FilterParameters="FilterParameters"
+                                             FilterParametersChanged="FilterParametersChanged"
+                                             SortParameters="SortParameters"
+                                             SortParametersChanged="SortParametersChanged"
+                                             TableRowRenderFragment="_tableRowRenderFragment"
+                                             GroupedTableRowRenderFragment="_groupedTableRowRenderFragment" />
+            </div>
+        </div>
+    </div>
+</div>
+
