@@ -1,3 +1,4 @@
+using Havit.Blazor.Components.Web;
 using LogiEdge.Areas.Identity;
 using LogiEdge.BaseService;
 using LogiEdge.WebUI.Customers;
@@ -27,6 +28,7 @@ namespace LogiEdge
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
             builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
                 .AddEntityFrameworkStores<AppIdentityDbContext>();
+            builder.Services.AddHxServices();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();

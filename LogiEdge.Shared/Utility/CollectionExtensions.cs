@@ -24,5 +24,11 @@ namespace LogiEdge.Shared.Utility
         {
             return list.PopWhere(predicate).First();
         }
+
+        public static void AddIfNotExists<T>(this ICollection<T> list, T item)
+        {
+            if(!list.Contains(item))
+                list.Add(item);
+        }
     }
 }

@@ -40,7 +40,7 @@
 
     private string? _editingFilterProperty;
 
-    private IReadOnlySet<ItemSchema> _itemSchemas;
+    private IReadOnlySet<ItemSchema> _itemSchemas = new HashSet<ItemSchema>(0);
 
     private void PropertyBadgeIsEditingChanged(string property, bool isEditing)
     {

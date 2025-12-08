@@ -13,10 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj" />
     <ProjectReference Include="..\LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj" />
   </ItemGroup>

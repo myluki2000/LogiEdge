@@ -1,9 +1,9 @@
-﻿@using LogiEdge.WarehouseService.Data
+﻿@using LogiEdge.CustomerService.Data
+@using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.EntityFrameworkCore
-
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 
 @code {
@@ -19,6 +19,10 @@
     private ItemsTableColumnDisplayParameters _selectionModalColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
     private ItemsTableFilterParameters _selectionModalFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
     private ItemsTableSortParameters _selectionModalSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
+
+    private HxModal _itemSelectionModal = null!;
+
+    private List<Guid> _modalSelectedItemIds = [];
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
@@ -45,13 +49,47 @@
 
         return transaction;
     }
-}
 
-<h3>DraftOutboundTransactionComponent</h3>
+    private async Task ShowItemSelectionModal()
+    {
+        _modalSelectedItemIds = [];
+        await _itemSelectionModal.ShowAsync();
+    }
+
+    private async Task BtnItemSelectionModalOkOnClick()
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        ctx.OutboundTransactions.Attach(Transaction);
+
+        List<Item> itemsToAdd = ctx.Items.Where(it => _modalSelectedItemIds.Contains(it.Id)).ToList();
+
+        Transaction.DraftSelectedItems!.AddRange(itemsToAdd);
+
+        _modalSelectedItemIds = [];
+
+        await ctx.SaveChangesAsync();
+
+        Transaction = await GetTransaction(TransactionId);
+
+        await _itemSelectionModal.HideAsync();
+    }
+
+    private async Task BtnDeleteItemFromTransactionOnClick(Guid itemId)
+    {
+        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        ctx.OutboundTransactions.Attach(Transaction);
+
+        Transaction.DraftSelectedItems!.RemoveAll(it => it.Id == itemId);
+
+        await ctx.SaveChangesAsync();
+
+        Transaction = await GetTransaction(TransactionId);
+    }
+}
 
 <h4>Chosen Items</h4>
 
-<button type="button" class="btn btn-filter btn-primary">
+<button type="button" class="btn btn-filter btn-primary" @onclick="ShowItemSelectionModal">
     <span class="material-symbols-rounded">
         add_box
     </span>
@@ -61,7 +99,57 @@
 <WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
                              @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
                              @bind-FilterParameters="_transactionFilterParameters"
-                             @bind-SortParameters="_transactionSortParameters" />
+                             @bind-SortParameters="_transactionSortParameters">
+    <TableRowRenderFragment>
+        <tr>
+            @for (int i = 0; i < context.properties.Count; i++)
+            {
+                (string propertyName, object? propertyValue) = context.properties.GetAt(i);
+
+                <td>
+                    @if (i == 0)
+                    {
+                        <HxButton Color="ThemeColor.Danger" 
+                                  Size="ButtonSize.Small" 
+                                  Icon="BootstrapIcon.Trash"
+                                  Tooltip="Remove this item from the transaction."
+                                  CssClass="me-2"
+                                  OnClick="() => BtnDeleteItemFromTransactionOnClick(context.item.Id)" />
+                    }
+
+                    @switch (propertyName)
+                    {
+                        case nameof(Item.Id):
+                            <a href="/warehouse/item/@context.item.Id">
+                                <PropertyValueComponent PropertyValue="@propertyValue"/>
+                            </a>
+                            break;
+                        case nameof(Item.Customer):
+                            Customer c = (Customer)propertyValue;
+                            <a href="javascript:void(0);"
+                               @onclick="() => _transactionFilterParameters = _transactionFilterParameters.WithParameter(nameof(Item.Customer), c.Id)">
+                                <PropertyValueComponent PropertyValue="@propertyValue"/>
+                            </a>
+                            break;
+                        case nameof(ItemState.Warehouse):
+                            Warehouse w = (Warehouse)propertyValue;
+                            <a href="javascript:void(0);"
+                               @onclick="() => _transactionFilterParameters = _transactionFilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id)">
+                                <PropertyValueComponent PropertyValue="@propertyValue"/>
+                            </a>
+                            break;
+                        default:
+                            <a href="javascript:void(0);"
+                               @onclick="() => _transactionFilterParameters = _transactionFilterParameters.WithParameter(propertyName, propertyValue.ToString())">
+                                <PropertyValueComponent PropertyValue="@propertyValue"/>
+                            </a>
+                            break;
+                    }
+                </td>
+            }
+        </tr>
+    </TableRowRenderFragment>
+</WarehouseItemTableComponent>
 
 @if (Transaction.DraftPlaceholderItems is { Count: > 0 })
 {
@@ -89,7 +177,22 @@
     </ul>
 }
 
-<WarehouseItemSelectionTableModalComponent
-    @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
-    @bind-FilterParameters="_selectionModalFilterParameters"
-    @bind-SortParameters="_selectionModalSortParameters" />
+<HxModal @ref="_itemSelectionModal" 
+         Size="ModalSize.ExtraLarge"
+         Scrollable="true"
+         Title="Select an Item to Add to the Transaction">
+    <BodyTemplate>
+        @{
+            List<Guid> selectedItemsIds = Transaction.DraftSelectedItems!.Select(it => it.Id).ToList();
+        }
+        <WarehouseItemSelectionTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => !selectedItemsIds.Contains(it.Id))"
+                                              @bind-SelectedItemIds="_modalSelectedItemIds"
+                                              @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
+                                              @bind-FilterParameters="_selectionModalFilterParameters"
+                                              @bind-SortParameters="_selectionModalSortParameters"/>
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Ok" @onclick="BtnItemSelectionModalOkOnClick" Color="ThemeColor.Primary" />
+        <HxButton Text="Cancel" Color="ThemeColor.Secondary" />
+    </FooterTemplate>
+</HxModal>

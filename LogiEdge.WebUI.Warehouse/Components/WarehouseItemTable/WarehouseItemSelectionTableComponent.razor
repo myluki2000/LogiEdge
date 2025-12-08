@@ -1,0 +1,123 @@
+﻿@using LogiEdge.Shared.Utility
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Persistence
+@using Microsoft.AspNetCore.Components.Forms
+@code {
+    [Parameter]
+    public int SuggestedSelectedItemCount { get; set; }
+
+    [Parameter]
+    public List<Guid> SelectedItemIds { get; set; } = [];
+    [Parameter]
+    public EventCallback<List<Guid>> SelectedItemIdsChanged { get; set; } = EventCallback<List<Guid>>.Empty;
+
+    [Parameter]
+    public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableColumnDisplayParameters> ColumnDisplayParametersChanged { get; set; }
+
+    [Parameter]
+    public required ItemsTableFilterParameters FilterParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableFilterParameters> FilterParametersChanged { get; set; }
+
+    [Parameter]
+    public required ItemsTableSortParameters SortParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
+
+    [Parameter]
+    public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
+
+    private RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
+
+    private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?> properties)>? _groupedTableRowRenderFragment;
+
+    private void OnItemSelectionCheckboxChanged(ItemState itemState, bool newValue)
+    {
+        if (SelectedItemIds.Any(id => id == itemState.ItemId) && !newValue)
+        {
+            SelectedItemIds.Remove(itemState.ItemId);
+        }
+        else if (SelectedItemIds.All(id => id != itemState.ItemId) && newValue)
+        {
+            SelectedItemIds.Add(itemState.ItemId);
+        }
+    }
+
+    private void OnItemSelectionInputNumberChanged(List<ItemState> items, string newValueString)
+    {
+        int newValue = string.IsNullOrWhiteSpace(newValueString) ? 0 : int.Parse(newValueString);
+
+        int i = 0;
+        foreach (ItemState itemState in items)
+        {
+            if (i < newValue)
+            {
+                SelectedItemIds.AddIfNotExists(itemState.ItemId);
+            }
+            else
+            {
+                SelectedItemIds.Remove(itemState.ItemId);
+            }
+
+            i++;
+        }
+    }
+}
+
+@{
+    _tableRowRenderFragment ??=
+    data => __builder =>
+    {
+        <tr>
+            @foreach (KeyValuePair<string, object?> property in data.properties)
+            {
+                <td>
+                    @if (property.Equals(data.properties.First()))
+                    {
+                        <input type="checkbox"
+                               checked="@SelectedItemIds.Any(id => id == data.item.Id)"
+                               @onchange="args => OnItemSelectionCheckboxChanged(data.itemState, (bool)(args.Value ?? false))" />
+                    }
+
+                    <PropertyValueComponent PropertyValue="@property.Value"/>
+                </td>
+            }
+        </tr>
+    };
+
+    _groupedTableRowRenderFragment ??=
+        data => __builder =>
+        {
+            <tr>
+                <td>
+                    @data.itemStates.Count
+                    
+                    <input type="number"
+                           step="1"
+                           min="0"
+                           max="@data.itemStates.Count"
+                           value="data.items.Count(it => SelectedItemIds.Any(id => id == it.Id))"
+                           @onchange="args => OnItemSelectionInputNumberChanged(data.itemStates, (string)(args.Value ?? string.Empty))" />
+                </td>
+
+                @foreach (KeyValuePair<string, object?> property in data.properties)
+                {
+                    <td>
+                        <PropertyValueComponent PropertyValue="@property.Value"/>
+                    </td>
+                }
+            </tr>
+        };
+}
+
+<WarehouseItemTableComponent ItemsQueryableFactory="ItemsQueryableFactory"
+                             ColumnDisplayParameters="ColumnDisplayParameters"
+                             ColumnDisplayParametersChanged="ColumnDisplayParametersChanged"
+                             FilterParameters="FilterParameters"
+                             FilterParametersChanged="FilterParametersChanged"
+                             SortParameters="SortParameters"
+                             SortParametersChanged="SortParametersChanged"
+                             TableRowRenderFragment="_tableRowRenderFragment"
+                             GroupedTableRowRenderFragment="_groupedTableRowRenderFragment" />
