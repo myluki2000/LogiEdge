@@ -92,14 +92,15 @@
         {
             <tr>
                 <td>
-                    @data.itemStates.Count
-                    
                     <input type="number"
+                           width="50"
                            step="1"
                            min="0"
                            max="@data.itemStates.Count"
                            value="data.items.Count(it => SelectedItemIds.Any(id => id == it.Id))"
                            @onchange="args => OnItemSelectionInputNumberChanged(data.itemStates, (string)(args.Value ?? string.Empty))" />
+                    /
+                    @data.itemStates.Count
                 </td>
 
                 @foreach (KeyValuePair<string, object?> property in data.properties)
