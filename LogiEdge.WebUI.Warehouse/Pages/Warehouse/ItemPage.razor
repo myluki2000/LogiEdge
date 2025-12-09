@@ -14,6 +14,7 @@
 @{
     WarehouseDbContext warehouseDbContext = WarehouseDbContextFactory.CreateDbContext();
     Item item = warehouseDbContext.Items
+        .Include(x => x.Comments)
         .Include(x => x.Customer)
         .Include(x => x.ItemStates)
         .ThenInclude(st => st.Warehouse)
@@ -37,7 +38,12 @@
     </tr>
     <tr>
         <th>Comments</th>
-        <td>@item.Comments</td>
+        <td>
+            @foreach (Comment comment in item.Comments)
+            {
+                <p>@comment.Text</p>
+            }
+        </td>
     </tr>
 </table>
 

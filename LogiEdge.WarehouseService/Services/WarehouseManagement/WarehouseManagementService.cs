@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using LogiEdge.CustomerService.Data;
+using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
 using LogiEdge.WarehouseService.Persistence;
@@ -65,7 +66,15 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 CustomerId = draftItem.CustomerId,
                 ItemNumber = draftItem.ItemNumber,
                 AdditionalProperties = draftItem.AdditionalProperties,
-                Comments = draftItem.Comments,
+                Comments = new SortedSet<Comment>(IEnumerable<string>.Of(draftItem.Comments)
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Select(c => new Comment()
+                    {
+                        Text = c,
+                        AuthorId = transaction.CreatedByUserId,
+                        Date = transaction.Date,
+                        Retracted = false,
+                    })),
                 ItemStates = [],
             };
             item.ItemStates.Add(new ItemState()

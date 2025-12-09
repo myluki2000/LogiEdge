@@ -37,7 +37,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     HandledByWorker = table.Column<string>(type: "text", nullable: false),
-                    Comments = table.Column<string>(type: "text", nullable: false),
                     AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
                     State = table.Column<int>(type: "integer", nullable: false),
                     DraftPlaceholderItems = table.Column<List<Dictionary<string, string>>>(type: "hstore[]", nullable: true)
@@ -56,7 +55,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     HandledByWorker = table.Column<string>(type: "text", nullable: false),
-                    Comments = table.Column<string>(type: "text", nullable: false),
                     AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
                     State = table.Column<int>(type: "integer", nullable: false)
                 },
@@ -131,7 +129,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     HandledByWorker = table.Column<string>(type: "text", nullable: false),
-                    Comments = table.Column<string>(type: "text", nullable: false),
                     AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
                     State = table.Column<int>(type: "integer", nullable: false),
                     WarehouseId = table.Column<Guid>(type: "uuid", nullable: true)
@@ -155,7 +152,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
                     ItemNumber = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: false),
-                    Comments = table.Column<string>(type: "text", nullable: false),
                     OutboundTransactionId = table.Column<Guid>(type: "uuid", nullable: true),
                     WarehouseId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
@@ -223,6 +219,28 @@ namespace LogiEdge.WarehouseService.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Comment",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    AuthorId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Text = table.Column<string>(type: "text", nullable: false),
+                    Retracted = table.Column<bool>(type: "boolean", nullable: false),
+                    InventoryTransactionId = table.Column<Guid>(type: "uuid", nullable: true),
+                    ItemId = table.Column<Guid>(type: "uuid", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Comment", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Comment_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ItemState",
                 columns: table => new
                 {
@@ -249,6 +267,16 @@ namespace LogiEdge.WarehouseService.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comment_InventoryTransactionId",
+                table: "Comment",
+                column: "InventoryTransactionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Comment_ItemId",
+                table: "Comment",
+                column: "ItemId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CustomerItemSchema_ItemSchemaId",
@@ -319,6 +347,9 @@ namespace LogiEdge.WarehouseService.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "Comment");
+
             migrationBuilder.DropTable(
                 name: "CustomerItemSchema");
 

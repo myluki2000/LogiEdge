@@ -40,6 +40,7 @@ namespace LogiEdge.ExcelImporterService.Data
             STORAGE_LOCATION,
             OTHER,
             EXIT_DATE,
+            COMMENT,
         }
     }
 }

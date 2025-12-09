@@ -88,6 +88,7 @@
         await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
 
         IQueryable<Item> itemsQueryable = ItemsQueryableFactory.Invoke(ctx)
+            .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Comments)
             .Include(it => it.ItemStates).ThenInclude(st => st.Warehouse)
             .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer);
 

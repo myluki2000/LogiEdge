@@ -36,6 +36,7 @@ namespace LogiEdge.ExcelImporterService.Internal
             /// </summary>
             public DateTime? ExitDate { get; set; } = null;
             public string StorageLocation { get; set; } = "";
+            public string Comment { get; set; } = "";
             public Dictionary<string, string> AdditionalProperties { get; init; } = new();
 
             public bool InWarehouse => ExitDate == null;
@@ -177,6 +178,9 @@ namespace LogiEdge.ExcelImporterService.Internal
                                 item.ExitDate = null;
                             }
 
+                            break;
+                        case InventoryFileMatchingOptions.ColumnType.COMMENT:
+                            item.Comment = !value.IsText ? "" : value.GetText();
                             break;
                     }
                 }

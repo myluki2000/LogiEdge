@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -19,7 +20,7 @@ public abstract class InventoryTransaction
     public required DateTime Date { get; set; }
     public required Guid CreatedByUserId { get; set; }
     public required string HandledByWorker { get; set; }
-    public string Comments { get; set; } = string.Empty;
+    public SortedSet<Comment> Comments { get; set; } = [];
     public List<Guid> AttachmentIds { get; set; } = [];
     public TransactionState State { get; set; }
     /// <summary>

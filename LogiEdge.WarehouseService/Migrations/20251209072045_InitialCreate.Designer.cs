@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20251128195644_InitialCreate")]
+    [Migration("20251209072045_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -65,6 +65,40 @@ namespace LogiEdge.WarehouseService.Migrations
                         });
                 });
 
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Comment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("InventoryTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Retracted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InventoryTransactionId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("Comment");
+                });
+
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>
                 {
                     b.Property<Guid>("Id")
@@ -74,10 +108,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<JsonDocument>("AdditionalProperties")
                         .IsRequired()
                         .HasColumnType("jsonb");
-
-                    b.Property<string>("Comments")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
@@ -216,10 +246,6 @@ namespace LogiEdge.WarehouseService.Migrations
                         .IsRequired()
                         .HasColumnType("uuid[]");
 
-                    b.Property<string>("Comments")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
 
@@ -302,6 +328,17 @@ namespace LogiEdge.WarehouseService.Migrations
                         .HasForeignKey("ItemSchemaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Comment", b =>
+                {
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", null)
+                        .WithMany("Comments")
+                        .HasForeignKey("InventoryTransactionId");
+
+                    b.HasOne("LogiEdge.WarehouseService.Data.Item", null)
+                        .WithMany("Comments")
+                        .HasForeignKey("ItemId");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>
@@ -424,11 +461,15 @@ namespace LogiEdge.WarehouseService.Migrations
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("ItemStates");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
                 {
+                    b.Navigation("Comments");
+
                     b.Navigation("NewItemStates");
                 });
 

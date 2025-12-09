@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -14,6 +15,7 @@ using LogiEdge.CustomerService.Data;
 using LogiEdge.CustomerService.Services;
 using LogiEdge.ExcelImporterService.Data;
 using LogiEdge.ExcelImporterService.Internal;
+using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Persistence;
 using LogiEdge.WarehouseService.Services;
@@ -118,7 +120,10 @@ namespace LogiEdge.ExcelImporterService.Services
                 Warehouse? warehouse = warehouseDbContext.Warehouses
                     .Include(x => x.Items)
                     .ThenInclude(x => x.ItemStates)
+                    .Include(x => x.Items)
+                    .ThenInclude(x => x.Comments)
                     .FirstOrDefault(x => x.Name == options.WarehouseName);
+                
                 if (warehouse == null)
                 {
                     warehouse = warehouseDbContext.Warehouses.Add(new Warehouse()
@@ -152,6 +157,15 @@ namespace LogiEdge.ExcelImporterService.Services
                                 ItemNumber = item.ItemNumber,
                                 CustomerId = customer.Id,
                                 ItemSchemaId = warehouseDbContext.ItemSchemas.First(sch => sch.Name == options.UseSchema).Id,
+                                Comments = new SortedSet<Comment>(IEnumerable<string>.Of(item.Comment)
+                                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                                    .Select(c => new Comment()
+                                {
+                                    AuthorId = Guid.Empty,
+                                    Date = item.EntryDate,
+                                    Retracted = false,
+                                    Text = c,
+                                })),
                                 ItemStates = [
                                     new ItemState()
                                     {
@@ -240,7 +254,16 @@ namespace LogiEdge.ExcelImporterService.Services
                                             WarehouseId = warehouse.Id,
                                             Location = x.StorageLocation,
                                         }
-                                    ]
+                                    ],
+                                    Comments = new SortedSet<Comment>(IEnumerable<string>.Of(x.Comment)
+                                        .Where(c => !string.IsNullOrEmpty(c))
+                                        .Select(c => new Comment()
+                                        {
+                                            AuthorId = Guid.Empty,
+                                            Date = x.EntryDate,
+                                            Retracted = false,
+                                            Text = c,
+                                        }))
                                 };
 
                                 JsonObject jsonObj = new();
@@ -279,12 +302,31 @@ namespace LogiEdge.ExcelImporterService.Services
                                 }
                                 else
                                 {
-                                    existingItem.ItemStates.Add(new ItemState()
+                                    if (existingItem.ItemStates.Last().Location != x.StorageLocation)
                                     {
-                                        Date = day,
-                                        WarehouseId = warehouse.Id,
-                                        Location = x.StorageLocation,
-                                    });
+                                        existingItem.ItemStates.Add(new ItemState()
+                                        {
+                                            Date = day,
+                                            WarehouseId = warehouse.Id,
+                                            Location = x.StorageLocation,
+                                        });
+                                    }
+
+                                    if (existingItem.Comments.Last().Text != x.Comment)
+                                    {
+                                        foreach (Comment c in existingItem.Comments)
+                                        {
+                                            c.Retracted = true;
+                                        }
+
+                                        existingItem.Comments.Add(new Comment()
+                                        {
+                                            AuthorId = Guid.Empty,
+                                            Date = day,
+                                            Retracted = false,
+                                            Text = x.Comment,
+                                        });
+                                    }
                                 }
                             }
                         });

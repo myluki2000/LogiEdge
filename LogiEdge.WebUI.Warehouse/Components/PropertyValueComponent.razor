@@ -24,6 +24,19 @@ else
         case DateTime dateTimeValue:
             <text>@dateTimeValue.ToLocalTime().ToString(CultureInfo.CurrentCulture)</text>
             return;
+        case SortedSet<Comment> commentListValue:
+            @if (commentListValue.Count > 0)
+            {
+                <HxBadge Type="BadgeType.RoundedPill" Color="ThemeColor.Secondary">
+                    @commentListValue.First().Text
+                </HxBadge>
+            }
+
+            @if (commentListValue.Count > 1)
+            {
+                <text>+@(commentListValue.Count - 1) more</text>
+            }
+            break;
         default:
             <text>@PropertyValue.ToString()</text>
             return;
