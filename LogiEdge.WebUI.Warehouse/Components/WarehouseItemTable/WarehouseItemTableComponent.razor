@@ -1,4 +1,6 @@
-﻿@using System.Reflection
+﻿@using System.Net
+@using System.Reflection
+@using System.Text
 @using System.Text.Json
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared.Attributes
@@ -161,18 +163,28 @@
                                 </a>
                                 break;
                             case nameof(Item.Customer):
-                                Customer c = (Customer)propertyValue;
+                                Customer c = (Customer)propertyValue!;
                                 <a href="javascript:void(0);"
                                    @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
                                     <PropertyValueComponent PropertyValue="@propertyValue" />
                                 </a>
                                 break;
                             case nameof(ItemState.Warehouse):
-                                Warehouse w = (Warehouse)propertyValue;
+                                Warehouse w = (Warehouse)propertyValue!;
                                 <a href="javascript:void(0);"
                                    @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
                                     <PropertyValueComponent PropertyValue="@propertyValue" />
                                 </a>
+                                break;
+                            case nameof(Item.Comments):
+                                SortedSet<Comment> comments = (SortedSet<Comment>)propertyValue!;
+
+                                string html = string.Join("<hr>", 
+                                    comments.Select(c => $"<b>{WebUtility.HtmlEncode(c.AuthorId.ToString())}, {c.Date}:</b> {WebUtility.HtmlEncode(c.Text)}"));
+
+                                <HxPopover Title="Item Comments" Html="true" Content="@html" Trigger="PopoverTrigger.Hover">
+                                    <PropertyValueComponent PropertyValue="@propertyValue" />
+                                </HxPopover>
                                 break;
                             default:
                                 <a href="javascript:void(0);"
