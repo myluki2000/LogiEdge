@@ -52,6 +52,47 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             return transaction;
         }
 
+        public async Task<InventoryTransaction> BookOutboundTransactionAsync(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            OutboundTransaction? transaction = ctx.OutboundTransactions
+                .Include(t => t.DraftSelectedItems)
+                .ThenInclude(item => item.ItemStates)
+                .Include(t => t.NewItemStates!)
+                .ThenInclude(st => st.Item)
+                .FirstOrDefault(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Outbound transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State == TransactionState.BOOKED)
+            {
+                throw new InvalidOperationException($"Outbound transaction with ID {transactionId} is already booked.");
+            }
+
+            transaction.State = TransactionState.BOOKED;
+            transaction.NewItemStates ??= [];
+
+            foreach (Item item in transaction.DraftSelectedItems!)
+            {
+                ItemState newItemState = new()
+                {
+                    Date = transaction.Date,
+                    Location = SpecialLocations.SHIPPED,
+                    WarehouseId = item.ItemStates!.Last().WarehouseId
+                };
+
+                item.ItemStates.Add(newItemState);
+                transaction.NewItemStates.Add(newItemState);
+            }
+
+            await ctx.SaveChangesAsync();
+
+            return transaction;
+        }
+
         private static Item CreateItemForDraftItem(InboundTransaction transaction, InboundDraftItem draftItem)
         {
             if (!transaction.WarehouseId.HasValue)
