@@ -31,7 +31,7 @@
 
     private RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
 
-    private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?> properties)>? _groupedTableRowRenderFragment;
+    private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? _groupedTableRowRenderFragment;
 
     private void OnItemSelectionCheckboxChanged(ItemState itemState, bool newValue)
     {
@@ -103,10 +103,25 @@
                     @data.itemStates.Count
                 </td>
 
-                @foreach (KeyValuePair<string, object?> property in data.properties)
+                @foreach (KeyValuePair<string, object?[]> property in data.properties)
                 {
+                    object?[] propertyValues = property.Value;
                     <td>
-                        <PropertyValueComponent PropertyValue="@property.Value"/>
+                        @if (propertyValues.Length == 1)
+                        {
+                            <PropertyValueComponent PropertyValue="@propertyValues[0]" />
+                        }
+                        else
+                        {
+                            IEnumerable<IGrouping<object?, object?>> groupedValues = propertyValues.GroupBy(x => x);
+                            foreach (IGrouping<object, object> groupedValue in groupedValues)
+                            {
+                                <text>@(groupedValue.Count())x</text>
+                                <HxBadge Color="ThemeColor.Secondary" Type="BadgeType.RoundedPill">
+                                    <PropertyValueComponent PropertyValue="@groupedValue.Key" />
+                                </HxBadge>
+                            }
+                        }
                     </td>
                 }
             </tr>

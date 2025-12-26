@@ -34,7 +34,7 @@
     public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
-    public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?> properties)>? GroupedTableRowRenderFragment { get; set; }
+    public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
 
     private OrderedDictionary<string, bool> DisplayPropertyColumnsSetting { get; set; } = [];
 
@@ -145,6 +145,30 @@
         };
         await ColumnDisplayParametersChanged.InvokeAsync(ColumnDisplayParameters);
     }
+
+    private object? GetItemPropertyValue(Item item, ItemState itemState, string propertyName)
+    {
+        PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
+        PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
+        object? propertyValue = null;
+        if (itemProperty != null)
+        {
+            propertyValue = itemProperty.GetValue(item);
+        }
+        else if (stateProperty != null)
+        {
+            propertyValue = stateProperty?.GetValue(itemState);
+        }
+        else
+        {
+            // try finding it in the additional properties
+            // TODO: Support additional properties with non-string types
+            if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
+                propertyValue = propertyElement.GetString();
+        }
+
+        return propertyValue;
+    }
 }
 
 @{
@@ -202,25 +226,35 @@
         data => __builder =>
         {
             <tr>
-                <td>@data.itemStates.Count</td>
+                <td>@(data.itemStates.Count)x</td>
 
-                @foreach ((string propertyName, object? propertyValue) in data.properties)
+                @foreach ((string propertyName, object?[] propertyValues) in data.properties)
                 {
+                    List<IGrouping<object?, object?>> groupedValues = propertyValues.GroupBy(x => x).ToList();
                     <td>
-                        <PropertyValueComponent PropertyValue="@propertyValue" />
+                        @if (groupedValues.Count == 1)
+                        {
+                            <PropertyValueComponent PropertyValue="@propertyValues[0]"/>
+                        }
+                        else
+                        {
+                            foreach (IGrouping<object?, object?> groupedValue in groupedValues)
+                            {
+                                <span style="white-space: nowrap; display: inline-block;" class="ms-1">
+                                    <text>@(groupedValue.Count())x</text>
+                                    <HxBadge Color="ThemeColor.Secondary" Type="BadgeType.RoundedPill">
+                                        <PropertyValueComponent PropertyValue="@groupedValue.Key"/>
+                                    </HxBadge>
+                                </span>
+                            }
+                        }
                     </td>
                 }
             </tr>
         };
 
-    List<string> propertyColumnsToDisplay = SortParameters.GroupByProperties.Length == 0
-        ? DisplayPropertyColumnsSetting
+    List<string> propertyColumnsToDisplay = DisplayPropertyColumnsSetting
             .Where(x => x.Value)
-            .Select(x => x.Key)
-            .ToList()
-        : DisplayPropertyColumnsSetting
-            .Where(x => x.Value)
-            .Where(x => SortParameters.GroupByProperties.Contains(x.Key))
             .Select(x => x.Key)
             .ToList();
 }
@@ -310,15 +344,23 @@
 
             @foreach (IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState> itemGroup in groupedItems)
             {
-                OrderedDictionary<string, object?> properties = new();
+                OrderedDictionary<string, object?[]> properties = new();
 
-                // only display properties which are activated as display properties and which at the same time exist in the
-                // group key (i.e. the items were grouped by that property) - we can't display other properties here since the values
-                // might be different for different items in the group
+                // only display properties which are activated as display properties
                 @foreach (string propertyName in propertyColumnsToDisplay)
                 {
-                    object? propertyValue = itemGroup.Key[propertyName];
-                    properties.Add(propertyName, propertyValue);
+                    if (itemGroup.Key.ContainsProperty(propertyName))
+                    {
+                        object? propertyValue = itemGroup.Key[propertyName];
+                        properties.Add(propertyName, [propertyValue]);
+                    }
+                    else
+                    {
+                        object?[] propertyValues = itemGroup
+                            .Select(st => GetItemPropertyValue(st.Item, st, propertyName))
+                            .ToArray();
+                        properties.Add(propertyName, propertyValues);
+                    }
                 }
 
                 @GroupedTableRowRenderFragment((itemGroup.Select(st => st.Item).ToList(), itemGroup.ToList(), properties))
@@ -334,26 +376,7 @@
 
                 @foreach (string propertyName in propertyColumnsToDisplay)
                 {
-                    PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
-                    PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-                    object? propertyValue = null;
-                    if (itemProperty != null)
-                    {
-                        propertyValue = itemProperty.GetValue(item);
-                    }
-                    else if (stateProperty != null)
-                    {
-                        propertyValue = stateProperty?.GetValue(itemState);
-                    }
-                    else
-                    {
-                        // try finding it in the additional properties
-                        // TODO: Support additional properties with non-string types
-                        if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
-                            propertyValue = propertyElement.GetString();
-                    }
-
-                    properties.Add(propertyName, propertyValue);
+                    properties.Add(propertyName, GetItemPropertyValue(item, itemState, propertyName));
                 }
 
                 @TableRowRenderFragment((item, itemState, properties))
