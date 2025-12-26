@@ -5,6 +5,7 @@ using LogiEdge.WebUI.Customers;
 using LogiEdge.CustomerService;
 using LogiEdge.Data;
 using LogiEdge.ExcelImporterService;
+using LogiEdge.Service.PlanningBoard;
 using LogiEdge.Shared;
 using LogiEdge.WebUI.Warehouse;
 using LogiEdge.WarehouseService;
@@ -42,7 +43,8 @@ namespace LogiEdge
                 new CustomerServiceModuleConfiguration(),
                 new WarehouseModuleConfiguration(),
                 new WarehouseServiceModuleConfiguration(),
-                new ExcelImporterServiceModuleConfiguration()
+                new ExcelImporterServiceModuleConfiguration(),
+                new PlanningBoardServiceModuleConfiguration()
             ];
 
             // add services of modules

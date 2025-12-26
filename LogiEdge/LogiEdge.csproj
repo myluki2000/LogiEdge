@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
+    <ProjectReference Include="..\LogiEdge.Service.PlanningBoard\LogiEdge.Service.PlanningBoard.csproj" />
     <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
     <ProjectReference Include="..\LogiEdge.WebUI.Customers\LogiEdge.WebUI.Customers.csproj" />
     <ProjectReference Include="..\LogiEdge.ExcelImporterService\LogiEdge.ExcelImporterService.csproj" />

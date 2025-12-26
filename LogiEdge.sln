@@ -25,6 +25,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LogiEdge.Test.Shared", "Log
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.WebUI.Shared", "LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj", "{BA8BE3F0-38BB-416D-A1B1-67E82058274D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.Service.PlanningBoard", "LogiEdge.Service.PlanningBoard\LogiEdge.Service.PlanningBoard.csproj", "{62B73697-1095-48E7-A188-1568D76C9AF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogiEdge.WebUI.PlanningBoard", "LogiEdge.WebUI.PlanningBoard\LogiEdge.WebUI.PlanningBoard.csproj", "{1363C877-B46D-4CFE-BD6D-9A8FEE4FA6B4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +79,14 @@ Global
 		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BA8BE3F0-38BB-416D-A1B1-67E82058274D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{62B73697-1095-48E7-A188-1568D76C9AF6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{62B73697-1095-48E7-A188-1568D76C9AF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{62B73697-1095-48E7-A188-1568D76C9AF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{62B73697-1095-48E7-A188-1568D76C9AF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1363C877-B46D-4CFE-BD6D-9A8FEE4FA6B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1363C877-B46D-4CFE-BD6D-9A8FEE4FA6B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1363C877-B46D-4CFE-BD6D-9A8FEE4FA6B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1363C877-B46D-4CFE-BD6D-9A8FEE4FA6B4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

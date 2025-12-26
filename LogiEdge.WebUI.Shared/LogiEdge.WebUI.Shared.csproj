@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
+    <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>
