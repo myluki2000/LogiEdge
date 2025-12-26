@@ -254,6 +254,7 @@
         };
 
     List<string> propertyColumnsToDisplay = DisplayPropertyColumnsSetting
+            .Where(x => SortParameters.GroupByProperties.Length == 0 || x.Key != nameof(Item.Id)) // do not show Id column when grouping
             .Where(x => x.Value)
             .Select(x => x.Key)
             .ToList();
