@@ -114,7 +114,7 @@
                         else
                         {
                             IEnumerable<IGrouping<object?, object?>> groupedValues = propertyValues.GroupBy(x => x);
-                            foreach (IGrouping<object, object> groupedValue in groupedValues)
+                            foreach (IGrouping<object?, object?> groupedValue in groupedValues)
                             {
                                 <text>@(groupedValue.Count())x</text>
                                 <HxBadge Color="ThemeColor.Secondary" Type="BadgeType.RoundedPill">

@@ -238,14 +238,18 @@
                         }
                         else
                         {
+                            int i = 0;
                             foreach (IGrouping<object?, object?> groupedValue in groupedValues)
                             {
-                                <span style="white-space: nowrap; display: inline-block;" class="ms-1">
+                                <span style="white-space: nowrap; display: inline-flex; align-items: center;" class="@(i == 0 ? "": "ms-2")">
                                     <text>@(groupedValue.Count())x</text>
-                                    <HxBadge Color="ThemeColor.Secondary" Type="BadgeType.RoundedPill">
+                                    <HxBadge Color="ThemeColor.Secondary" 
+                                             Type="BadgeType.RoundedPill"
+                                             CssClass="ms-1">
                                         <PropertyValueComponent PropertyValue="@groupedValue.Key"/>
                                     </HxBadge>
                                 </span>
+                                i++;
                             }
                         }
                     </td>
