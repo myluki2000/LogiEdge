@@ -260,31 +260,34 @@
             .ToList();
 }
 
-<div>
-    Group By:
-    @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
-    {
-        <BadgeCheckboxComponent Value="SortParameters.GroupByProperties.Contains(property)"
-                                ValueChanged="newValue => GroupByBadgeValueChanged(property, newValue)">
-            @property
-        </BadgeCheckboxComponent>
-    }
+<div class="d-flex align-items-center flex-wrap">
+    <span>
+        Group By:
+        @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
+        {
+            <BadgeCheckboxComponent Value="SortParameters.GroupByProperties.Contains(property)"
+                                    ValueChanged="newValue => GroupByBadgeValueChanged(property, newValue)">
+                @property
+            </BadgeCheckboxComponent>
+        }
+    </span>
+
+    <span class="ms-3 flex-grow-1">
+        Filter:
+        @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
+        {
+            <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
+                                          FilterParametersChanged="FilterParametersChanged"
+                                          PropertyName="@property"
+                                          PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
+                                          IsEditing="_editingFilterProperty == property"
+                                          IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
+        }
+    </span>
+    
+    <span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
 </div>
 
-<div>
-    Filter:
-    @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
-    {
-        <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
-                                      FilterParametersChanged="FilterParametersChanged"
-                                      PropertyName="@property"
-                                      PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
-                                      IsEditing="_editingFilterProperty == property"
-                                      IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
-    }
-</div>
-
-<span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
 <table class="table table-striped table-hover">
     <thead class="table-primary">
         <tr>
