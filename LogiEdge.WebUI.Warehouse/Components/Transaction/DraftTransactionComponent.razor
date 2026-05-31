@@ -90,74 +90,102 @@
     return;
 }
 
-<h3>
-    <InputText class="form-control"
-               @bind-Value="Transaction.Title"
-               @oninput="e => _debouncer.Debounce(async Task () => {
-                   Transaction!.Title = e.Value?.ToString() ?? string.Empty;
-                   await SaveTitleToDatabaseAsync();
-               })" />
-    <span class="fs-6">@Transaction.Date</span>
-</h3>
+<div style="background-color: #f2f2f2; border-bottom: 1px solid #d6d5d5; padding: 16px;">
+    <h3>
+        <InputText class="form-control"
+                   @bind-Value="Transaction.Title"
+                   @oninput="e => _debouncer.Debounce(async Task () => {
+                       Transaction!.Title = e.Value?.ToString() ?? string.Empty;
+                       await SaveTitleToDatabaseAsync();
+                   })" />
+        <span class="fs-6">@Transaction.Date</span>
+    </h3>
 
-<div>
-    <button class="btn btn-primary" @onclick="BookTransaction">Book Transaction</button>
+    <div>
+        <button class="btn btn-primary" @onclick="BookTransaction">Book Transaction</button>
 
-    <DebouncerComponent @ref="_debouncer"
-                        DelayMilliseconds="1000"
-                        style="@(IsAnyInputInvalid ? "display: none;" : "")"
-                        class="ms-2" />
-    @if (IsAnyInputInvalid)
-    {
-        <span class="ms-2">
-            <span class="material-symbols-rounded text-danger align-middle">
-                error
+        <DebouncerComponent @ref="_debouncer"
+                            DelayMilliseconds="1000"
+                            style="@(IsAnyInputInvalid ? "display: none;" : "")"
+                            class="ms-2" />
+        @if (IsAnyInputInvalid)
+        {
+            <span class="ms-2">
+                <span class="material-symbols-rounded text-danger align-middle">
+                    error
+                </span>
+                <span class="text-danger align-middle">There are invalid inputs. Please correct them before saving.</span>
             </span>
-            <span class="text-danger align-middle">There are invalid inputs. Please correct them before saving.</span>
-        </span>
-    }
+        }
+    </div>
 </div>
 
-@if (Transaction.InboundTransactionPart == null && Transaction.OutboundTransactionPart == null && Transaction.RelocationTransactionPart == null)
-{
-    <button @onclick="BtnAddInboundItemsOnClick">Add Inbound Items</button>
-    <button @onclick="BtnAddOutboundItemsOnClick">Add Outbound Items</button>
-    <button>Add Relocation Items</button>
-}
-else
-{
-    <HxTabPanel>
-        <HxTab Title="Inbound">
+<div class="m-3">
+    <HxTabPanel Variant="TabPanelVariant.Card">
+        <HxTab Title="Overview">
             <Content>
-                @if (Transaction.InboundTransactionPart != null)
-                {
+                <div class="row">
+                    <div class="col-12 col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                Add Transaction Parts
+                            </div>
+                            <div class="card-body">
+                                @if (Transaction.InboundTransactionPart == null)
+                                {
+                                    <button class="btn btn-outline-primary me-2 mb-2" @onclick="BtnAddInboundItemsOnClick">Add Inbound Items</button>
+                                }
+                                @if (Transaction.OutboundTransactionPart == null)
+                                {
+                                    <button class="btn btn-outline-primary me-2 mb-2" @onclick="BtnAddOutboundItemsOnClick">Add Outbound Items</button>
+                                }
+                                @if (Transaction.RelocationTransactionPart == null)
+                                {
+                                    <button class="btn btn-outline-primary me-2 mb-2">Add Relocation Items</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                    <DraftInboundTransactionComponent TransactionId="TransactionId" 
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h5>Documents & Attachments</h5>
+                        <DocumentGeneratorComponent TInputType="InventoryTransaction" />
+                        <hr />
+                        <TransactionFileAttachmentManagerComponent Transaction="Transaction" />
+                    </div>
+                </div>
+            </Content>
+        </HxTab>
+
+        @if (Transaction.InboundTransactionPart != null)
+        {
+            <HxTab Title="Inbound">
+                <Content>
+                    <DraftInboundTransactionComponent TransactionId="TransactionId"
                                                       Debouncer="_debouncer"
                                                       @bind-IsAnyInputInvalid="IsAnyInputInvalid" />
-                }
-                else
-                {
-                    <button @onclick="BtnAddInboundItemsOnClick">Add Inbound Items</button>
-                }
-            </Content>
-        </HxTab>
-        <HxTab Title="Outbound">
-            <Content>
-                @if (Transaction.OutboundTransactionPart != null)
-                {
+                </Content>
+            </HxTab>
+        }
+
+        @if (Transaction.OutboundTransactionPart != null)
+        {
+            <HxTab Title="Outbound">
+                <Content>
                     <DraftOutboundTransactionComponent TransactionId="TransactionId" />
-                }
-                else
-                {
-                    <button @onclick="BtnAddOutboundItemsOnClick">Add Outbound Items</button>
-                }
-            </Content>
-        </HxTab>
-        <HxTab Title="Relocation">
-            <Content>
-                ToDo: Relocation transaction part
-            </Content>
-        </HxTab>
+                </Content>
+            </HxTab>
+        }
+
+        @if (Transaction.RelocationTransactionPart != null)
+        {
+            <HxTab Title="Relocation">
+                <Content>
+                    ToDo: Relocation transaction part
+                </Content>
+            </HxTab>
+        }
     </HxTabPanel>
-}
+</div>

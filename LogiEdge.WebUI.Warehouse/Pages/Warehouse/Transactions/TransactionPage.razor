@@ -3,6 +3,7 @@
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
+@using LogiEdge.WebUI.Shared.Shared
 @using LogiEdge.WebUI.Warehouse.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction
 @using Microsoft.AspNetCore.Components.Forms
@@ -20,6 +21,14 @@
     /// </summary>
     [Parameter]
     public Guid TransactionId { get; set; }
+
+    [CascadingParameter]
+    public required MainLayout Layout { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Layout?.SetPadding(false);
+    }
 
     private InventoryTransaction? Transaction { get; set; }
 
@@ -53,7 +62,3 @@ else
     <p>Unknown transaction state encountered: @Transaction.State</p>
     return;
 }
-
-<DocumentGeneratorComponent TInputType="InventoryTransaction" />
-
-<TransactionFileAttachmentManagerComponent Transaction="Transaction" />
