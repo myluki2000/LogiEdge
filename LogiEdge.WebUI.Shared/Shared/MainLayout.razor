@@ -1,0 +1,37 @@
+﻿@inherits LayoutComponentBase
+
+<PageTitle>LogiEdge</PageTitle>
+
+<CascadingValue Value="this">
+    <div class="page">
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+
+        <main>
+            <article class="content @(UsePadding ? "p-4" : "p-0")">
+                @Body
+            </article>
+        </main>
+    </div>
+</CascadingValue>
+
+@code {
+    public bool UsePadding { get; set; } = true;
+
+    protected override void OnParametersSet()
+    {
+        // Reset to default on each navigation or parameter update.
+        // A child page can still override it in its OnInitialized/OnParametersSet.
+        UsePadding = true;
+    }
+
+    public void SetPadding(bool usePadding)
+    {
+        if (UsePadding != usePadding)
+        {
+            UsePadding = usePadding;
+            StateHasChanged();
+        }
+    }
+}

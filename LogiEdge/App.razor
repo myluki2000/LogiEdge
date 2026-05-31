@@ -1,4 +1,5 @@
-﻿@inject ServiceModuleConfigurationCollection Modules
+﻿@using LogiEdge.WebUI.Shared.Shared
+@inject ServiceModuleConfigurationCollection Modules
 
 <CascadingAuthenticationState>
     <Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="@Modules.Select(x => x.Assembly)">
