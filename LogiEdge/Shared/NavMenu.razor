@@ -7,7 +7,7 @@
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+<div class="@NavMenuCssClass nav-scrollable d-flex flex-column" @onclick="ToggleNavMenu">
     <nav class="flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
@@ -25,6 +25,10 @@
             </NavLink>
         </div>
     </nav>
+
+    <div class="mt-auto login-box">
+        <LoginDisplay />
+    </div>
 </div>
 
 @code {

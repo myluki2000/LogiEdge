@@ -50,6 +50,19 @@
     color: white;
 }
 
+.login-box {
+    color: white;
+    margin: 8px;
+    border-radius: 8px;
+    background-color: rgba(0,0,0,0.4);
+    height: 3.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+
 @media (min-width: 641px) {
     .navbar-toggler {
         display: none;
