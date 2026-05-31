@@ -172,6 +172,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                         Date = item.EntryDate,
                                         WarehouseId = warehouse.Id,
                                         Location = item.StorageLocation,
+                                        IsQuarantined = false,
                                     }
                                 ]
                             };
@@ -190,6 +191,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                     Date = item.ExitDate.Value,
                                     WarehouseId = warehouse.Id,
                                     Location = SpecialLocations.SHIPPED,
+                                    IsQuarantined = false,
                                 });
                             }
 
@@ -253,6 +255,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                             Date = x.EntryDate,
                                             WarehouseId = warehouse.Id,
                                             Location = x.StorageLocation,
+                                            IsQuarantined = false,
                                         }
                                     ],
                                     Comments = new SortedSet<Comment>(IEnumerable<string>.Of(x.Comment)
@@ -280,6 +283,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                         Date = x.ExitDate.Value,
                                         WarehouseId = warehouse.Id,
                                         Location = SpecialLocations.SHIPPED,
+                                        IsQuarantined = false,
                                     });
                                 }
 
@@ -298,6 +302,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                         Date = x.ExitDate.Value,
                                         WarehouseId = warehouse.Id,
                                         Location = SpecialLocations.SHIPPED,
+                                        IsQuarantined = false,
                                     });
                                 }
                                 else
@@ -309,6 +314,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                             Date = day,
                                             WarehouseId = warehouse.Id,
                                             Location = x.StorageLocation,
+                                            IsQuarantined = false,
                                         });
                                     }
 
@@ -340,6 +346,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                 Date = day,
                                 WarehouseId = warehouse.Id,
                                 Location = SpecialLocations.SHIPPED,
+                                IsQuarantined = false,
                             });
                         }
 

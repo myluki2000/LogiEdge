@@ -11,7 +11,7 @@ using LogiEdge.BaseService.Data;
 
 namespace LogiEdge.WarehouseService.Data.Transactions;
 
-public abstract class InventoryTransaction
+public class InventoryTransaction
 {
     [Key]
     public Guid Id { get; set; }
@@ -23,25 +23,15 @@ public abstract class InventoryTransaction
     public SortedSet<Comment> Comments { get; set; } = [];
     public List<Guid> AttachmentIds { get; set; } = [];
     public TransactionState State { get; set; }
-    /// <summary>
-    /// If this transaction has been booked, this will contain the item states created
-    /// on the items affected by the transaction.
-    /// If this transaction has not been booked, this will be NULL.
-    /// </summary>
-    public List<ItemState>? NewItemStates { get; set; } = null;
 
-    /// <summary>
-    /// If this transaction has been booked, this will contain the items affected.
-    /// If this transaction has not been booked, this will be NULL.
-    /// </summary>
-    public IEnumerable<Item>? GetAffectedItems()
-    {
-        if (State == TransactionState.BOOKED && NewItemStates == null)
-            throw new Exception("For InventoryTransaction.AffectedItems to work, InventoryTransaction.ItemStates " +
-                                "and InventoryTransaction.ItemStates.Item need to be .Include()-ed");
+    public Guid? InboundTransactionPartId { get; set; } = null;
+    public InboundTransactionPart? InboundTransactionPart { get; set; } = null;
 
-        return NewItemStates?.Select(st => st.Item);
-    }
+    public Guid? OutboundTransactionPartId { get; set; } = null;
+    public OutboundTransactionPart? OutboundTransactionPart { get; set; } = null;
+
+    public Guid? RelocationTransactionPartId { get; set; } = null;
+    public RelocationTransactionPart? RelocationTransactionPart { get; set; } = null;
 }
 public enum TransactionState
 {

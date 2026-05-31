@@ -11,13 +11,13 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 {
     public class WarehouseManagementService(IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory)
     {
-        public async Task<InventoryTransaction> BookInboundTransactionAsync(Guid transactionId)
+        public async Task<InventoryTransaction> BookTransactionAsync(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
-            InboundTransaction? transaction = ctx.InboundTransactions
-                .Include(t => t.DraftItems)
-                .Include(t => t.NewItemStates!)
-                .ThenInclude(st => st.Item)
+            InventoryTransaction? transaction = ctx.InventoryTransactions
+                .Include(t => t.InboundTransactionPart)
+                .Include(t => t.OutboundTransactionPart)
+                .Include(t => t.RelocationTransactionPart)
                 .FirstOrDefault(t => t.Id == transactionId);
 
             if (transaction == null)
@@ -31,75 +31,68 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
 
             transaction.State = TransactionState.BOOKED;
-            transaction.NewItemStates ??= [];
 
-            foreach (InboundDraftItem draftItem in transaction.DraftItems)
+            BookInboundTransactionPart(ctx, transaction.InboundTransactionPart);
+            BookOutboundTransactionPart(transaction.OutboundTransactionPart);
+            BookRelocationTransactionPart(transaction.RelocationTransactionPart);
+
+            await ctx.SaveChangesAsync();
+
+            return transaction;
+        }
+
+        private void BookInboundTransactionPart(WarehouseDbContext ctx, InboundTransactionPart? transactionPart)
+        {
+            if (transactionPart == null)
+                return;
+
+            transactionPart.NewItemStates ??= [];
+
+            foreach (InboundDraftItem draftItem in transactionPart.DraftItems)
             {
                 try
                 {
-                    Item item = CreateItemForDraftItem(transaction, draftItem);
+                    Item item = CreateItemForDraftItem(transactionPart, draftItem);
                     ctx.Items.Add(item);
-                    transaction.NewItemStates.AddRange(item.ItemStates);
+                    transactionPart.NewItemStates.AddRange(item.ItemStates);
                 }
                 catch (Exception ex)
                 {
-                    throw new BookingException($"Could not book inbound transaction with Id {transactionId}.", ex);
+                    throw new BookingException($"Could not book inbound transaction with Id {transactionPart.Transaction.Id}.", ex);
                 }
             }
-
-            await ctx.SaveChangesAsync();
-
-            return transaction;
         }
 
-        public async Task<InventoryTransaction> BookOutboundTransactionAsync(Guid transactionId)
+        private void BookOutboundTransactionPart(OutboundTransactionPart? transactionPart)
         {
-            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
-            OutboundTransaction? transaction = ctx.OutboundTransactions
-                .Include(t => t.DraftSelectedItems)
-                .ThenInclude(item => item.ItemStates)
-                .Include(t => t.NewItemStates!)
-                .ThenInclude(st => st.Item)
-                .FirstOrDefault(t => t.Id == transactionId);
+            if (transactionPart == null)
+                return;
 
-            if (transaction == null)
-            {
-                throw new InvalidOperationException($"Outbound transaction with ID {transactionId} not found.");
-            }
+            transactionPart.NewItemStates ??= [];
 
-            if (transaction.State == TransactionState.BOOKED)
-            {
-                throw new InvalidOperationException($"Outbound transaction with ID {transactionId} is already booked.");
-            }
-
-            transaction.State = TransactionState.BOOKED;
-            transaction.NewItemStates ??= [];
-
-            foreach (Item item in transaction.DraftSelectedItems!)
+            foreach (Item item in transactionPart.DraftSelectedItems!)
             {
                 ItemState newItemState = new()
                 {
-                    Date = transaction.Date,
+                    Date = transactionPart.Transaction.Date,
                     Location = SpecialLocations.SHIPPED,
-                    WarehouseId = item.ItemStates!.Last().WarehouseId
+                    WarehouseId = item.ItemStates.Last().WarehouseId,
+                    IsQuarantined = item.ItemStates.Last().IsQuarantined,
                 };
 
                 item.ItemStates.Add(newItemState);
-                transaction.NewItemStates.Add(newItemState);
+                transactionPart.NewItemStates.Add(newItemState);
             }
-
-            await ctx.SaveChangesAsync();
-
-            return transaction;
         }
 
-        private static Item CreateItemForDraftItem(InboundTransaction transaction, InboundDraftItem draftItem)
+        private void BookRelocationTransactionPart(RelocationTransactionPart? transactionPart)
         {
-            if (!transaction.WarehouseId.HasValue)
-            {
-                throw new InvalidOperationException("Cannot create item for draft item because the transaction does not have a warehouse assigned.");
-            }
+            if (transactionPart == null)
+                return;
+        }
 
+        private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem)
+        {
             Item item = new()
             {
                 Id = Guid.NewGuid(),
@@ -112,19 +105,20 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     .Select(c => new Comment()
                     {
                         Text = c,
-                        AuthorId = transaction.CreatedByUserId,
-                        Date = transaction.Date,
+                        AuthorId = transactionPart.Transaction.CreatedByUserId,
+                        Date = transactionPart.Transaction.Date,
                         Retracted = false,
                     })),
                 ItemStates = [],
             };
             item.ItemStates.Add(new ItemState()
             {
-                Date = transaction.Date,
+                Date = transactionPart.Transaction.Date,
                 Location = draftItem.Location,
-                RelatedTransaction = transaction,
-                WarehouseId = transaction.WarehouseId.Value,
+                RelatedTransaction = transactionPart.Transaction,
+                WarehouseId = draftItem.WarehouseId,
                 Item = item,
+                IsQuarantined = draftItem.IsQuarantined,
             });
             return item;
         }

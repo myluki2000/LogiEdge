@@ -10,7 +10,7 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private OutboundTransaction Transaction { get; set; } = null!;
+    private InventoryTransaction Transaction { get; set; } = null!;
 
     private ItemsTableColumnDisplayParameters _transactionColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
     private ItemsTableFilterParameters _transactionFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
@@ -33,12 +33,13 @@
         await base.SetParametersAsync(parameters);
     }
 
-    private async Task<OutboundTransaction> GetTransaction(Guid transactionId)
+    private async Task<InventoryTransaction> GetTransaction(Guid transactionId)
     {
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
-        OutboundTransaction? transaction = ctx.OutboundTransactions
-            .Include(t => t.DraftSelectedItems)
+        InventoryTransaction? transaction = ctx.InventoryTransactions
+            .Include(t => t.OutboundTransactionPart)
+            .ThenInclude(o => o.DraftSelectedItems)
             .FirstOrDefault(t => t.Id == TransactionId);
 
         if (transaction == null)
@@ -59,11 +60,11 @@
     private async Task BtnItemSelectionModalOkOnClick()
     {
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.OutboundTransactions.Attach(Transaction);
+        ctx.InventoryTransactions.Attach(Transaction);
 
         List<Item> itemsToAdd = ctx.Items.Where(it => _modalSelectedItemIds.Contains(it.Id)).ToList();
 
-        Transaction.DraftSelectedItems!.AddRange(itemsToAdd);
+        Transaction.OutboundTransactionPart.DraftSelectedItems!.AddRange(itemsToAdd);
 
         _modalSelectedItemIds = [];
 
@@ -77,9 +78,9 @@
     private async Task BtnDeleteItemFromTransactionOnClick(Guid itemId)
     {
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.OutboundTransactions.Attach(Transaction);
+        ctx.InventoryTransactions.Attach(Transaction);
 
-        Transaction.DraftSelectedItems!.RemoveAll(it => it.Id == itemId);
+        Transaction.OutboundTransactionPart.DraftSelectedItems!.RemoveAll(it => it.Id == itemId);
 
         await ctx.SaveChangesAsync();
 
@@ -96,7 +97,7 @@
     Add Item
 </button>
 
-<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
+<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
                              @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
                              @bind-FilterParameters="_transactionFilterParameters"
                              @bind-SortParameters="_transactionSortParameters">
@@ -151,11 +152,11 @@
     </TableRowRenderFragment>
 </WarehouseItemTableComponent>
 
-@if (Transaction.DraftPlaceholderItems is { Count: > 0 })
+@if (Transaction.OutboundTransactionPart.DraftPlaceholderItems is { Count: > 0 })
 {
     <h4>Items to be Selected</h4>
     <ul>
-        @foreach (Dictionary<string, string> item in Transaction.DraftPlaceholderItems)
+        @foreach (Dictionary<string, string> item in Transaction.OutboundTransactionPart.DraftPlaceholderItems)
         {
             <li>
                 <button type="button" class="btn-filter btn-sm btn-success">
@@ -183,7 +184,7 @@
          Title="Select an Item to Add to the Transaction">
     <BodyTemplate>
         @{
-            List<Guid> selectedItemsIds = Transaction.DraftSelectedItems!.Select(it => it.Id).ToList();
+            List<Guid> selectedItemsIds = Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(it => it.Id).ToList();
         }
         <WarehouseItemSelectionTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => !selectedItemsIds.Contains(it.Id))"
                                               @bind-SelectedItemIds="_modalSelectedItemIds"

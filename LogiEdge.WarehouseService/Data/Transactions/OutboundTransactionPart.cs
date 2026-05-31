@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace LogiEdge.WarehouseService.Data.Transactions
 {
-    public class OutboundTransaction : InventoryTransaction
+    public class OutboundTransactionPart : InventoryTransactionPart
     {
         /// <summary>
         /// If this transaction is in DRAFT state, this will contain the items which

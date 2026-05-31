@@ -25,9 +25,6 @@ namespace LogiEdge.WarehouseService.Persistence
         public DbSet<ItemSchema> ItemSchemas { get; set; }
 
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
-        public DbSet<InboundTransaction> InboundTransactions { get; set; }
-        public DbSet<OutboundTransaction> OutboundTransactions { get; set; }
-        public DbSet<RelocationTransaction> RelocationTransactions { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

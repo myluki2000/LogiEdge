@@ -4,6 +4,7 @@
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
@@ -13,7 +14,7 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private InboundTransaction Transaction { get; set; } = null!;
+    private InventoryTransaction Transaction { get; set; } = null!;
     private List<(Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
 
     public override async Task SetParametersAsync(ParameterView parameters)
@@ -24,18 +25,23 @@
 
         Transaction = GetTransaction(ctx);
 
-        ItemSchemasToShow = Transaction.GetAffectedItems()!
-            .Select(it => (it.Customer, it.ItemSchema))
+        ItemSchemasToShow = Transaction.InboundTransactionPart.NewItemStates
+            .Select(st => (st.Item.Customer, st.Item.ItemSchema))
             .Distinct()
             .ToList();
     }
 
-    private InboundTransaction GetTransaction(WarehouseDbContext ctx)
+    private InventoryTransaction GetTransaction(WarehouseDbContext ctx)
     {
-        InboundTransaction? transaction = ctx.InboundTransactions
-            .Include(tr => tr.Warehouse)
-            .Include(tr => tr.NewItemStates)!.ThenInclude(st => st.Item).ThenInclude(it => it.Customer)
-            .Include(tr => tr.NewItemStates)!.ThenInclude(st => st.Item).ThenInclude(it => it.ItemSchema)
+        InventoryTransaction? transaction = ctx.InventoryTransactions
+            .Include(t => t.InboundTransactionPart)
+                .ThenInclude(tr => tr.NewItemStates)!
+                    .ThenInclude(st => st.Item)
+                        .ThenInclude(it => it.Customer)
+            .Include(t => t.InboundTransactionPart)
+                .ThenInclude(tr => tr.NewItemStates)!
+                    .ThenInclude(st => st.Item)
+                        .ThenInclude(it => it.ItemSchema)
             .FirstOrDefault(t => t.Id == TransactionId);
 
         if (transaction == null)

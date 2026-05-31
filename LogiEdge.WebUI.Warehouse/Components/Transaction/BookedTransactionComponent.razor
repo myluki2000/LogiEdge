@@ -1,0 +1,61 @@
+﻿@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
+@using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
+@using Microsoft.EntityFrameworkCore
+
+@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+
+@code {
+    [Parameter]
+    public required Guid TransactionId { get; set; }
+
+    private InventoryTransaction? Transaction { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+
+        Transaction = await ctx.InventoryTransactions
+            .Include(t => t.InboundTransactionPart)
+            .Include(t => t.OutboundTransactionPart)
+            .FirstOrDefaultAsync(t => t.Id == TransactionId);
+    }
+}
+
+@if (Transaction == null)
+{
+    <p>Transaction with ID @TransactionId could not be found.</p>
+    return;
+}
+
+@if (Transaction.State != TransactionState.BOOKED)
+{
+    <p>Unexpected transaction state: @Transaction.State</p>
+}
+
+
+<h3>
+    @Transaction.Title
+    <span class="fs-6">@Transaction.Date</span>
+</h3>
+
+@if (Transaction.InboundTransactionPart != null)
+{
+    <BookedInboundTransactionComponent TransactionId="TransactionId"/>
+}
+else
+{
+    <p>No inbound items are part of this transaction.</p>
+}
+
+@if (Transaction.OutboundTransactionPart != null)
+{
+    <BookedOutboundTransactionComponent TransactionId="TransactionId"/>
+}
+else
+{
+    <p>No outbound items are part of this transaction.</p>
+}

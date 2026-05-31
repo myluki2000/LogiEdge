@@ -1,9 +1,17 @@
 ﻿@page "/warehouse/transactions/{TransactionId:guid}"
+@using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.WebUI.Shared.Components
+@using LogiEdge.WebUI.Warehouse.Components
+@using LogiEdge.WebUI.Warehouse.Components.Transaction
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
 
+
+@inject WarehouseManagementService WarehouseService
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 
 @code {
@@ -13,36 +21,39 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private bool IsInboundTransaction { get; set; }
-    private bool IsOutboundTransaction { get; set; }
-    private bool IsRelocationTransaction { get; set; }
+    private InventoryTransaction? Transaction { get; set; }
 
-    public override async Task SetParametersAsync(ParameterView parameters)
+    protected override async Task OnParametersSetAsync()
     {
-        await base.SetParametersAsync(parameters);
+        await base.OnParametersSetAsync();
 
         await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
 
-        IsInboundTransaction = ctx.InboundTransactions.Any(tr => tr.Id == TransactionId);
-        IsOutboundTransaction = ctx.OutboundTransactions.Any(tr => tr.Id == TransactionId);
-        IsRelocationTransaction = ctx.RelocationTransactions.Any(tr => tr.Id == TransactionId);
+        Transaction = await ctx.InventoryTransactions
+            .FirstOrDefaultAsync(t => t.Id == TransactionId);
     }
 }
 
-@if (IsInboundTransaction)
+@if (Transaction == null)
 {
-    <InboundTransactionComponent TransactionId="TransactionId" />
+    <p>Transaction with ID @TransactionId could not be found.</p>
+    return;
 }
-else if (IsOutboundTransaction)
+
+@if (Transaction.State == TransactionState.DRAFT)
 {
-    <OutboundTransactionComponent TransactionId="TransactionId" />
+    <DraftTransactionComponent TransactionId="TransactionId" />
 }
-else if (IsRelocationTransaction)
+else if (Transaction.State == TransactionState.BOOKED)
 {
-    // TODO: Implement RelocationTransactionDetails component
+    <BookedTransactionComponent TransactionId="TransactionId" />
 }
 else
 {
-    <p class="text-danger">Transaction with ID '@TransactionId' not found.</p>
+    <p>Unknown transaction state encountered: @Transaction.State</p>
+    return;
 }
 
+<DocumentGeneratorComponent TInputType="InventoryTransaction" />
+
+<TransactionFileAttachmentManagerComponent Transaction="Transaction" />

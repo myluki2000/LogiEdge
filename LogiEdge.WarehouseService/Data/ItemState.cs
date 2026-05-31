@@ -26,6 +26,10 @@ namespace LogiEdge.WarehouseService.Data
         [MaxLength(32)]
         public required string Location { get; set; }
 
+        [QueryFilterableProperty]
+        [DisplayColumnProperty]
+        public required bool IsQuarantined { get; set; }
+
         public InventoryTransaction? RelatedTransaction { get; set; }
     }
 }

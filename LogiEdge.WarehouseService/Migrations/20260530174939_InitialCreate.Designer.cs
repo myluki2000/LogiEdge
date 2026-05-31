@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20251209072045_InitialCreate")]
+    [Migration("20260530174939_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -22,7 +22,7 @@ namespace LogiEdge.WarehouseService.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.0")
+                .HasAnnotation("ProductVersion", "10.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
@@ -120,7 +120,7 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<Guid>("ItemSchemaId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("OutboundTransactionId")
+                    b.Property<Guid?>("OutboundTransactionPartId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("WarehouseId")
@@ -132,7 +132,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasIndex("ItemSchemaId");
 
-                    b.HasIndex("OutboundTransactionId");
+                    b.HasIndex("OutboundTransactionPartId");
 
                     b.HasIndex("WarehouseId");
 
@@ -164,6 +164,12 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("InboundTransactionPartId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsQuarantined")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
@@ -172,7 +178,13 @@ namespace LogiEdge.WarehouseService.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<Guid?>("OutboundTransactionPartId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("RelatedTransactionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RelocationTransactionPartId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("WarehouseId")
@@ -180,9 +192,15 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InboundTransactionPartId");
+
                     b.HasIndex("ItemId");
 
+                    b.HasIndex("OutboundTransactionPartId");
+
                     b.HasIndex("RelatedTransactionId");
+
+                    b.HasIndex("RelocationTransactionPartId");
 
                     b.HasIndex("WarehouseId");
 
@@ -209,8 +227,11 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("InboundTransactionId")
+                    b.Property<Guid?>("InboundTransactionPartId")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsQuarantined")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("ItemNumber")
                         .IsRequired()
@@ -225,15 +246,31 @@ namespace LogiEdge.WarehouseService.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
 
-                    b.HasIndex("InboundTransactionId");
+                    b.HasIndex("InboundTransactionPartId");
 
                     b.HasIndex("ItemSchemaId");
 
+                    b.HasIndex("WarehouseId");
+
                     b.ToTable("InboundDraftItem");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransactionPart", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InboundTransactionPart");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
@@ -256,6 +293,15 @@ namespace LogiEdge.WarehouseService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("InboundTransactionPartId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OutboundTransactionPartId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RelocationTransactionPartId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("State")
                         .HasColumnType("integer");
 
@@ -266,9 +312,43 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable((string)null);
+                    b.HasIndex("InboundTransactionPartId")
+                        .IsUnique();
+
+                    b.HasIndex("OutboundTransactionPartId")
+                        .IsUnique();
+
+                    b.HasIndex("RelocationTransactionPartId")
+                        .IsUnique();
+
+                    b.ToTable("InventoryTransactions");
 
                     b.UseTpcMappingStrategy();
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransactionPart", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.PrimitiveCollection<List<Dictionary<string, string>>>("DraftPlaceholderItems")
+                        .HasColumnType("hstore[]");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("OutboundTransactionPart");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("RelocationTransactionPart");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>
@@ -284,35 +364,6 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Warehouses");
-                });
-
-            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
-                {
-                    b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
-
-                    b.Property<Guid?>("WarehouseId")
-                        .HasColumnType("uuid");
-
-                    b.HasIndex("WarehouseId");
-
-                    b.ToTable("InboundTransactions");
-                });
-
-            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransaction", b =>
-                {
-                    b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
-
-                    b.PrimitiveCollection<List<Dictionary<string, string>>>("DraftPlaceholderItems")
-                        .HasColumnType("hstore[]");
-
-                    b.ToTable("OutboundTransactions");
-                });
-
-            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransaction", b =>
-                {
-                    b.HasBaseType("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction");
-
-                    b.ToTable("RelocationTransactions");
                 });
 
             modelBuilder.Entity("CustomerItemSchema", b =>
@@ -355,9 +406,9 @@ namespace LogiEdge.WarehouseService.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.OutboundTransaction", null)
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.OutboundTransactionPart", null)
                         .WithMany("DraftSelectedItems")
-                        .HasForeignKey("OutboundTransactionId");
+                        .HasForeignKey("OutboundTransactionPartId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", null)
                         .WithMany("Items")
@@ -404,15 +455,27 @@ namespace LogiEdge.WarehouseService.Migrations
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemState", b =>
                 {
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InboundTransactionPart", null)
+                        .WithMany("NewItemStates")
+                        .HasForeignKey("InboundTransactionPartId");
+
                     b.HasOne("LogiEdge.WarehouseService.Data.Item", "Item")
                         .WithMany("ItemStates")
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", "RelatedTransaction")
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.OutboundTransactionPart", null)
                         .WithMany("NewItemStates")
+                        .HasForeignKey("OutboundTransactionPartId");
+
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", "RelatedTransaction")
+                        .WithMany()
                         .HasForeignKey("RelatedTransactionId");
+
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", null)
+                        .WithMany("NewItemStates")
+                        .HasForeignKey("RelocationTransactionPartId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
                         .WithMany()
@@ -435,9 +498,9 @@ namespace LogiEdge.WarehouseService.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", null)
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InboundTransactionPart", null)
                         .WithMany("DraftItems")
-                        .HasForeignKey("InboundTransactionId");
+                        .HasForeignKey("InboundTransactionPartId");
 
                     b.HasOne("LogiEdge.WarehouseService.Data.ItemSchema", "ItemSchema")
                         .WithMany()
@@ -445,18 +508,38 @@ namespace LogiEdge.WarehouseService.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Customer");
 
                     b.Navigation("ItemSchema");
-                });
-
-            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
-                {
-                    b.HasOne("LogiEdge.WarehouseService.Data.Warehouse", "Warehouse")
-                        .WithMany()
-                        .HasForeignKey("WarehouseId");
 
                     b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
+                {
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InboundTransactionPart", "InboundTransactionPart")
+                        .WithOne("Transaction")
+                        .HasForeignKey("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", "InboundTransactionPartId");
+
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.OutboundTransactionPart", "OutboundTransactionPart")
+                        .WithOne("Transaction")
+                        .HasForeignKey("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", "OutboundTransactionPartId");
+
+                    b.HasOne("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", "RelocationTransactionPart")
+                        .WithOne("Transaction")
+                        .HasForeignKey("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", "RelocationTransactionPartId");
+
+                    b.Navigation("InboundTransactionPart");
+
+                    b.Navigation("OutboundTransactionPart");
+
+                    b.Navigation("RelocationTransactionPart");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>
@@ -466,26 +549,42 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Navigation("ItemStates");
                 });
 
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransactionPart", b =>
+                {
+                    b.Navigation("DraftItems");
+
+                    b.Navigation("NewItemStates");
+
+                    b.Navigation("Transaction")
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
                 {
                     b.Navigation("Comments");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransactionPart", b =>
+                {
+                    b.Navigation("DraftSelectedItems");
 
                     b.Navigation("NewItemStates");
+
+                    b.Navigation("Transaction")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", b =>
+                {
+                    b.Navigation("NewItemStates");
+
+                    b.Navigation("Transaction")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>
                 {
                     b.Navigation("Items");
-                });
-
-            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundTransaction", b =>
-                {
-                    b.Navigation("DraftItems");
-                });
-
-            modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.OutboundTransaction", b =>
-                {
-                    b.Navigation("DraftSelectedItems");
                 });
 #pragma warning restore 612, 618
         }

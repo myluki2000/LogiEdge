@@ -18,6 +18,8 @@ namespace LogiEdge.WarehouseService.Data.Transactions
         public required ItemSchema ItemSchema { get; set; }
         public Guid CustomerId { get; set; }
         public required Customer Customer { get; set; }
+        public Guid WarehouseId { get; set; }
+        public required Warehouse Warehouse { get; set; }
         [DisplayColumnProperty]
         [MaxLength(128)]
         public string ItemNumber { get; set; } = string.Empty;
@@ -29,5 +31,7 @@ namespace LogiEdge.WarehouseService.Data.Transactions
         public string Location { get; set; } = string.Empty;
         [DisplayColumnProperty]
         public int Count { get; set; }
+        [DisplayColumnProperty]
+        public bool IsQuarantined { get; set; }
     }
 }

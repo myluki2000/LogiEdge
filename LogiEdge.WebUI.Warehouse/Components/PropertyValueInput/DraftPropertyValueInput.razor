@@ -51,6 +51,11 @@
             isInputValid = DateTime.TryParse(e.Value?.ToString(), out DateTime valAsDateTime);
             val = valAsDateTime;
         }
+        else if (ValueType == typeof(bool))
+        {
+            isInputValid = bool.TryParse(e.Value?.ToString(), out bool valAsBool);
+            val = valAsBool;
+        }
         else
         {
             throw new Exception($"PropertyValueInput: Unsupported ValueType: {ValueType}.");
@@ -117,6 +122,14 @@ else if (ValueType == typeof(DateTime?))
            value="@(valueString ?? string.Empty)"
            @oninput="OnInputHandler"
            class="form-control @cls"
+           tabindex="@TabIndex" />
+}
+else if (ValueType == typeof(bool))
+{
+    <input @ref="elementRef" type="checkbox"
+           checked="@(value is true)"
+           @onchange="OnInputHandler"
+           class="form-check-input @cls"
            tabindex="@TabIndex" />
 }
 else
