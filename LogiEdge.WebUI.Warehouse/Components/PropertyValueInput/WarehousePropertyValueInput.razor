@@ -38,7 +38,8 @@
 
 <InputSelect TValue="Guid"
              @bind-Value="SelectedWarehouseId"
-             class="form-select">
+             class="form-select w-auto"
+             style="display: inline;">
     <option value="@Guid.Empty"> </option>
     @foreach (Warehouse warehouse in _warehouses.OrderBy(w => w.Name.ToUpper()))
     {
