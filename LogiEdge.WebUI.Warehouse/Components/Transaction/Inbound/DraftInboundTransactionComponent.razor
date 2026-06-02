@@ -14,10 +14,10 @@
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 
 @code {
-        [Parameter]
-        public required Guid TransactionId { get; set; }
-        [Parameter]
-        public required DebouncerComponent Debouncer { get; set; }
+    [Parameter]
+    public required Guid TransactionId { get; set; }
+    [Parameter]
+    public required DebouncerComponent Debouncer { get; set; }
 
     private InventoryTransaction Transaction { get; set; } = null!;
     private Customer? SelectedCustomerToAdd { get; set; } = null;
@@ -161,12 +161,10 @@
     private async Task SaveItemPropertyValueToDatabaseAsync(InboundDraftItem item, string propertyName)
     {
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-
+        ctx.Attach(item);
         ctx.Update(item);
         await ctx.SaveChangesAsync();
     }
-
-    
 }
 
 @{
