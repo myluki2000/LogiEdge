@@ -97,7 +97,7 @@
     Add Item
 </button>
 
-<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
+<WarehouseItemAtStateTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
                              @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
                              @bind-FilterParameters="_transactionFilterParameters"
                              @bind-SortParameters="_transactionSortParameters">
@@ -150,7 +150,7 @@
             }
         </tr>
     </TableRowRenderFragment>
-</WarehouseItemTableComponent>
+</WarehouseItemAtStateTableComponent>
 
 @if (Transaction.OutboundTransactionPart.DraftPlaceholderItems is { Count: > 0 })
 {

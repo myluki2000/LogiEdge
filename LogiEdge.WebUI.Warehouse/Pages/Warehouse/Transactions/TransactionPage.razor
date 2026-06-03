@@ -35,11 +35,17 @@
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
+        await ReloadTransactionAsync();
+    }
 
+    private async Task ReloadTransactionAsync()
+    {
         await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
 
         Transaction = await ctx.InventoryTransactions
             .FirstOrDefaultAsync(t => t.Id == TransactionId);
+
+        StateHasChanged();
     }
 }
 
@@ -51,7 +57,8 @@
 
 @if (Transaction.State == TransactionState.DRAFT)
 {
-    <DraftTransactionComponent TransactionId="TransactionId" />
+    // TODO: If we pass Transaction instead of TransactionId, we don't have to reload the transaction after booking
+    <DraftTransactionComponent TransactionId="TransactionId" OnTransactionBooked="ReloadTransactionAsync" />
 }
 else if (Transaction.State == TransactionState.BOOKED)
 {

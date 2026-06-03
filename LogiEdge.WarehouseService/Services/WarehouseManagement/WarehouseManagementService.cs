@@ -15,8 +15,10 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             InventoryTransaction? transaction = ctx.InventoryTransactions
-                .Include(t => t.InboundTransactionPart)
-                .Include(t => t.OutboundTransactionPart)
+                .Include(t => t.InboundTransactionPart).ThenInclude(i => i.DraftItems)
+                .Include(t => t.InboundTransactionPart).ThenInclude(i => i.NewItemStates)
+                .Include(t => t.OutboundTransactionPart).ThenInclude(o => o.DraftSelectedItems)
+                .Include(t => t.OutboundTransactionPart).ThenInclude(o => o.NewItemStates)
                 .Include(t => t.RelocationTransactionPart)
                 .FirstOrDefault(t => t.Id == transactionId);
 

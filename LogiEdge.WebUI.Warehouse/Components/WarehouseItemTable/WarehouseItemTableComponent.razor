@@ -1,20 +1,10 @@
-﻿@using System.Net
-@using System.Reflection
-@using System.Text
-@using System.Text.Json
-@using LogiEdge.CustomerService.Data
-@using LogiEdge.Shared.Attributes
-@using LogiEdge.WarehouseService.Data
+﻿@using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
-@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 
 @code {
-    [Parameter]
-    public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
-
     [Parameter]
     public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
     [Parameter]
@@ -31,365 +21,37 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
+    public required ItemsTableStateParameters ItemStateParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableStateParameters> ItemStateParametersChanged { get; set; }
+
+    [Parameter]
+    public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
+
+    [Parameter]
     public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
     public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
 
-    private OrderedDictionary<string, bool> DisplayPropertyColumnsSetting { get; set; } = [];
-
-    private List<ItemState> ItemsAtMoment { get; set; } = [];
-
-    private string? _editingFilterProperty;
-
-    private IReadOnlySet<ItemSchema> _itemSchemas = new HashSet<ItemSchema>(0);
-
-    private void PropertyBadgeIsEditingChanged(string property, bool isEditing)
+    private IQueryable<ItemState> ItemStateQueryableFactory(WarehouseDbContext ctx)
     {
-        if (isEditing)
-        {
-            _editingFilterProperty = property;
-        }
-        else
-        {
-            if (property == _editingFilterProperty)
-            {
-                _editingFilterProperty = null;
-            }
-        }
-    }
-
-    private void GroupByBadgeValueChanged(string property, bool newValue)
-    {
-        SortParameters = newValue
-            ? SortParameters = SortParameters.WithGroupByProperty(property)
-            : SortParameters = SortParameters.WithoutGroupByProperty(property);
-        SortParametersChanged.InvokeAsync(SortParameters);
-    }
-
-    private void BtnSortClicked(string columnName)
-    {
-        // sort the column in ascending order if it is not already sorted by it
-        bool descending = (SortParameters.SortByProperty == columnName) && !SortParameters.SortOrderDescending;
-
-        SortParameters = SortParameters with
-        {
-            SortByProperty = columnName,
-            SortOrderDescending = descending,
-        };
-
-        SortParametersChanged.InvokeAsync(SortParameters);
-    }
-
-    public override async Task SetParametersAsync(ParameterView parameters)
-    {
-        await base.SetParametersAsync(parameters);
-
-        ItemsTableFilter itemsTableFilter = new();
-
-        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-
         IQueryable<Item> itemsQueryable = ItemsQueryableFactory.Invoke(ctx)
             .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Comments)
             .Include(it => it.ItemStates).ThenInclude(st => st.Warehouse)
             .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer);
 
-        IQueryable<ItemState> itemStatesQueryable = itemsTableFilter.Filter(itemsQueryable, FilterParameters);
-
-        // get the used item schemas and extract the additional properties our items could have
-        // When we get the schema entities directly, for some reason Distinct() does not work properly,
-        // so we first get the distinct IDs and then query the schemas by their IDs.
-        _itemSchemas = itemStatesQueryable
-            .Select(st => st.Item.ItemSchemaId)
-            .Distinct()
-            .ToList()
-            .Select(id => ctx.ItemSchemas.Include(sch => sch.AdditionalProperties).First(sch => sch.Id == id))
-            .ToHashSet();
-        List<string> schemasAdditionalProperties = _itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name).ToList();
-
-        // get a list of column property names which are allowed
-        List<string> allowedPropertyColumns = typeof(Item)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
-            .Select(p => p.Name)
-            .ToList();
-        allowedPropertyColumns.AddRange(typeof(ItemState)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
-            .Select(p => p.Name));
-        allowedPropertyColumns.AddRange(schemasAdditionalProperties);
-
-        DisplayPropertyColumnsSetting = [];
-
-        foreach (string columnName in ColumnDisplayParameters.GetColumnsToDisplayOrDefault(_itemSchemas))
-        {
-            if (allowedPropertyColumns.Contains(columnName))
-                DisplayPropertyColumnsSetting.Add(columnName, true);
-        }
-
-        foreach (string columnName in allowedPropertyColumns)
-        {
-            DisplayPropertyColumnsSetting.TryAdd(columnName, false);
-        }
-
-        // sort items
-        ItemsTableSorter itemsSorter = new();
-        ItemsAtMoment = itemsSorter.Sort(itemStatesQueryable.ToList(), SortParameters);
-    }
-
-    private async Task OnColumnsToDisplayChanged(OrderedDictionary<string, bool> columnsToDisplay)
-    {
-        ColumnDisplayParameters = ColumnDisplayParameters with
-        {
-            ColumnsToDisplay = columnsToDisplay.Where(col => col.Value).Select(col => col.Key).ToList()
-        };
-        await ColumnDisplayParametersChanged.InvokeAsync(ColumnDisplayParameters);
-    }
-
-    private object? GetItemPropertyValue(Item item, ItemState itemState, string propertyName)
-    {
-        PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
-        PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-        object? propertyValue = null;
-        if (itemProperty != null)
-        {
-            propertyValue = itemProperty.GetValue(item);
-        }
-        else if (stateProperty != null)
-        {
-            propertyValue = stateProperty?.GetValue(itemState);
-        }
-        else
-        {
-            // try finding it in the additional properties
-            // TODO: Support additional properties with non-string types
-            if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
-                propertyValue = propertyElement.GetString();
-        }
-
-        return propertyValue;
+        ItemsTableStateFilter filter = new();
+        return filter.Filter(itemsQueryable, ItemStateParameters);
     }
 }
 
-@{
-    TableRowRenderFragment ??=
-        data => __builder =>
-        {
-            <tr>
-                @foreach ((string propertyName, object? propertyValue) in data.properties)
-                {
-                    <td>
-                        @switch (propertyName)
-                        {
-                            case nameof(Item.Id):
-                                <a href="/warehouse/item/@data.item.Id">
-                                    <PropertyValueComponent PropertyValue="@propertyValue" />
-                                </a>
-                                break;
-                            case nameof(Item.Customer):
-                                Customer c = (Customer)propertyValue!;
-                                <a href="javascript:void(0);"
-                                   @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(nameof(Item.Customer), c.Id))">
-                                    <PropertyValueComponent PropertyValue="@propertyValue" />
-                                </a>
-                                break;
-                            case nameof(ItemState.Warehouse):
-                                Warehouse w = (Warehouse)propertyValue!;
-                                <a href="javascript:void(0);"
-                                   @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(nameof(ItemState.Warehouse), w.Id))">
-                                    <PropertyValueComponent PropertyValue="@propertyValue" />
-                                </a>
-                                break;
-                            case nameof(Item.Comments):
-                                SortedSet<Comment> comments = (SortedSet<Comment>)propertyValue!;
-
-                                string html = string.Join("<hr>", 
-                                    comments.Select(c => $"<b>{WebUtility.HtmlEncode(c.AuthorId.ToString())}, {c.Date}:</b> {WebUtility.HtmlEncode(c.Text)}"));
-
-                                <HxPopover Title="Item Comments" Html="true" Content="@html" Trigger="PopoverTrigger.Hover">
-                                    <PropertyValueComponent PropertyValue="@propertyValue" />
-                                </HxPopover>
-                                break;
-                            default:
-                                <a href="javascript:void(0);"
-                                   @onclick="() => FilterParametersChanged.InvokeAsync(FilterParameters.WithParameter(propertyName, propertyValue.ToString()))">
-                                    <PropertyValueComponent PropertyValue="@propertyValue" />
-                                </a>
-                                break;
-                        }
-                    </td>
-                }
-            </tr>
-        };
-
-    GroupedTableRowRenderFragment ??=
-        data => __builder =>
-        {
-            <tr>
-                <td>@(data.itemStates.Count)x</td>
-
-                @foreach ((string propertyName, object?[] propertyValues) in data.properties)
-                {
-                    List<IGrouping<object?, object?>> groupedValues = propertyValues.GroupBy(x => x).ToList();
-                    <td>
-                        @if (groupedValues.Count == 1)
-                        {
-                            <PropertyValueComponent PropertyValue="@propertyValues[0]"/>
-                        }
-                        else
-                        {
-                            int i = 0;
-                            foreach (IGrouping<object?, object?> groupedValue in groupedValues)
-                            {
-                                <span style="white-space: nowrap; display: inline-flex; align-items: center;" class="@(i == 0 ? "": "ms-2")">
-                                    <text>@(groupedValue.Count())x</text>
-                                    <HxBadge Color="ThemeColor.Secondary" 
-                                             Type="BadgeType.RoundedPill"
-                                             CssClass="ms-1">
-                                        <PropertyValueComponent PropertyValue="@groupedValue.Key"/>
-                                    </HxBadge>
-                                </span>
-                                i++;
-                            }
-                        }
-                    </td>
-                }
-            </tr>
-        };
-
-    List<string> propertyColumnsToDisplay = DisplayPropertyColumnsSetting
-            .Where(x => SortParameters.GroupByProperties.Length == 0 || x.Key != nameof(Item.Id)) // do not show Id column when grouping
-            .Where(x => x.Value)
-            .Select(x => x.Key)
-            .ToList();
-}
-
-<div class="d-flex align-items-center flex-wrap">
-    <span>
-        Group By:
-        @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
-        {
-            <BadgeCheckboxComponent Value="SortParameters.GroupByProperties.Contains(property)"
-                                    ValueChanged="newValue => GroupByBadgeValueChanged(property, newValue)">
-                @property
-            </BadgeCheckboxComponent>
-        }
-    </span>
-
-    <span class="ms-3 flex-grow-1">
-        Filter:
-        @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
-        {
-            <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
-                                          FilterParametersChanged="FilterParametersChanged"
-                                          PropertyName="@property"
-                                          PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
-                                          IsEditing="_editingFilterProperty == property"
-                                          IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
-        }
-    </span>
-    
-    <span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
-</div>
-
-<table class="table table-striped table-hover">
-    <thead class="table-primary">
-        <tr>
-            @if (SortParameters.GroupByProperties.Length > 0)
-            {
-                <th style="line-height: 24px;">
-                    <span style="vertical-align: bottom;">Count</span>
-                </th>
-            }
-
-            @foreach (string propertyName in propertyColumnsToDisplay)
-            {
-                <th style="line-height: 24px;">
-                    <span style="vertical-align: bottom;">@propertyName</span>
-
-                    <button type="button"
-                            class="btn btn-secondary table-button"
-                            @onclick="() => BtnSortClicked(propertyName)">
-                        @if (SortParameters.SortByProperty == propertyName)
-                        {
-                            @if (SortParameters.SortOrderDescending)
-                            {
-                                <span class="material-symbols-rounded">
-                                    arrow_upward
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="material-symbols-rounded">
-                                    arrow_downward
-                                </span>
-                            }
-                        }
-                        else
-                        {
-                            <span class="material-symbols-rounded">
-                                swap_vert
-                            </span>
-                        }
-                    </button>
-
-                    @if (propertyName == propertyColumnsToDisplay.Last())
-                    {
-                        @* button to select which columns to show *@
-                        <WarehouseItemTableColumnSelectionComponent class="btn btn-secondary table-button"
-                                                                    ColumnsToDisplay="DisplayPropertyColumnsSetting"
-                                                                    ColumnsToDisplayChanged="OnColumnsToDisplayChanged" />
-                    }
-                </th>
-            }
-        </tr>
-    </thead>
-    <tbody>
-        @if (SortParameters.GroupByProperties.Length > 0)
-        {
-            ItemsTableGrouper itemsGrouper = new();
-            List<IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState>> groupedItems = itemsGrouper.Group(ItemsAtMoment, SortParameters).ToList();
-
-            @foreach (IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState> itemGroup in groupedItems)
-            {
-                OrderedDictionary<string, object?[]> properties = new();
-
-                // only display properties which are activated as display properties
-                @foreach (string propertyName in propertyColumnsToDisplay)
-                {
-                    if (itemGroup.Key.ContainsProperty(propertyName))
-                    {
-                        object? propertyValue = itemGroup.Key[propertyName];
-                        properties.Add(propertyName, [propertyValue]);
-                    }
-                    else
-                    {
-                        object?[] propertyValues = itemGroup
-                            .Select(st => GetItemPropertyValue(st.Item, st, propertyName))
-                            .ToArray();
-                        properties.Add(propertyName, propertyValues);
-                    }
-                }
-
-                @GroupedTableRowRenderFragment((itemGroup.Select(st => st.Item).ToList(), itemGroup.ToList(), properties))
-            }
-        }
-        else
-        {
-            @foreach (ItemState itemState in ItemsAtMoment)
-            {
-                Item item = itemState.Item;
-
-                OrderedDictionary<string, object?> properties = new();
-
-                @foreach (string propertyName in propertyColumnsToDisplay)
-                {
-                    properties.Add(propertyName, GetItemPropertyValue(item, itemState, propertyName));
-                }
-
-                @TableRowRenderFragment((item, itemState, properties))
-            }
-        }
-    </tbody>
-</table>
-
+<WarehouseItemAtStateTableComponent ItemStateQueryableFactory="ItemStateQueryableFactory"
+                                    FilterParameters="FilterParameters"
+                                    FilterParametersChanged="FilterParametersChanged"
+                                    SortParameters="SortParameters"
+                                    SortParametersChanged="SortParametersChanged"
+                                    ColumnDisplayParameters="ColumnDisplayParameters"
+                                    ColumnDisplayParametersChanged="ColumnDisplayParametersChanged"
+                                    TableRowRenderFragment="TableRowRenderFragment"
+                                    GroupedTableRowRenderFragment="GroupedTableRowRenderFragment"/>

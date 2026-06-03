@@ -15,7 +15,7 @@
     public Guid TransactionId { get; set; }
 
     private InventoryTransaction Transaction { get; set; } = null!;
-    private List<(Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
+    private List<(Customer customer, ItemSchema itemSchema, Warehouse warehouse)> ItemSchemasToShow { get; set; } = [];
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
@@ -26,7 +26,7 @@
         Transaction = GetTransaction(ctx);
 
         ItemSchemasToShow = Transaction.InboundTransactionPart.NewItemStates
-            .Select(st => (st.Item.Customer, st.Item.ItemSchema))
+            .Select(st => (st.Item.Customer, st.Item.ItemSchema, st.Warehouse))
             .Distinct()
             .ToList();
     }
@@ -42,6 +42,9 @@
                 .ThenInclude(tr => tr.NewItemStates)!
                     .ThenInclude(st => st.Item)
                         .ThenInclude(it => it.ItemSchema)
+            .Include(t => t.InboundTransactionPart)
+                .ThenInclude(tr => tr.NewItemStates)
+                    .ThenInclude(st => st.Warehouse)
             .FirstOrDefault(t => t.Id == TransactionId);
 
         if (transaction == null)
@@ -76,13 +79,17 @@
     <span>@Transaction.Title</span>
     <span class="fs-6">@Transaction.Date</span>
 </h3>
-@foreach ((Customer customer, ItemSchema schema) in ItemSchemasToShow)
+@foreach ((Customer customer, ItemSchema schema, Warehouse warehouse) in ItemSchemasToShow)
 {
+    List<Guid> itemIds = Transaction.InboundTransactionPart.NewItemStates.Select(x => x.ItemId).ToList();
+
     <h4>Items for @customer.Name - @schema.Name</h4>
 
     <span>Booked transactions are final and cannot be edited.</span>
-    <WarehouseItemTableComponent Items="Transaction.GetAffectedItems()!.Where(it => it.ItemSchema == schema).ToList()"
+
+    // TODO: Use warehouse variable and select only items for the specific warehouse and display item with the item state at the point in time when the transaction happened
+    <WarehouseItemAtStateTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => itemIds.Contains(it.Id) && it.ItemSchemaId == schema.Id && it.CustomerId == customer.Id)"
                                  ItemStateSelectionFunc="it => Transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
                                  PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
-                                     .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
+    .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
 }

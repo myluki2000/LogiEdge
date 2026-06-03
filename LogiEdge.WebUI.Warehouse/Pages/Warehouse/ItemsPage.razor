@@ -13,6 +13,8 @@
 
     private ItemsTableFilterParameters? FilterParameters { get; set; }
 
+    private ItemsTableStateParameters StateParameters { get; set; }
+
     private ItemsTableColumnDisplayParameters? ColumnDisplayParameters { get; set; }
 
     public override async Task SetParametersAsync(ParameterView parameters)
@@ -30,6 +32,7 @@
         // ItemsTableFilterParameters.FromQueryParameters() needs to run last so other query params have been consumed!!
         // (as this one consumes everything as a wildcard, interpreted as additional item properties)
         FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
+        StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
     }
 
     public static string GetPageUrlWithParams(IReadOnlyDictionary<string, StringValues>? queryParams = null)
@@ -79,6 +82,13 @@
             changed = true;
         }
 
+        ItemsTableStateParameters urlStateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
+        if (!urlStateParameters.Equals(StateParameters) && urlStateParameters != null)
+        {
+            AddToNewQueryParameters(StateParameters.ToQueryParameters());
+            changed = true;
+        }
+
         string newUrl = GetPageUrlWithParams(newQueryParameters);
 
         if (changed)
@@ -114,15 +124,21 @@
         SortParameters = sortParams;
         UpdateUrl();
     }
+
+    private async Task OnStateParametersChanged(ItemsTableStateParameters stateParams)
+    {
+        StateParameters = stateParams;
+        UpdateUrl();
+    }
 }
 
 <div class="my-1">
     <span>Show Warehouse at Point in Time:</span>
     <InputDate TValue="DateTime?"
                Type="InputDateType.DateTimeLocal"
-               Value="FilterParameters.AtTime"
-               ValueChanged="(DateTime? dt) => FilterParameters = FilterParameters with { AtTime = dt }"
-               ValueExpression="() => FilterParameters.AtTime" />
+               Value="StateParameters.AtTime"
+               ValueChanged="(DateTime? dt) => StateParameters = StateParameters with { AtTime = dt }"
+               ValueExpression="() => StateParameters.AtTime" />
 </div>
 
 
@@ -133,4 +149,6 @@
                              FilterParameters="FilterParameters"
                              FilterParametersChanged="OnFilterParametersChanged"
                              SortParameters="SortParameters"
-                             SortParametersChanged="OnSortParametersChanged" />
+                             SortParametersChanged="OnSortParametersChanged"
+                             ItemStateParameters="StateParameters"
+                             ItemStateParametersChanged="OnStateParametersChanged" />

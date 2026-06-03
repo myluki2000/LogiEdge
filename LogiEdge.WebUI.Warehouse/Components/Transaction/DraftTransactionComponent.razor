@@ -14,6 +14,9 @@
     [Parameter]
     public required Guid TransactionId { get; set; }
 
+    [Parameter]
+    public EventCallback OnTransactionBooked { get; set; }
+
     private InventoryTransaction? Transaction { get; set; }
 
     private DebouncerComponent _debouncer = null!;
@@ -61,6 +64,7 @@
     private async Task BookTransaction()
     {
         await WarehouseService.BookTransactionAsync(Transaction.Id);
+        await OnTransactionBooked.InvokeAsync();
     }
 
     private async Task SaveTitleToDatabaseAsync()

@@ -14,31 +14,15 @@ using System.Threading.Tasks;
 
 namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {
-    internal class ItemsTableFilter()
+    internal class ItemsTablePropertyFilter()
     {
         private static readonly ParameterExpression itemParameterExpression = Expression.Parameter(typeof(Item), "it");
         private static readonly ParameterExpression itemStateParameterExpression = Expression.Parameter(typeof(ItemState), "st");
         private static readonly MethodInfo jsonContainsMethod = typeof(NpgsqlJsonDbFunctionsExtensions)
             .GetMethod(nameof(NpgsqlJsonDbFunctionsExtensions.JsonContains), [typeof(DbFunctions), typeof(JsonDocument), typeof(JsonDocument)])!;
 
-        public IQueryable<ItemState> Filter(IQueryable<Item> itemsQueryableInput, ItemsTableFilterParameters parameters)
+        public IQueryable<ItemState> Filter(IQueryable<ItemState> itemStatesQueryable, ItemsTableFilterParameters parameters)
         {
-            IQueryable<ItemState> itemStatesQueryable = parameters.AtTime.HasValue
-                ? itemsQueryableInput
-                    .Select(it => it.ItemStates
-                        .OrderByDescending(st => st.Date)
-                        .First(st => st.Date <= parameters.AtTime))
-                : itemsQueryableInput
-                    .Select(it => it.ItemStates
-                        .OrderByDescending(st => st.Date)
-                        .First());
-
-            if (!parameters.ShowShipped)
-            {
-                itemStatesQueryable = itemStatesQueryable
-                    .Where(st => st.Location != SpecialLocations.SHIPPED);
-            }
-
             // parse params which are not additional properties but "base properties" we store directly
             // as a DB column instead of as JSON
             List<PropertyInfo> basePropInfos = typeof(Item)

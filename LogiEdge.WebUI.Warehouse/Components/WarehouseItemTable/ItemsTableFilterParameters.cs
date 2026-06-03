@@ -9,8 +9,6 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {
     public record ItemsTableFilterParameters
     {
-        public required DateTime? AtTime { get; init; }
-        public required bool ShowShipped { get; init; }
         public required IReadOnlyDictionary<string, object> BaseParameters { get; init; }
         public required IReadOnlyDictionary<string, object> StateParameters { get; init; }
         public required IReadOnlyDictionary<string, string> AdditionalPropertyParameters { get; init; }
@@ -32,16 +30,14 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
-            return Nullable.Equals(AtTime, other.AtTime) 
-                   && ShowShipped == other.ShowShipped 
-                   && BaseParameters.SequenceEqual(other.BaseParameters) 
+            return BaseParameters.SequenceEqual(other.BaseParameters) 
                    && StateParameters.SequenceEqual(other.StateParameters) 
                    && AdditionalPropertyParameters.SequenceEqual(other.AdditionalPropertyParameters);
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(AtTime, ShowShipped, BaseParameters, StateParameters, AdditionalPropertyParameters);
+            return HashCode.Combine(BaseParameters, StateParameters, AdditionalPropertyParameters);
         }
 
         public Type GetParameterType(IReadOnlySet<ItemSchema> itemSchemas, string parameterName)
@@ -82,12 +78,6 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         public Dictionary<string, StringValues> ToQueryParameters()
         {
             Dictionary<string, StringValues> result = [];
-
-            if (AtTime.HasValue)
-                result["at"] = AtTime.Value.ToString("o");
-
-            if (ShowShipped)
-                result["showShipped"] = ShowShipped.ToString();
 
             foreach (KeyValuePair<string, object> kvp in BaseParameters)
             {
@@ -184,15 +174,6 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         {
             return new ItemsTableFilterParameters()
             {
-                AtTime = queryParameters
-                    .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
-                    .Select(param => DateTime.SpecifyKind(DateTime.Parse(param.Value.First()!), DateTimeKind.Utc))
-                    .Cast<DateTime?>()
-                    .FirstOrDefault(),
-                ShowShipped = queryParameters
-                    .PopWhere(param => param.Key == "showShipped" && param.Value.Count > 0)
-                    .Select(param => bool.Parse(param.Value.First()!))
-                    .FirstOrDefault(),
                 BaseParameters = queryParameters
                 .PopWhere(param => IsBaseProperty(param.Key) && param.Value.Count > 0)
                 .ToDictionary(
