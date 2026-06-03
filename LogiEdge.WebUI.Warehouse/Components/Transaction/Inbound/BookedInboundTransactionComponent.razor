@@ -17,6 +17,10 @@
     private InventoryTransaction Transaction { get; set; } = null!;
     private List<(Customer customer, ItemSchema itemSchema, Warehouse warehouse)> ItemSchemasToShow { get; set; } = [];
 
+    private ItemsTableFilterParameters? _filterParams;
+    private ItemsTableSortParameters? _sortParams;
+    private ItemsTableColumnDisplayParameters? _columnDisplayParams;
+
     public override async Task SetParametersAsync(ParameterView parameters)
     {
         await base.SetParametersAsync(parameters);
@@ -73,6 +77,22 @@
 
         return propertyColumns;
     }
+
+    private IQueryable<ItemState> ItemStateQueryableFactory(WarehouseDbContext ctx)
+    {
+        InventoryTransaction transaction = GetTransaction(ctx);
+
+        if(transaction.InboundTransactionPart == null)
+            throw new Exception($"Transaction {transaction.Id} does not have an inbound transaction part!");
+
+        return ctx.Entry(transaction.InboundTransactionPart).Collection(tp => tp.NewItemStates).Query();
+    }
+}
+
+@{
+    _filterParams ??= ItemsTableFilterParameters.FromQueryParameters([]);
+    _sortParams ??= ItemsTableSortParameters.FromQueryParameters([]);
+    _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
 }
 
 <h3>
@@ -87,9 +107,8 @@
 
     <span>Booked transactions are final and cannot be edited.</span>
 
-    // TODO: Use warehouse variable and select only items for the specific warehouse and display item with the item state at the point in time when the transaction happened
-    <WarehouseItemAtStateTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => itemIds.Contains(it.Id) && it.ItemSchemaId == schema.Id && it.CustomerId == customer.Id)"
-                                 ItemStateSelectionFunc="it => Transaction.NewItemStates!.First(st => st.Item.Id == it.Id)"
-                                 PropertyColumns="new OrderedDictionary<string, bool>(GetItemPropertyColumns(schema)
-    .Select(x => new KeyValuePair<string, bool>(x.propertyName, true)))" />
+    <WarehouseItemAtStateTableComponent ItemStateQueryableFactory="ItemStateQueryableFactory"
+                                        @bind-FilterParameters="_filterParams"
+                                        @bind-ColumnDisplayParameters="_columnDisplayParams"
+                                        @bind-SortParameters="_sortParams"/>
 }
