@@ -87,7 +87,7 @@
             await ctx.SaveChangesAsync();
         }
 
-        NavigationManager.NavigateTo("/warehouse/transactions");
+        NavigationManager.NavigateTo(RouteTo<Pages.Warehouse.Transactions.Index>());
     }
 
     private async Task SaveTitleToDatabaseAsync()

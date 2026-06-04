@@ -1,0 +1,1 @@
+﻿global using static LogiEdge.Shared.Utility.LinkHelpers;

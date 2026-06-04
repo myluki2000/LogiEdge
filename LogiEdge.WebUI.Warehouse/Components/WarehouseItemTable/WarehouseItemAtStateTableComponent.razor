@@ -180,7 +180,7 @@
                         @switch (propertyName)
                         {
                             case nameof(Item.Id):
-                                <a href="/warehouse/item/@data.item.Id">
+                                <a href="@(RouteTo<Pages.Warehouse.ItemPage>("ItemId", data.item.Id))">
                                     <PropertyValueComponent PropertyValue="@propertyValue" />
                                 </a>
                                 break;

@@ -43,7 +43,7 @@
         ctx.InventoryTransactions.Add(transaction);
 
         await ctx.SaveChangesAsync();
-        NavigationManager.NavigateTo($"/warehouse/transactions/{transaction.Id}");
+        NavigationManager.NavigateTo(RouteTo<TransactionPage>("TransactionId", transaction.Id));
     }
 }
 
@@ -56,7 +56,7 @@
 <div>
     @foreach (InventoryTransaction transaction in Transactions)
     {
-        <NavLink href="@($"/warehouse/transactions/{transaction.Id}")">
+        <NavLink href="@(RouteTo<TransactionPage>("TransactionId", transaction.Id))">
             <div style="border: solid 1px black;" class="m-3">
                 <span>@transaction.CreatedDate  · @transaction.Title</span><br />
                 <span class="text-muted">Created by @transaction.CreatedByUserId - Handled by @transaction.HandledByWorker</span>
