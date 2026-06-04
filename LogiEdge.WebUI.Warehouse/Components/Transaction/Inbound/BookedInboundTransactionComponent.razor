@@ -95,20 +95,7 @@
     _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
 }
 
-<h3>
-    <span>@Transaction.Title</span>
-    <span class="fs-6">@Transaction.Date</span>
-</h3>
-@foreach ((Customer customer, ItemSchema schema, Warehouse warehouse) in ItemSchemasToShow)
-{
-    List<Guid> itemIds = Transaction.InboundTransactionPart.NewItemStates.Select(x => x.ItemId).ToList();
-
-    <h4>Items for @customer.Name - @schema.Name</h4>
-
-    <span>Booked transactions are final and cannot be edited.</span>
-
-    <WarehouseItemAtStateTableComponent ItemStateQueryableFactory="ItemStateQueryableFactory"
-                                        @bind-FilterParameters="_filterParams"
-                                        @bind-ColumnDisplayParameters="_columnDisplayParams"
-                                        @bind-SortParameters="_sortParams"/>
-}
+<WarehouseItemAtStateTableComponent ItemStateQueryableFactory="ItemStateQueryableFactory"
+                                    @bind-FilterParameters="_filterParams"
+                                    @bind-ColumnDisplayParameters="_columnDisplayParams"
+                                    @bind-SortParameters="_sortParams"/>

@@ -36,26 +36,29 @@
     <p>Unexpected transaction state: @Transaction.State</p>
 }
 
+<div class="header">
+    <span class="text-muted">Transaction · Created: <span class="text-dark">@Transaction.Date</span></span>
+    <h3 class="m-0">
+        @Transaction.Title
+    </h3>
+</div>
 
-<h3>
-    @Transaction.Title
-    <span class="fs-6">@Transaction.Date</span>
-</h3>
+<div class="content">
+    @if (Transaction.InboundTransactionPart != null)
+    {
+        <BookedInboundTransactionComponent TransactionId="TransactionId"/>
+    }
+    else
+    {
+        <p>No inbound items are part of this transaction.</p>
+    }
 
-@if (Transaction.InboundTransactionPart != null)
-{
-    <BookedInboundTransactionComponent TransactionId="TransactionId"/>
-}
-else
-{
-    <p>No inbound items are part of this transaction.</p>
-}
-
-@if (Transaction.OutboundTransactionPart != null)
-{
-    <BookedOutboundTransactionComponent TransactionId="TransactionId"/>
-}
-else
-{
-    <p>No outbound items are part of this transaction.</p>
-}
+    @if (Transaction.OutboundTransactionPart != null)
+    {
+        <BookedOutboundTransactionComponent TransactionId="TransactionId"/>
+    }
+    else
+    {
+        <p>No outbound items are part of this transaction.</p>
+    }
+</div>

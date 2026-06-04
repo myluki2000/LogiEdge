@@ -94,15 +94,12 @@
     return;
 }
 
-<div style="background-color: #f2f2f2; border-bottom: 1px solid #d6d5d5; padding: 16px;">
+<div class="header">
+    <span class="text-muted">Transaction · Created: <span class="text-dark">@Transaction.Date</span></span>
     <h3>
         <InputText class="form-control"
                    @bind-Value="Transaction.Title"
-                   @oninput="e => _debouncer.Debounce(async Task () => {
-                       Transaction!.Title = e.Value?.ToString() ?? string.Empty;
-                       await SaveTitleToDatabaseAsync();
-                   })" />
-        <span class="fs-6">@Transaction.Date</span>
+                   @oninput="e => _debouncer.Debounce(async Task () => { Transaction!.Title = e.Value?.ToString() ?? string.Empty; await SaveTitleToDatabaseAsync(); })"/>
     </h3>
 
     <div>
@@ -124,7 +121,7 @@
     </div>
 </div>
 
-<div class="m-3">
+<div class="content">
     <HxTabPanel Variant="TabPanelVariant.Card">
         <HxTab Title="Overview">
             <Content>
