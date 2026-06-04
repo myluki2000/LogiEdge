@@ -17,7 +17,11 @@ public class InventoryTransaction
     public Guid Id { get; set; }
     [MaxLength(255)]
     public string Title { get; set; } = string.Empty;
-    public required DateTime Date { get; set; }
+    public required DateTime CreatedDate { get; set; }
+    /// <summary>
+    /// DateTime when the transaction is booked. Null if the transaction is still in DRAFT state.
+    /// </summary>
+    public DateTime? BookedDate { get; set; } = null;
     public required Guid CreatedByUserId { get; set; }
     public required string HandledByWorker { get; set; }
     public SortedSet<Comment> Comments { get; set; } = [];

@@ -33,6 +33,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
 
             transaction.State = TransactionState.BOOKED;
+            transaction.BookedDate = DateTime.UtcNow;
 
             BookInboundTransactionPart(ctx, transaction.InboundTransactionPart);
             BookOutboundTransactionPart(transaction.OutboundTransactionPart);
@@ -72,11 +73,14 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 
             transactionPart.NewItemStates ??= [];
 
+            if (transactionPart.Transaction.BookedDate == null)
+                throw new Exception("Transaction has no BookedDate set even though it was booked!");
+
             foreach (Item item in transactionPart.DraftSelectedItems!)
             {
                 ItemState newItemState = new()
                 {
-                    Date = transactionPart.Transaction.Date,
+                    Date = transactionPart.Transaction.BookedDate.Value,
                     Location = SpecialLocations.SHIPPED,
                     WarehouseId = item.ItemStates.Last().WarehouseId,
                     IsQuarantined = item.ItemStates.Last().IsQuarantined,
@@ -95,6 +99,9 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 
         private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem)
         {
+            if (transactionPart.Transaction.BookedDate == null)
+                throw new Exception("Transaction has no BookedDate set even though it was booked!");
+
             Item item = new()
             {
                 Id = Guid.NewGuid(),
@@ -108,14 +115,14 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     {
                         Text = c,
                         AuthorId = transactionPart.Transaction.CreatedByUserId,
-                        Date = transactionPart.Transaction.Date,
+                        Date = transactionPart.Transaction.BookedDate.Value,
                         Retracted = false,
                     })),
                 ItemStates = [],
             };
             item.ItemStates.Add(new ItemState()
             {
-                Date = transactionPart.Transaction.Date,
+                Date = transactionPart.Transaction.BookedDate.Value,
                 Location = draftItem.Location,
                 RelatedTransaction = transactionPart.Transaction,
                 WarehouseId = draftItem.WarehouseId,

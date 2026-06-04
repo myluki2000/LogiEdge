@@ -34,7 +34,7 @@
 
         InventoryTransaction transaction = new()
         {
-            Date = DateTime.UtcNow,
+            CreatedDate = DateTime.UtcNow,
             CreatedByUserId = Guid.Empty, // TODO: Pass current user's ID
             HandledByWorker = "",
             AttachmentIds = []
@@ -58,7 +58,7 @@
     {
         <NavLink href="@($"/warehouse/transactions/{transaction.Id}")">
             <div>
-                <span>@transaction.Date</span>
+                <span>@transaction.CreatedDate</span>
                 <span>Created by @transaction.CreatedByUserId - Handled by @transaction.HandledByWorker</span>
 
                 <table>
