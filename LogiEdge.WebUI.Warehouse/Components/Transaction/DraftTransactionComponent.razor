@@ -9,6 +9,8 @@
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject WarehouseManagementService WarehouseService
+@inject IHxMessageBoxService MessageBox
+@inject NavigationManager NavigationManager
 
 @code {
     [Parameter]
@@ -67,6 +69,27 @@
         await OnTransactionBooked.InvokeAsync();
     }
 
+    private async Task DeleteTransaction()
+    {
+        bool msgBoxResult = 
+            await MessageBox.ConfirmAsync("Delete Transaction", "Are you sure you want to permanently delete this transaction? This cannot be reversed!");
+
+        if (!msgBoxResult)
+            return;
+
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+        InventoryTransaction? dbTransaction = await ctx.InventoryTransactions
+            .FirstOrDefaultAsync(t => t.Id == Transaction!.Id);
+
+        if (dbTransaction != null)
+        {
+            ctx.InventoryTransactions.Remove(dbTransaction);
+            await ctx.SaveChangesAsync();
+        }
+
+        NavigationManager.NavigateTo("/warehouse/transactions"); // or refresh event
+    }
+
     private async Task SaveTitleToDatabaseAsync()
     {
         await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
@@ -103,12 +126,12 @@
     </h3>
 
     <div>
-        <button class="btn btn-primary" @onclick="BookTransaction">Book Transaction</button>
+        <HxButton Text="Book Transaction" OnClick="BookTransaction" Color="ThemeColor.Primary" />
 
         <DebouncerComponent @ref="_debouncer"
                             DelayMilliseconds="1000"
                             style="@(IsAnyInputInvalid ? "display: none;" : "")"
-                            class="ms-2" />
+                            class="ms-2"/>
         @if (IsAnyInputInvalid)
         {
             <span class="ms-2">
@@ -118,6 +141,8 @@
                 <span class="text-danger align-middle">There are invalid inputs. Please correct them before saving.</span>
             </span>
         }
+        
+        <HxButton Text="Delete Transaction" OnClick="DeleteTransaction" Color="ThemeColor.Danger" CssClass="float-end" />
     </div>
 </div>
 

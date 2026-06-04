@@ -1,4 +1,5 @@
 using Havit.Blazor.Components.Web;
+using Havit.Blazor.Components.Web.Bootstrap;
 using LogiEdge.Areas.Identity;
 using LogiEdge.BaseService;
 using LogiEdge.WebUI.Customers;
@@ -32,6 +33,7 @@ namespace LogiEdge
             builder.Services.AddHxServices();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
+            builder.Services.AddHxMessageBoxHost();
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
 
