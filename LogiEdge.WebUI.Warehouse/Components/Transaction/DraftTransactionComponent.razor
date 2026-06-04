@@ -159,15 +159,26 @@
                             <div class="card-body">
                                 @if (Transaction.InboundTransactionPart == null)
                                 {
-                                    <button class="btn btn-outline-primary me-2 mb-2" @onclick="BtnAddInboundItemsOnClick">Add Inbound Items</button>
+                                    <HxButton Text="Add Inbound Items" 
+                                              CssClass="me-2 mb-2" 
+                                              OnClick="BtnAddInboundItemsOnClick" 
+                                              Color="ThemeColor.Primary" 
+                                              Outline="true" />
                                 }
                                 @if (Transaction.OutboundTransactionPart == null)
                                 {
-                                    <button class="btn btn-outline-primary me-2 mb-2" @onclick="BtnAddOutboundItemsOnClick">Add Outbound Items</button>
+                                    <HxButton Text="Add Outbound Items"
+                                              CssClass="me-2 mb-2"
+                                              OnClick="BtnAddOutboundItemsOnClick"
+                                              Color="ThemeColor.Primary"
+                                              Outline="true" />
                                 }
                                 @if (Transaction.RelocationTransactionPart == null)
                                 {
-                                    <button class="btn btn-outline-primary me-2 mb-2">Add Relocation Items</button>
+                                    <HxButton Text="Add Relocation Items"
+                                              CssClass="me-2 mb-2"
+                                              Color="ThemeColor.Primary"
+                                              Outline="true" />
                                 }
                             </div>
                         </div>

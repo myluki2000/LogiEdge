@@ -243,13 +243,11 @@
                     }
 
                     <td>
-                        <button 
-                            class="btn btn-secondary row-button"
-                            @onclick="async Task () => await DeleteItem(item)">
+                        <HxButton Color="ThemeColor.Secondary" CssClass="row-button" OnClick="async Task () => await DeleteItem(item)">
                             <span class="material-symbols-rounded">
                                 delete_forever
                             </span>
-                        </button>
+                        </HxButton>
                     </td>
                 </tr>
             }
@@ -302,7 +300,7 @@
         </div>
         <CustomerItemSchemaSelectorComponent @bind-SelectedCustomer="SelectedCustomerToAdd" @bind-SelectedItemSchema="SelectedItemSchemaToAdd"/>
         <div class="col">
-            <button @onclick="BtnAddSchemaOnClick" class="btn btn-secondary">Add</button>
+            <HxButton Text="Add" OnClick="BtnAddSchemaOnClick" Color="ThemeColor.Secondary" />
         </div>
     </div>
 </div>

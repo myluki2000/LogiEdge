@@ -304,10 +304,8 @@
             {
                 <th style="line-height: 24px;">
                     <span style="vertical-align: bottom;">@propertyName</span>
-
-                    <button type="button"
-                            class="btn btn-secondary table-button"
-                            @onclick="() => BtnSortClicked(propertyName)">
+                    
+                    <HxButton Color="ThemeColor.Secondary" CssClass="table-button" OnClick="() => BtnSortClicked(propertyName)">
                         @if (SortParameters.SortByProperty == propertyName)
                         {
                             @if (SortParameters.SortOrderDescending)
@@ -329,7 +327,7 @@
                                 swap_vert
                             </span>
                         }
-                    </button>
+                    </HxButton>
 
                     @if (propertyName == propertyColumnsToDisplay.Last())
                     {

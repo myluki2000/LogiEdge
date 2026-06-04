@@ -47,11 +47,7 @@
     }
 }
 
-<div class="dropdown">
-    <button class="btn btn-primary" type="button" @onclick="BtnCreateTransactionOnClick">
-        Create Transaction
-    </button>
-</div>
+<HxButton Text="Create Transaction" Color="ThemeColor.Primary" OnClick="BtnCreateTransactionOnClick" />
 
 <div>
     @foreach (InventoryTransaction transaction in Transactions)
