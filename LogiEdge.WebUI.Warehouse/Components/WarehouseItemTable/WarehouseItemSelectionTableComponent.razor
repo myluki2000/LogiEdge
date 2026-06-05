@@ -27,6 +27,11 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
+    public required ItemsTableStateParameters ItemStateParameters { get; set; }
+    [Parameter]
+    public EventCallback<ItemsTableStateParameters> ItemStateParametersChanged { get; set; }
+
+    [Parameter]
     public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
 
     private RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
@@ -133,6 +138,8 @@
                              ColumnDisplayParametersChanged="ColumnDisplayParametersChanged"
                              FilterParameters="FilterParameters"
                              FilterParametersChanged="FilterParametersChanged"
+                             ItemStateParameters="ItemStateParameters"
+                             ItemStateParametersChanged="ItemStateParametersChanged"
                              SortParameters="SortParameters"
                              SortParametersChanged="SortParametersChanged"
                              TableRowRenderFragment="_tableRowRenderFragment"

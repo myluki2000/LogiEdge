@@ -44,21 +44,40 @@
 </div>
 
 <div class="content">
-    @if (Transaction.InboundTransactionPart != null)
-    {
-        <BookedInboundTransactionComponent TransactionId="TransactionId"/>
-    }
-    else
-    {
-        <p>No inbound items are part of this transaction.</p>
-    }
-
-    @if (Transaction.OutboundTransactionPart != null)
-    {
-        <BookedOutboundTransactionComponent TransactionId="TransactionId"/>
-    }
-    else
-    {
-        <p>No outbound items are part of this transaction.</p>
-    }
+    <HxTabPanel ActiveTabId="overview" Variant="TabPanelVariant.Card">
+        <HxTab Id="overview" Title="Overview">
+            <Content>
+                <div>
+                    <h5>Documents & Attachments</h5>
+                    <DocumentGeneratorComponent TInputType="InventoryTransaction" />
+                    <hr />
+                    <TransactionFileAttachmentManagerComponent Transaction="Transaction" />
+                </div>
+            </Content>
+        </HxTab>
+        @if (Transaction.InboundTransactionPart != null)
+        {
+            <HxTab Id="inbound" Title="Inbound">
+                <Content>
+                    <BookedInboundTransactionComponent TransactionId="TransactionId" />
+                </Content>
+            </HxTab>
+        }
+        @if (Transaction.OutboundTransactionPart != null)
+        {
+            <HxTab Id="outbound" Title="Outbound">
+                <Content>
+                    <BookedOutboundTransactionComponent TransactionId="TransactionId" />
+                </Content>
+            </HxTab>
+        }
+        @if (Transaction.RelocationTransactionPart != null)
+        {
+            <HxTab Id="relocation" Title="Relocation">
+                <Content>
+                    TODO: Relocation transaction details component
+                </Content>
+            </HxTab>
+        }
+    </HxTabPanel>
 </div>

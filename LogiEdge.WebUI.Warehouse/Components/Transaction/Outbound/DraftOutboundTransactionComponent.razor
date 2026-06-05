@@ -15,10 +15,12 @@
     private ItemsTableColumnDisplayParameters _transactionColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
     private ItemsTableFilterParameters _transactionFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
     private ItemsTableSortParameters _transactionSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
+    private ItemsTableStateParameters _transactionStateParameters = ItemsTableStateParameters.FromQueryParameters([]);
 
     private ItemsTableColumnDisplayParameters _selectionModalColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
     private ItemsTableFilterParameters _selectionModalFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
     private ItemsTableSortParameters _selectionModalSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
+    private ItemsTableStateParameters _selectionModalStateParameters = ItemsTableStateParameters.FromQueryParameters([]);
 
     private HxModal _itemSelectionModal = null!;
 
@@ -97,10 +99,11 @@
     Add Item
 </button>
 
-<WarehouseItemAtStateTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
+<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items.Where(it => Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(di => di.Id).Contains(it.Id))"
                              @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
                              @bind-FilterParameters="_transactionFilterParameters"
-                             @bind-SortParameters="_transactionSortParameters">
+                             @bind-SortParameters="_transactionSortParameters"
+                             @bind-ItemStateParameters="_transactionStateParameters">
     <TableRowRenderFragment>
         <tr>
             @for (int i = 0; i < context.properties.Count; i++)
@@ -150,7 +153,7 @@
             }
         </tr>
     </TableRowRenderFragment>
-</WarehouseItemAtStateTableComponent>
+</WarehouseItemTableComponent>
 
 @if (Transaction.OutboundTransactionPart.DraftPlaceholderItems is { Count: > 0 })
 {
@@ -190,7 +193,8 @@
                                               @bind-SelectedItemIds="_modalSelectedItemIds"
                                               @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
                                               @bind-FilterParameters="_selectionModalFilterParameters"
-                                              @bind-SortParameters="_selectionModalSortParameters"/>
+                                              @bind-SortParameters="_selectionModalSortParameters"
+                                              @bind-ItemStateParameters="_selectionModalStateParameters" />
     </BodyTemplate>
     <FooterTemplate>
         <HxButton Text="Ok" @onclick="BtnItemSelectionModalOkOnClick" Color="ThemeColor.Primary" />
