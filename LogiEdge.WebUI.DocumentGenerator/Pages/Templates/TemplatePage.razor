@@ -1,0 +1,46 @@
+﻿@page "/document-generator/templates/{TemplateId:guid}"
+@using Havit.Blazor.Components.Web.Bootstrap
+@using LogiEdge.Service.DocumentGenerator.Data
+@using LogiEdge.Service.DocumentGenerator.Services
+@using LogiEdge.WebUI.DocumentGenerator.Components.Templates.Editing
+
+@inject DocumentGenerationService DocumentGenerationService
+@inject NavigationManager NavigationManager
+
+@code {
+    [Parameter]
+    public Guid TemplateId { get; set; }
+
+    private DocumentGenerationTemplate? _template;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        _template = await DocumentGenerationService.GetTemplateAsync(TemplateId);
+    }
+
+    private async Task BtnSaveOnClick()
+    {
+        if(_template != null)
+            await DocumentGenerationService.UpdateTemplateAsync(_template);
+
+        NavigationManager.NavigateTo(RouteTo<Templates.IndexPage>());
+    }
+}
+
+@if (_template == null)
+{
+    <p>Could not find template with ID @TemplateId</p>
+    return;
+}
+
+<span>Template for input type @_template.InputTypeName</span>
+<h3>@_template.Name</h3>
+
+<HxButton Text="Save" Icon="BootstrapIcon.FloppyFill" OnClick="BtnSaveOnClick" Color="ThemeColor.Primary"/>
+
+@if (_template is HtmlDocumentGenerationTemplate htmlTemplate)
+{
+    <EditHtmlTemplateComponent Template="htmlTemplate" />
+}

@@ -1,0 +1,21 @@
+﻿@using Havit.Blazor.Components.Web.Bootstrap
+@using LogiEdge.Service.DocumentGenerator.Data
+
+@code {
+    [Parameter]
+    public required HtmlDocumentGenerationTemplate Template { get; set; }
+}
+
+<HxInputText @bind-Value="Template.HeaderLeft" Label="Header Left" />
+
+<HxInputText @bind-Value="Template.HeaderCenter" Label="Header Center"/>
+
+<HxInputText @bind-Value="Template.HeaderRight" Label="Header Right"/>
+
+<HxInputText @bind-Value="Template.FooterLeft" Label="Footer Left"/>
+
+<HxInputText @bind-Value="Template.FooterCenter" Label="Footer Center"/>
+
+<HxInputText @bind-Value="Template.FooterRight" Label="Footer Right"/>
+
+<HxInputTextArea @bind-Value="Template.Html" Label="HTML"/>

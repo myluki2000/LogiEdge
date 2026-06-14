@@ -1,0 +1,64 @@
+﻿@using Havit.Blazor.Components.Web.Bootstrap
+@using LogiEdge.BaseService.Services
+@using LogiEdge.Service.DocumentGenerator.DocumentGeneration
+@using LogiEdge.Service.DocumentGenerator.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject DocumentGenerationService DocumentGenerationService
+
+@typeparam TInputType where TInputType : LogiEdge.Shared.IDocumentGeneratorInput
+
+@code {
+    [Parameter]
+    public required TInputType InputData { get; set; }
+
+    private List<IDocumentGenerator<TInputType>> Templates { get; set; } = [];
+
+    private HxModal _documentGenerationModal = null!;
+
+    private IDocumentGenerator<TInputType>? _selectedGenerator;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        Templates = await DocumentGenerationService.GetGeneratorsForDocumentTypeAsync<TInputType>().ToListAsync();
+    }
+
+    private async Task BtnGenerateDocumentOnClick()
+    {
+        await _documentGenerationModal.ShowAsync();
+    }
+
+    private async Task ModalBtnGenerateOnClick()
+    {
+        if (_selectedGenerator != null)
+        {
+            await DocumentGenerationService.GenerateDocument(_selectedGenerator, InputData);
+            await _documentGenerationModal.HideAsync();
+        }
+    }
+}
+
+<HxButton Color="ThemeColor.Secondary" Text="Generate Document" OnClick="BtnGenerateDocumentOnClick"/>
+
+<HxModal @ref="_documentGenerationModal" Title="Generate Document">
+    <BodyTemplate>
+        <HxSelect TItem="IDocumentGenerator<TInputType>"
+                  TValue="IDocumentGenerator<TInputType>"
+                  Label="Document Template"
+                  TextSelector="t => t.Template.Name"
+                  ValueSelector="t => t"
+                  Data="Templates"
+                  @bind-Value="_selectedGenerator"
+                  Nullable="true"
+                  NullText="- select a template -"
+                  NullDataText="Loading templates..."
+        />
+        <span>Only document templates which are compatible with the currently selected data are shown.</span>
+        <p>@_selectedGenerator?.Template.Name</p>
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Generate" Color="ThemeColor.Primary" OnClick="ModalBtnGenerateOnClick" />
+        <HxButton Text="Cancel" OnClick="async () => await _documentGenerationModal.HideAsync()" Color="ThemeColor.Primary" Outline="true" />
+    </FooterTemplate>
+</HxModal>

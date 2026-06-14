@@ -6,8 +6,11 @@ using LogiEdge.WebUI.Customers;
 using LogiEdge.CustomerService;
 using LogiEdge.Data;
 using LogiEdge.ExcelImporterService;
+using LogiEdge.Service.DocumentGenerator;
 using LogiEdge.Service.PlanningBoard;
 using LogiEdge.Shared;
+using LogiEdge.WebUI.DocumentGenerator;
+using LogiEdge.WebUI.PlanningBoard;
 using LogiEdge.WebUI.Warehouse;
 using LogiEdge.WarehouseService;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -35,6 +38,7 @@ namespace LogiEdge
             builder.Services.AddServerSideBlazor();
             builder.Services.AddHxMessageBoxHost();
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
+            
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
 
             // modules
@@ -46,7 +50,10 @@ namespace LogiEdge
                 new WarehouseModuleConfiguration(),
                 new WarehouseServiceModuleConfiguration(),
                 new ExcelImporterServiceModuleConfiguration(),
-                new PlanningBoardServiceModuleConfiguration()
+                new PlanningBoardServiceModuleConfiguration(),
+                new PlanningBoardWebUiModuleConfiguration(),
+                new DocumentGeneratorServiceModuleConfiguration(),
+                new DocumentGeneratorWebUiModuleConfiguration(),
             ];
 
             // add services of modules

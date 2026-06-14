@@ -28,7 +28,6 @@ namespace LogiEdge.BaseService
                     provider.GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
                 return new FileAttachmentService(ctxFactory);
             });
-            builder.Services.AddSingleton<DocumentGenerationService>();
 
             builder.Services.AddControllers().AddApplicationPart(Assembly);
         }

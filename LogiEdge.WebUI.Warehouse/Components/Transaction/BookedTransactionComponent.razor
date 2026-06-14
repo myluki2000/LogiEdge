@@ -1,5 +1,6 @@
 ﻿@using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
 @using Microsoft.EntityFrameworkCore
@@ -49,7 +50,7 @@
             <Content>
                 <div>
                     <h5>Documents & Attachments</h5>
-                    <DocumentGeneratorComponent TInputType="InventoryTransaction" />
+                    <DocumentGeneratorComponent TInputType="InventoryTransaction" InputData="Transaction" />
                     <hr />
                     <TransactionFileAttachmentManagerComponent Transaction="Transaction" />
                 </div>

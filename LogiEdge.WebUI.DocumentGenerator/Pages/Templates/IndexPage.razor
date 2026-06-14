@@ -1,0 +1,127 @@
+﻿@page "/document-generator/templates/"
+@using System.Reflection
+@using Havit.Blazor.Components.Web.Bootstrap
+@using LogiEdge.Service.DocumentGenerator.Data
+@using LogiEdge.Service.DocumentGenerator.DocumentGeneration
+@using LogiEdge.Service.DocumentGenerator.Services
+@using LogiEdge.Shared
+@using LogiEdge.WebUI.DocumentGenerator.Components
+@using Microsoft.EntityFrameworkCore
+
+@inject DocumentGenerationService DocumentGenerationService
+@inject NavigationManager NavigationManager
+
+@code {
+    private List<DocumentGenerationTemplate> _documentTemplates = [];
+
+    private List<Type> _inputTypesOfDocumentGeneratorComponent = [];
+
+    private HxModal _modalCreateTemplate = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        _documentTemplates = (await DocumentGenerationService.GetTemplatesAsync()).ToList();
+        _inputTypesOfDocumentGeneratorComponent = GetAllInputTypesOfDocumentGeneratorComponent().ToList();
+    }
+
+    private async Task BtnNewTemplateOnClick()
+    {
+        await _modalCreateTemplate.ShowAsync();
+    }
+
+    private static IEnumerable<Type> GetAllInputTypesOfDocumentGeneratorComponent()
+    {
+        return AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(a =>
+            {
+                try { return a.GetTypes(); }
+                catch { return []; }
+            })
+            .Where(t => t is { IsClass: true, IsAbstract: false }
+                        && typeof(IDocumentGeneratorInput).IsAssignableFrom(t));
+    }
+}
+
+
+<h3>Document Templates</h3>
+
+<HxButton Text="New Template" OnClick="BtnNewTemplateOnClick" Color="ThemeColor.Primary" Icon="@BootstrapIcon.Plus" />
+
+<div class="m-3">
+    <table class="table">
+        <thead>
+        <tr class="table-primary">
+            <th>Template Name</th>
+            <th>For Data Type</th>
+            <th>Template Type</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (DocumentGenerationTemplate template in _documentTemplates)
+        {
+            <tr>
+                <td>@template.Name</td>
+                <td>@template.InputTypeName</td>
+                <td>@template.GetType().Name</td>
+                <td>
+                    <HxButton Icon="BootstrapIcon.PencilSquare"
+                              Outline="true"
+                              Color="ThemeColor.Primary"
+                              Size="ButtonSize.Small"
+                              OnClick="@(() => NavigationManager.NavigateTo(RouteTo<TemplatePage>("TemplateId", template.Id)))"/>
+                    <HxButton Icon="BootstrapIcon.Trash" Outline="true" Color="ThemeColor.Danger" Size="ButtonSize.Small" />
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>
+
+<HxModal Title="Create New Template" @ref="_modalCreateTemplate">
+@code
+{
+    private Type? _selectedInputType = null;
+    private string _templateName = "Untitled template";
+
+    private async Task ModalCreateTemplateBtnCreateOnClick()
+    {
+        if (_selectedInputType == null)
+            return;
+
+        var method = DocumentGenerationService.GetType()
+            .GetMethod(nameof(DocumentGenerationService.CreateTemplateForType))
+            ?.MakeGenericMethod(typeof(HtmlDocumentGenerationTemplate), _selectedInputType);
+
+        if (method != null)
+        {
+            await (Task<DocumentGenerationTemplate>)method.Invoke(DocumentGenerationService, [_templateName])!;
+        }
+
+        _documentTemplates = (await DocumentGenerationService.GetTemplatesAsync()).ToList();
+        await _modalCreateTemplate.HideAsync();
+    }
+
+    private async Task ModalCreateTemplateBtnCancelOnClick()
+    {
+
+    }
+}
+<BodyTemplate>
+    <HxInputText Label="Template Name" @bind-Value="_templateName" />
+    <HxSelect TItem="Type"
+              TValue="Type?"
+              @bind-Value="_selectedInputType" Data="_inputTypesOfDocumentGeneratorComponent"
+              Label="Input Data"
+              TextSelector="t => t.FullName"
+              Nullable="true"
+              NullText="- select input data type -"
+              NullDataText="Loading types..." />
+</BodyTemplate>
+<FooterTemplate>
+    <HxButton Text="Create" OnClick="ModalCreateTemplateBtnCreateOnClick" />
+    <HxButton Text="Cancel" OnClick="ModalCreateTemplateBtnCancelOnClick" />
+</FooterTemplate>
+</HxModal>

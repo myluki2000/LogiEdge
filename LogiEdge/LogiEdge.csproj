@@ -19,10 +19,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\LogiEdge.BaseService\LogiEdge.BaseService.csproj" />
+    <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
+    <ProjectReference Include="..\LogiEdge.Service.DocumentGenerator\LogiEdge.Service.DocumentGenerator.csproj" />
     <ProjectReference Include="..\LogiEdge.Service.PlanningBoard\LogiEdge.Service.PlanningBoard.csproj" />
     <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
+    <ProjectReference Include="..\LogiEdge.WarehouseService\LogiEdge.WarehouseService.csproj" />
     <ProjectReference Include="..\LogiEdge.WebUI.Customers\LogiEdge.WebUI.Customers.csproj" />
     <ProjectReference Include="..\LogiEdge.ExcelImporterService\LogiEdge.ExcelImporterService.csproj" />
+    <ProjectReference Include="..\LogiEdge.WebUI.DocumentGenerator\LogiEdge.WebUI.DocumentGenerator.csproj" />
+    <ProjectReference Include="..\LogiEdge.WebUI.PlanningBoard\LogiEdge.WebUI.PlanningBoard.csproj" />
     <ProjectReference Include="..\LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj" />
     <ProjectReference Include="..\LogiEdge.WebUI.Warehouse\LogiEdge.WebUI.Warehouse.csproj" />
   </ItemGroup>
