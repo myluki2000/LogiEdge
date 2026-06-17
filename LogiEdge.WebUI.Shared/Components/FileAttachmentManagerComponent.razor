@@ -1,6 +1,9 @@
 ﻿@using LogiEdge.BaseService.Data
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
+
+@inject IHxMessageBoxService MessageBox
+
 @code {
     [Parameter]
     public required DbContext DbContext { get; set; }
@@ -33,9 +36,16 @@
         await OnAttachmentsUploaded.InvokeAsync(newAttachments);
     }
 
-    private void RemoveAttachment(Guid attachmentId)
+    private async Task BtnRemoveAttachmentOnClick(Guid attachmentId)
     {
-        OnAttachmentRemoved.InvokeAsync(attachmentId);
+        MessageBoxButtons msgBoxResult = await MessageBox.ShowAsync("Delete Attachment", 
+            "Are you sure you want to permanently delete this attachment? The file will be lost!", 
+            MessageBoxButtons.YesNo);
+
+        if (msgBoxResult != MessageBoxButtons.Yes)
+            return;
+
+        await OnAttachmentRemoved.InvokeAsync(attachmentId);
     }
 }
 
@@ -48,7 +58,7 @@
         {
             <div class="item">
                 <span class="btn-remove-attachment material-symbols-rounded"
-                      @onclick="() => RemoveAttachment(attachment.Id)">
+                      @onclick="() => BtnRemoveAttachmentOnClick(attachment.Id)">
                     delete
                 </span>
                 <a href="@($"/api/attachments/{attachment.Id}/download")">@attachment.FileName</a>
