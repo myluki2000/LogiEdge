@@ -1,9 +1,10 @@
 ﻿using LogiEdge.BaseService.Data;
+using LogiEdge.Shared;
 using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.BaseService.Persistence
 {
-    internal class ApplicationDbContext : DbContext
+    internal class ApplicationDbContext : LogiEdgeDbContext
     {
         /// <summary>
         /// Key-Value (both strings) store for global settings.

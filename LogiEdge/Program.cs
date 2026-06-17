@@ -16,6 +16,7 @@ using LogiEdge.WarehouseService;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace LogiEdge
 {
@@ -38,7 +39,7 @@ namespace LogiEdge
             builder.Services.AddServerSideBlazor();
             builder.Services.AddHxMessageBoxHost();
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
-            
+
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
 
             // modules
@@ -64,7 +65,7 @@ namespace LogiEdge
 
             // auto mapper profiles
             builder.Services.AddAutoMapper(cfg => { }, [typeof(Program).Assembly, ..modules.Select(x => x.Assembly).Distinct()]);
-
+            
             // build app
             var app = builder.Build();
 

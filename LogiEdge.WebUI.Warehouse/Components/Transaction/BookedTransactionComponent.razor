@@ -1,4 +1,6 @@
-﻿@using LogiEdge.WarehouseService.Data.Transactions
+﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Services
+@using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
@@ -6,6 +8,7 @@
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@inject FileAttachmentService FileAttachmentService
 
 @code {
     [Parameter]
@@ -23,6 +26,21 @@
             .Include(t => t.InboundTransactionPart)
             .Include(t => t.OutboundTransactionPart)
             .FirstOrDefaultAsync(t => t.Id == TransactionId);
+    }
+
+    private async Task DocumentGeneratorComponentOnSaveRequested(FileAttachment att)
+    {
+        if (Transaction == null)
+            return;
+
+        att = await FileAttachmentService.CreateAttachmentAsync(att);
+
+        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
+        ctx.Attach(Transaction);
+
+        Transaction.AttachmentIds.Add(att.Id);
+
+        await ctx.SaveChangesAsync();
     }
 }
 
@@ -50,7 +68,9 @@
             <Content>
                 <div>
                     <h5>Documents & Attachments</h5>
-                    <DocumentGeneratorComponent TInputType="InventoryTransaction" InputData="Transaction" />
+                    <DocumentGeneratorComponent TInputType="InventoryTransaction" 
+                                                InputData="Transaction"
+                                                OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
                     <hr />
                     <TransactionFileAttachmentManagerComponent Transaction="Transaction" />
                 </div>

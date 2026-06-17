@@ -1,22 +1,24 @@
-﻿using System;
+﻿using LogiEdge.BaseService.Data;
+using LogiEdge.CustomerService.Data;
+using LogiEdge.Shared;
+using LogiEdge.Shared.Conventions;
+using LogiEdge.WarehouseService.Data;
+using LogiEdge.WarehouseService.Data.Transactions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
+using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
-using LogiEdge.BaseService.Data;
-using LogiEdge.CustomerService.Data;
-using LogiEdge.Shared.Conventions;
-using LogiEdge.WarehouseService.Data;
-using LogiEdge.WarehouseService.Data.Transactions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace LogiEdge.WarehouseService.Persistence
 {
-    public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : DbContext(options)
+    public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : LogiEdgeDbContext(options)
     {
         public DbSet<Warehouse> Warehouses { get; set; }
 
@@ -42,13 +44,6 @@ namespace LogiEdge.WarehouseService.Persistence
 
             modelBuilder.Entity<InventoryTransaction>()
                 .UseTpcMappingStrategy();
-        }
-
-        protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
-        {
-            base.ConfigureConventions(configurationBuilder);
-
-            configurationBuilder.Conventions.Add(sp => new AutoIncludeAttributeConvention(sp.GetRequiredService<ProviderConventionSetBuilderDependencies>()));
         }
     }
 }

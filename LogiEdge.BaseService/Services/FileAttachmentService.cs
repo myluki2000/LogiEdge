@@ -11,36 +11,48 @@ namespace LogiEdge.BaseService.Services
 {
     public class FileAttachmentService
     {
-        private readonly IDbContextFactory<ApplicationDbContext> applicationDbContextFactory;
+        private readonly IDbContextFactory<ApplicationDbContext> _applicationDbContextFactory;
 
         internal FileAttachmentService(IDbContextFactory<ApplicationDbContext> applicationDbContextFactory)
         {
-            this.applicationDbContextFactory = applicationDbContextFactory;
+            this._applicationDbContextFactory = applicationDbContextFactory;
         }
 
-        public FileAttachment? GetAttachment(Guid id)
+        public FileAttachment? GetAttachment(Guid id, bool includeData = false)
         {
-            return GetAttachmentAsync(id).Result;
+            return GetAttachmentAsync(id, includeData).Result;
         }
 
-        public async Task<FileAttachment?> GetAttachmentAsync(Guid id)
+        /// <summary>
+        /// Gets the attachment with the given id. If includeData is true, the attachment's data will also be included in the result.
+        /// </summary>
+        public async Task<FileAttachment?> GetAttachmentAsync(Guid id, bool includeData = false)
         {
-            await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
+            await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
+
+            if (includeData)
+                return await context.Attachments.Include(a => a.Data).FirstOrDefaultAsync(a => a.Id == id);
+            
             return await context.Attachments.FindAsync(id);
         }
 
-        public List<FileAttachment> GetAttachments(List<Guid> ids)
+        public List<FileAttachment> GetAttachments(List<Guid> ids, bool includeData = false)
         {
-            return GetAttachmentsAsync(ids).Result;
+            return GetAttachmentsAsync(ids, includeData).Result;
         }
 
-        public async Task<List<FileAttachment>> GetAttachmentsAsync(List<Guid> ids)
+        public async Task<List<FileAttachment>> GetAttachmentsAsync(List<Guid> ids, bool includeData = false)
         {
             if (ids.Count == 0)
                 return [];
 
-            await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
-            return context.Attachments.Where(at => ids.Contains(at.Id)).ToList();
+            await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
+            var q = context.Attachments.Where(at => ids.Contains(at.Id));
+
+            if (includeData)
+                q = q.Include(a => a.Data);
+
+            return await q.ToListAsync();
         }
 
         public FileAttachment CreateAttachment(FileAttachment attachment)
@@ -50,7 +62,7 @@ namespace LogiEdge.BaseService.Services
 
         public async Task<FileAttachment> CreateAttachmentAsync(FileAttachment attachment)
         {
-            await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
+            await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
             await context.Attachments.AddAsync(attachment);
             await context.SaveChangesAsync();
             return attachment;
@@ -63,7 +75,7 @@ namespace LogiEdge.BaseService.Services
 
         public async Task<FileAttachment?> DeleteAttachmentAsync(Guid id)
         {
-            await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
+            await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
             FileAttachment? attachment = await context.Attachments.FindAsync(id);
 
             if (attachment is null) return attachment;

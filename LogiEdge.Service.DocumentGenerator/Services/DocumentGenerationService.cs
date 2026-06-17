@@ -21,15 +21,18 @@ namespace LogiEdge.Service.DocumentGenerator.Services
         private static readonly List<Type> DOCUMENT_GENERATORS = typeof(DocumentGenerationService).Assembly.GetTypes()
             .Where(t => typeof(IDocumentGenerator).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface).ToList();
 
+        /// <summary>
+        /// Generates a document using the specified generator and input data, and returns it as an UNSAVED FileAttachment.
+        /// </summary>
         public async Task<FileAttachment> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
         {
             byte[] doc = generator.GenerateDocument(inputData);
-            FileAttachment att = await _fileAttachmentService.CreateAttachmentAsync(new FileAttachment()
+            FileAttachment att = new FileAttachment()
             {
                 ContentType = "application/pdf", // TODO: Must depend on the generator used
                 Data = new BinaryData(doc),
                 FileName = $"{generator.GetType().Name}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf"
-            });
+            };
 
             return att;
         }

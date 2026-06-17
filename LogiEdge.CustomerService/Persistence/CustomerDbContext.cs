@@ -1,4 +1,5 @@
 ﻿using LogiEdge.CustomerService.Data;
+using LogiEdge.Shared;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -8,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace LogiEdge.CustomerService.Persistence
 {
-    public class CustomerDbContext : DbContext
+    public class CustomerDbContext : LogiEdgeDbContext
     {
         public DbSet<Customer> Customers { get; init; }
 

@@ -8,10 +8,11 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using LogiEdge.BaseService.Data;
+using LogiEdge.Shared;
 
 namespace LogiEdge.WarehouseService.Data.Transactions;
 
-public class InventoryTransaction
+public class InventoryTransaction : IDocumentGeneratorInput
 {
     [Key]
     public Guid Id { get; set; }

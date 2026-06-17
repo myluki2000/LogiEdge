@@ -1,15 +1,23 @@
 ﻿@using Havit.Blazor.Components.Web.Bootstrap
+@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.MemoryCache
 @using LogiEdge.BaseService.Services
 @using LogiEdge.Service.DocumentGenerator.DocumentGeneration
 @using LogiEdge.Service.DocumentGenerator.Services
-@using Microsoft.AspNetCore.Components.Forms
+
 @inject DocumentGenerationService DocumentGenerationService
+@inject MemoryCacheService MemoryCacheService
 
 @typeparam TInputType where TInputType : LogiEdge.Shared.IDocumentGeneratorInput
 
 @code {
     [Parameter]
     public required TInputType InputData { get; set; }
+    /// <summary>
+    /// Callback which is raised when the user presses save for the generated document.
+    /// </summary>
+    [Parameter]
+    public required EventCallback<FileAttachment> OnFileAttachmentSaveRequested { get; set; }
 
     private List<IDocumentGenerator<TInputType>> Templates { get; set; } = [];
 
@@ -17,11 +25,15 @@
 
     private IDocumentGenerator<TInputType>? _selectedGenerator;
 
+    private FileAttachment? _generatedFileAttachment = null;
+    private Guid? _cachedOutputDocId = null;
+
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
         Templates = await DocumentGenerationService.GetGeneratorsForDocumentTypeAsync<TInputType>().ToListAsync();
+        _selectedGenerator = null;
     }
 
     private async Task BtnGenerateDocumentOnClick()
@@ -33,32 +45,60 @@
     {
         if (_selectedGenerator != null)
         {
-            await DocumentGenerationService.GenerateDocument(_selectedGenerator, InputData);
-            await _documentGenerationModal.HideAsync();
+            _generatedFileAttachment = await DocumentGenerationService.GenerateDocument(_selectedGenerator, InputData);
+            _cachedOutputDocId = MemoryCacheService.CacheFile(new CachedFile()
+            {
+                Data = _generatedFileAttachment.Data.Data,
+                MimeType = _generatedFileAttachment.ContentType,
+                ServeAtEndpoint = true
+            }, TimeSpan.FromHours(1));
         }
+    }
+
+    private async Task ModalBtnSaveGeneratedDocumentOnClick()
+    {
+        if (_generatedFileAttachment == null)
+            return;
+
+        await OnFileAttachmentSaveRequested.InvokeAsync(_generatedFileAttachment);
+        await _documentGenerationModal.HideAsync();
     }
 }
 
-<HxButton Color="ThemeColor.Secondary" Text="Generate Document" OnClick="BtnGenerateDocumentOnClick"/>
+<HxButton Color="ThemeColor.Secondary" Text="Generate Document" OnClick="BtnGenerateDocumentOnClick" />
 
-<HxModal @ref="_documentGenerationModal" Title="Generate Document">
+<HxModal @ref="_documentGenerationModal" Title="Generate Document" Fullscreen="ModalFullscreen.Always">
     <BodyTemplate>
-        <HxSelect TItem="IDocumentGenerator<TInputType>"
-                  TValue="IDocumentGenerator<TInputType>"
-                  Label="Document Template"
-                  TextSelector="t => t.Template.Name"
-                  ValueSelector="t => t"
-                  Data="Templates"
-                  @bind-Value="_selectedGenerator"
-                  Nullable="true"
-                  NullText="- select a template -"
-                  NullDataText="Loading templates..."
-        />
-        <span>Only document templates which are compatible with the currently selected data are shown.</span>
-        <p>@_selectedGenerator?.Template.Name</p>
+        <div class="row" style="height: 100%">
+            <div class="col-4">
+                <HxSelect TItem="IDocumentGenerator<TInputType>"
+                          TValue="IDocumentGenerator<TInputType>"
+                          Label="Document Template"
+                          TextSelector="t => t.Template.Name"
+                          ValueSelector="t => t"
+                          Data="Templates"
+                          @bind-Value="_selectedGenerator"
+                          Nullable="true"
+                          NullText="- select a template -"
+                          NullDataText="Loading templates..." />
+                <p>Only document templates which are compatible with the currently selected data are shown.</p>
+
+                <HxButton Text="Generate" Color="ThemeColor.Primary" OnClick="ModalBtnGenerateOnClick" />
+            </div>
+            <div class="col">
+                @if (_cachedOutputDocId == null)
+                {
+                    <p>Generate the document to show a preview.</p>
+                }
+                else
+                {
+                    <embed src="@($"/tmp/{_cachedOutputDocId}")" type="application/pdf" width="100%" height="100%" />
+                }
+            </div>
+        </div>
     </BodyTemplate>
     <FooterTemplate>
-        <HxButton Text="Generate" Color="ThemeColor.Primary" OnClick="ModalBtnGenerateOnClick" />
+        <HxButton Text="Save generated document" Color="ThemeColor.Primary" OnClick="ModalBtnSaveGeneratedDocumentOnClick" />
         <HxButton Text="Cancel" OnClick="async () => await _documentGenerationModal.HideAsync()" Color="ThemeColor.Primary" Outline="true" />
     </FooterTemplate>
 </HxModal>

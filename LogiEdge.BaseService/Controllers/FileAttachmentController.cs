@@ -19,7 +19,7 @@ namespace LogiEdge.BaseService.Controllers
         [HttpGet("download")]
         public async Task<IActionResult> Download(Guid attachmentId)
         {
-            FileAttachment? attachment = await service.GetAttachmentAsync(attachmentId);
+            FileAttachment? attachment = await service.GetAttachmentAsync(attachmentId, true);
 
             if (attachment == null)
                 return NotFound();
