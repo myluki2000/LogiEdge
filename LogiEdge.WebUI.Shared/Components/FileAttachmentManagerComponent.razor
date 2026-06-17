@@ -12,7 +12,7 @@
     [Parameter]
     public required EventCallback<List<FileAttachment>> OnAttachmentsUploaded { get; set; }
     [Parameter]
-    public required EventCallback<Guid> OnAttachmentRemoved { get; set; }
+    public required EventCallback<Guid> OnAttachmentRemoveRequested { get; set; }
 
     private int DragOverCounter { get; set; } = 0;
 
@@ -45,7 +45,7 @@
         if (msgBoxResult != MessageBoxButtons.Yes)
             return;
 
-        await OnAttachmentRemoved.InvokeAsync(attachmentId);
+        await OnAttachmentRemoveRequested.InvokeAsync(attachmentId);
     }
 }
 
