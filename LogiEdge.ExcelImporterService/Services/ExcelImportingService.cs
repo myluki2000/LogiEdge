@@ -209,7 +209,7 @@ namespace LogiEdge.ExcelImporterService.Services
 
                         // firstly, remove all items from our new list which have stayed the same from last time
                         items.RemoveAll(x => warehouse.Items
-                            .Where(y => y.InWarehouse == x.InWarehouse)
+                            .Where(y => y.ItemStates.MaxBy(st => st.Date).IsInWarehouse() == x.InWarehouse)
                             .Any(y =>
                         {
                             // we can't use an item which has already been "occupied" by another unchanged item
@@ -237,7 +237,7 @@ namespace LogiEdge.ExcelImporterService.Services
                             // we've already accounted for, and which has not already been "used" for another moved item (i.e. no item state from today)
                             Item? existingItem = warehouse.Items.FirstOrDefault(y =>
                                 IsInventoryItemMatchingEntity(options, x, y)
-                                && y.InWarehouse
+                                && y.ItemStates.MaxBy(st => st.Date).IsInWarehouse()
                                 && !unchangedItemIds.Contains(y.Id)
                                 && y.ItemStates.Select(st => st.Date).Max() < day);
 
@@ -338,7 +338,7 @@ namespace LogiEdge.ExcelImporterService.Services
                         });
 
                         foreach (Item itemToRemove in warehouse.Items
-                                     .Where(x => x.InWarehouse && x.ItemStates.Select(st => st.Date).Max() < day &&
+                                     .Where(x => x.ItemStates.MaxBy(st => st.Date).IsInWarehouse() && x.ItemStates.Select(st => st.Date).Max() < day &&
                                                  !unchangedItemIds.Contains(x.Id)))
                         {
                             itemToRemove.ItemStates.Add(new ItemState()

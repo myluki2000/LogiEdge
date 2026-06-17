@@ -35,22 +35,6 @@ namespace LogiEdge.WarehouseService.Data
 
         public required List<ItemState> ItemStates { get; set; }
 
-        // TODO: This property should probably be removed because it does not account for the fact that we might be
-        // inspecting the item at a different point in time
-        [NotMapped]
-        public bool InWarehouse
-        {
-            get
-            {
-                if (ItemStates.Count == 0)
-                    return false;
-
-                string location = ItemStates.MaxBy(x => x.Date)!.Location;
-                bool inWarehouse = location != SpecialLocations.PRE_ARRIVAL && location != SpecialLocations.SHIPPED;
-                return inWarehouse;
-            }
-        }
-
         /// <summary>
         /// The date when the item first entered one of the warehouses of the system, i.e. the date of the first ItemState which
         /// is not in the PRE_ARRIVAL or SHIPPED location.

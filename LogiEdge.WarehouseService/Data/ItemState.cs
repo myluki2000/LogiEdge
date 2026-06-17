@@ -31,5 +31,11 @@ namespace LogiEdge.WarehouseService.Data
         public required bool IsQuarantined { get; set; }
 
         public InventoryTransaction? RelatedTransaction { get; set; }
+
+        public bool IsInWarehouse()
+        {
+            bool inWarehouse = Location != SpecialLocations.PRE_ARRIVAL && Location != SpecialLocations.SHIPPED;
+            return inWarehouse;
+        }
     }
 }
