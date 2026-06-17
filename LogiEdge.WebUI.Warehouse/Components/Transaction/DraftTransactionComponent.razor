@@ -81,15 +81,7 @@
         if (!msgBoxResult)
             return;
 
-        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-        InventoryTransaction? dbTransaction = await ctx.InventoryTransactions
-            .FirstOrDefaultAsync(t => t.Id == Transaction!.Id);
-
-        if (dbTransaction != null)
-        {
-            ctx.InventoryTransactions.Remove(dbTransaction);
-            await ctx.SaveChangesAsync();
-        }
+        await WarehouseService.DeleteTransactionAsync(TransactionId);
 
         NavigationManager.NavigateTo(RouteTo<Pages.Warehouse.Transactions.Index>(), true);
     }

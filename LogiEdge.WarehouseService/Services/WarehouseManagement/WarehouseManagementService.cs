@@ -4,6 +4,8 @@ using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
 using LogiEdge.WarehouseService.Persistence;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -42,6 +44,22 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
 
             return transaction;
+        }
+
+        public async Task DeleteTransactionAsync(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? dbTransaction = await ctx.InventoryTransactions
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (dbTransaction == null)
+                return;
+
+            if (dbTransaction.State != TransactionState.DRAFT)
+                throw new Exception("Only DRAFT transactions can be deleted!");
+            
+            ctx.InventoryTransactions.Remove(dbTransaction);
+            await ctx.SaveChangesAsync();
         }
 
         private void BookInboundTransactionPart(WarehouseDbContext ctx, InboundTransactionPart? transactionPart)
