@@ -89,4 +89,6 @@ a, .btn-link {
 
 .content {
     margin: 1rem;
+    height: calc(100% - 2rem);
+    box-sizing: border-box;
 }

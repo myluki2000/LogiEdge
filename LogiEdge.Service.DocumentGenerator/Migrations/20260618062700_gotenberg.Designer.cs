@@ -3,6 +3,7 @@ using System;
 using LogiEdge.Service.DocumentGenerator.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.Service.DocumentGenerator.Migrations
 {
     [DbContext(typeof(DocumentGeneratorDbContext))]
-    partial class DocumentGeneratorDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260618062700_gotenberg")]
+    partial class gotenberg
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

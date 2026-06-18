@@ -14,11 +14,7 @@ namespace LogiEdge.Service.DocumentGenerator.Data
     public class HtmlDocumentGenerationTemplate : DocumentGenerationTemplate
     {
         public required string Html { get; set; }
-        public string HeaderLeft { get; set; } = string.Empty;
-        public string HeaderCenter { get; set; } = string.Empty;
-        public string HeaderRight { get; set; } = string.Empty;
-        public string FooterLeft { get; set; } = string.Empty;
-        public string FooterCenter { get; set; } = string.Empty;
-        public string FooterRight { get; set; } = string.Empty;
+        public string HeaderHtml { get; set; } = string.Empty;
+        public string FooterHtml { get; set; } = string.Empty;
     }
 }

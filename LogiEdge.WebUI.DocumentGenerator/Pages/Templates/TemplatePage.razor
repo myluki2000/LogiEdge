@@ -35,12 +35,16 @@
     return;
 }
 
-<span>Template for input type @_template.InputTypeName</span>
-<h3>@_template.Name</h3>
+<div style="height: 100%; display: flex; flex-direction: column;">
+    <div>
+        <span>Template for input type @_template.InputTypeName</span>
+        <h3>@_template.Name</h3>
 
-<HxButton Text="Save" Icon="BootstrapIcon.FloppyFill" OnClick="BtnSaveOnClick" Color="ThemeColor.Primary"/>
+        <HxButton Text="Save" Icon="BootstrapIcon.FloppyFill" OnClick="BtnSaveOnClick" Color="ThemeColor.Primary"/>
+    </div>
 
-@if (_template is HtmlDocumentGenerationTemplate htmlTemplate)
-{
-    <EditHtmlTemplateComponent Template="htmlTemplate" />
-}
+    @if (_template is HtmlDocumentGenerationTemplate htmlTemplate)
+    {
+        <EditHtmlTemplateComponent Template="htmlTemplate" Css="margin: 16px; flex: 1 1 100%;" />
+    }
+</div>

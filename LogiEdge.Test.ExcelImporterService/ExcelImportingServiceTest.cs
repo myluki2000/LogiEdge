@@ -97,7 +97,7 @@ namespace LogiEdge.Test.ExcelImporterService
             List<Item> itemsInWarehouse = warehouseCtx.Items
                 .Include(x => x.ItemStates)
                 .AsEnumerable()
-                .Where(x => x.InWarehouse)
+                .Where(x => x.ItemStates.MaxBy(x => x.Date).IsInWarehouse())
                 .ToList();
 
             // assert correct final count of items

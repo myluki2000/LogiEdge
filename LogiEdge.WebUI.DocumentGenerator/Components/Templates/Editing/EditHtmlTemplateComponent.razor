@@ -4,18 +4,45 @@
 @code {
     [Parameter]
     public required HtmlDocumentGenerationTemplate Template { get; set; }
+
+    [Parameter]
+    public string Css { get; set; } = string.Empty;
 }
 
-<HxInputText @bind-Value="Template.HeaderLeft" Label="Header Left" />
-
-<HxInputText @bind-Value="Template.HeaderCenter" Label="Header Center"/>
-
-<HxInputText @bind-Value="Template.HeaderRight" Label="Header Right"/>
-
-<HxInputText @bind-Value="Template.FooterLeft" Label="Footer Left"/>
-
-<HxInputText @bind-Value="Template.FooterCenter" Label="Footer Center"/>
-
-<HxInputText @bind-Value="Template.FooterRight" Label="Footer Right"/>
-
-<HxInputTextArea @bind-Value="Template.Html" Label="HTML"/>
+<div id="tab-wrapper" style="display: flex; flex-direction: column; @Css">
+    <HxTabPanel>
+        <HxTab Title="Body HTML" ContentCssClass="h-100 p-3">
+            <Content>
+                <HxInputTextArea @bind-Value="Template.Html" Label="HTML" InputCssClass="flex-grow-1" CssClass="d-flex flex-column h-100"/>
+            </Content>
+        </HxTab>
+        <HxTab Title="Header HTML" ContentCssClass="h-100 p-3">
+            <Content>
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                    <p>
+                        For more information on header and footer content and dynamic data (such as page count),
+                        see the 
+                        <a target="_blank" rel="noopener noreferrer" href="https://gotenberg.dev/docs/convert-with-chromium/convert-html-to-pdf#header--footer">
+                            Gotenberg documentation
+                        </a>.
+                    </p>
+                    <HxInputTextArea @bind-Value="Template.HeaderHtml" Label="Header HTML" InputCssClass="flex-grow-1" CssClass="d-flex flex-column h-100"/>
+                </div>
+            </Content>
+        </HxTab>
+        <HxTab Title="Footer HTML" ContentCssClass="h-100 p-3">
+            <Content>
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                    <p>
+                        For more information on header and footer content and dynamic data (such as page count),
+                        see the 
+                        <a target="_blank" rel="noopener noreferrer" href="https://gotenberg.dev/docs/convert-with-chromium/convert-html-to-pdf#header--footer">
+                            Gotenberg documentation
+                        </a>.
+                    </p>
+                    <HxInputTextArea @bind-Value="Template.FooterHtml" Label="Footer HTML" InputCssClass="flex-grow-1" CssClass="d-flex flex-column h-100"/>
+                </div>
+            </Content>
+        </HxTab>
+    </HxTabPanel>
+</div>

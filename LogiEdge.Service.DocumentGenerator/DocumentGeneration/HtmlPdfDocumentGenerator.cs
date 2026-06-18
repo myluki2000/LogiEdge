@@ -20,11 +20,14 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 
             string htmlContent = $"<script>const data = {dataJson};</script>{template.Html}";
 
-            var builder = new HtmlRequestBuilder()
-                .AddDocument(doc => doc.SetBody(htmlContent))
+            HtmlRequestBuilder builder = new HtmlRequestBuilder()
+                .AddDocument(doc => doc
+                    .SetBody(htmlContent)
+                    .SetFooter(template.FooterHtml)
+                    .SetHeader(template.HeaderHtml))
                 .WithPageProperties(pp => pp.SetPaperSize(PaperSizes.A4));
 
-            var result = await _gotenbergClient.HtmlToPdfAsync(builder);
+            Stream result = await _gotenbergClient.HtmlToPdfAsync(builder);
 
             using MemoryStream ms = new();
             await result.CopyToAsync(ms);
