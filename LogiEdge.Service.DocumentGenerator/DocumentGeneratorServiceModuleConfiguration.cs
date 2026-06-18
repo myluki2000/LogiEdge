@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using Gotenberg.Sharp.API.Client.Domain.Settings;
+using Gotenberg.Sharp.API.Client.Extensions;
 using Microsoft.Extensions.Configuration;
 
 namespace LogiEdge.Service.DocumentGenerator
@@ -27,6 +29,10 @@ namespace LogiEdge.Service.DocumentGenerator
                 options.EnableSensitiveDataLogging();
             });
             builder.Services.AddSingleton<DocumentGenerationService>();
+
+            builder.Services.AddOptions<GotenbergSharpClientOptions>()
+                .Bind(builder.Configuration.GetSection("GotenbergSharpClient"));
+            builder.Services.AddGotenbergSharpClient();
         }
 
         public void OnAppBuilt(WebApplication app)

@@ -37,7 +37,16 @@
 
         Transaction = await ctx.InventoryTransactions
             .Include(t => t.InboundTransactionPart)
+            .ThenInclude(it => it.DraftItems)
+            .Include(t => t.InboundTransactionPart)
+            .ThenInclude(it => it.NewItemStates)
+            .ThenInclude(st => st.Item)
             .Include(t => t.OutboundTransactionPart)
+            .ThenInclude(ot => ot.DraftSelectedItems)
+            .ThenInclude(it => it.ItemStates)
+            .Include(t => t.OutboundTransactionPart)
+            .ThenInclude(ot => ot.NewItemStates)
+            .ThenInclude(st => st.Item)
             .FirstOrDefaultAsync(t => t.Id == TransactionId);
     }
 

@@ -26,7 +26,7 @@ namespace LogiEdge.Service.DocumentGenerator.Services
         /// </summary>
         public async Task<FileAttachment> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
         {
-            byte[] doc = generator.GenerateDocument(inputData);
+            byte[] doc = await generator.GenerateDocumentAsync(inputData);
             FileAttachment att = new FileAttachment()
             {
                 ContentType = "application/pdf", // TODO: Must depend on the generator used
@@ -35,29 +35,6 @@ namespace LogiEdge.Service.DocumentGenerator.Services
             };
 
             return att;
-        }
-
-        public async IAsyncEnumerable<IDocumentGenerator> GetGeneratorsAsync()
-        {
-            foreach (DocumentGenerationTemplate template in await GetTemplatesAsync())
-            {
-                var a = DOCUMENT_GENERATORS
-                    .SelectMany(g => g.GetProperties(BindingFlags.Static | BindingFlags.FlattenHierarchy)).ToList();
-
-                Type generatorType = DOCUMENT_GENERATORS
-                    .First(g =>
-                    {
-                        // Get the property from the concrete type, not the interface
-                        var prop = g.GetProperty(
-                            "TemplateType",
-                            BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public
-                        );
-                        return prop?.GetValue(null)?.Equals(template.GetType()) ?? false;
-                    });
-
-                IDocumentGenerator generator = (IDocumentGenerator)Activator.CreateInstance(generatorType, template)!;
-                yield return generator;
-            }
         }
 
         /// <summary>
@@ -80,7 +57,7 @@ namespace LogiEdge.Service.DocumentGenerator.Services
 
                 // create an instance of the generator with the template as a constructor parameter
                 IDocumentGenerator<T> generator =
-                    (IDocumentGenerator<T>)Activator.CreateInstance(generatorType, template)!;
+                    (IDocumentGenerator<T>)Activator.CreateInstance(generatorType, serviceProvider, template)!;
                 yield return generator;
             }
         }

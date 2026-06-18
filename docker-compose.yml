@@ -10,5 +10,10 @@ services:
       - POSTGRES_DB=logiedge
     ports:
       - "5432:5432"
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    restart: always
+    ports:
+      - "3000:3000"
 volumes:
   logiedge-data:

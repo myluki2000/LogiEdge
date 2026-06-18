@@ -7,7 +7,7 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 {
     public interface IDocumentGenerator<TInput>: IDocumentGenerator
     {
-        public byte[] GenerateDocument(TInput input);
+        public Task<byte[]> GenerateDocumentAsync(TInput input);
 
         Type IDocumentGenerator.InputType => typeof(TInput);
     }

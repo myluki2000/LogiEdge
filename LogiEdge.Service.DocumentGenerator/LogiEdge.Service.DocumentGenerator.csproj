@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Haukcode.WkHtmlToPdfDotNet" Version="1.5.95" />
+    <PackageReference Include="Gotenberg.Sharp.Api.Client" Version="3.0.0" />
   </ItemGroup>
 
   <ItemGroup>
