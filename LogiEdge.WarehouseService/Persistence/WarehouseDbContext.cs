@@ -5,20 +5,12 @@ using LogiEdge.Shared.Conventions;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace LogiEdge.WarehouseService.Persistence
 {
-    public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options) : LogiEdgeDbContext(options)
+    public class WarehouseDbContext(DbContextOptions<WarehouseDbContext> options, IConfiguration configuration) 
+        : LogiEdgeDbContext<WarehouseDbContext>(options, configuration)
     {
         public DbSet<Warehouse> Warehouses { get; set; }
 
@@ -27,6 +19,12 @@ namespace LogiEdge.WarehouseService.Persistence
         public DbSet<ItemSchema> ItemSchemas { get; set; }
 
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
+
+        public DbSet<InboundTransactionPart> InboundTransactionParts { get; set; }
+
+        public DbSet<OutboundTransactionPart> OutboundTransactionParts { get; set; }
+
+        public DbSet<RelocationTransactionPart> RelocationTransactions { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

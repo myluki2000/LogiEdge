@@ -30,6 +30,7 @@ namespace LogiEdge.WarehouseService.Data
         [DisplayColumnProperty]
         public required bool IsQuarantined { get; set; }
 
+        public Guid? RelatedTransactionId { get; set; }
         public InventoryTransaction? RelatedTransaction { get; set; }
 
         public bool IsInWarehouse()

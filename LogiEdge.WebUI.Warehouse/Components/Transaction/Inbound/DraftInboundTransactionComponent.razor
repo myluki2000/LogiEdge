@@ -107,12 +107,15 @@
         return propertyColumns;
     }
 
-    private InventoryTransaction GetTransaction(WarehouseDbContext ctx)
+    private InventoryTransaction GetTransaction(WarehouseDbContext ctx, bool tracking = false)
     {
         InventoryTransaction? transaction = ctx.InventoryTransactions
             .Include(tr => tr.InboundTransactionPart)
                 .ThenInclude(tr => tr.DraftItems)
                     .ThenInclude(di => di.Customer)
+            .Include(tr => tr.InboundTransactionPart)
+                .ThenInclude(tr => tr.DraftItems)
+                    .ThenInclude(di => di.Warehouse)
             .Include(tr => tr.InboundTransactionPart)
                 .ThenInclude(tr => tr.DraftItems)
                     .ThenInclude(di => di.ItemSchema)
@@ -137,6 +140,7 @@
             ctx.Attach(item.ItemSchema);
 
             InventoryTransaction transaction = GetTransaction(ctx);
+            ctx.Attach(transaction);
             transaction.InboundTransactionPart.DraftItems.Add(item);
             ctx.SaveChanges();
 
@@ -161,7 +165,6 @@
     private async Task SaveItemPropertyValueToDatabaseAsync(InboundDraftItem item, string propertyName)
     {
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.Attach(item);
         ctx.Update(item);
         await ctx.SaveChangesAsync();
     }

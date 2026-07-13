@@ -36,6 +36,8 @@
 
     private IQueryable<ItemState> ItemStateQueryableFactory(WarehouseDbContext ctx)
     {
+        // TODO: No need to load all ItemStates, the one which is the latest before ItemStateParameters.AtTime is enough.
+        // Can use .MaxBy() as soon as it is supported in EF Core 11
         IQueryable<Item> itemsQueryable = ItemsQueryableFactory.Invoke(ctx)
             .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Comments)
             .Include(it => it.ItemStates).ThenInclude(st => st.Warehouse)

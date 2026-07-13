@@ -17,9 +17,7 @@ namespace LogiEdge.BaseService
     {
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string applicationConnectionString = builder.Configuration.GetConnectionString("DatabaseConnection")
-                                                 ?? throw new InvalidOperationException("Connection string 'ApplicationConnection' not found.");
-            builder.Services.AddDbContextFactory<ApplicationDbContext>(options => options.UseNpgsql(applicationConnectionString));
+            builder.Services.AddDbContextFactory<ApplicationDbContext>();
             builder.Services.AddSingleton<MemoryCacheService>();
             builder.Services.AddSingleton<SettingsService>(provider =>
             {

@@ -1,10 +1,11 @@
 ﻿using LogiEdge.BaseService.Data;
 using LogiEdge.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace LogiEdge.BaseService.Persistence
 {
-    internal class ApplicationDbContext : LogiEdgeDbContext
+    internal class ApplicationDbContext : LogiEdgeDbContext<ApplicationDbContext>
     {
         /// <summary>
         /// Key-Value (both strings) store for global settings.
@@ -12,7 +13,7 @@ namespace LogiEdge.BaseService.Persistence
         public required DbSet<SettingsEntry> Settings { get; init; }
         public required DbSet<FileAttachment> Attachments { get; init; }
 
-        public ApplicationDbContext(DbContextOptions options) : base(options)
+        public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IConfiguration configuration) : base(options, configuration)
         {
         }
 

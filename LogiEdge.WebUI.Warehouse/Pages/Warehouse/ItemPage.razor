@@ -16,8 +16,8 @@
     Item item = warehouseDbContext.Items
         .Include(x => x.Comments)
         .Include(x => x.Customer)
-        .Include(x => x.ItemStates)
-        .ThenInclude(st => st.Warehouse)
+        //.Include(x => x.ItemStates)
+        //.ThenInclude(st => st.Warehouse)
         .First(x => x.Id == Guid.Parse(ItemId));
 }
 
@@ -35,6 +35,10 @@
     <tr>
         <th>ItemNumber</th>
         <td><a href="/items?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
+    </tr>
+    <tr>
+        <th>Entry Date</th>
+        <td>@item.EntryDate</td>
     </tr>
     <tr>
         <th>Comments</th>
@@ -60,7 +64,7 @@
 </table>
 
 <h4>Item States:</h4>
-@foreach (ItemState state in item.ItemStates)
+@foreach (ItemState state in item.ItemStates ?? [])
 {
     <table>
         <tr>

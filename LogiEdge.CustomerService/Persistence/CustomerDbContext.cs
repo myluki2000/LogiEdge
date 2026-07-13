@@ -6,13 +6,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace LogiEdge.CustomerService.Persistence
 {
-    public class CustomerDbContext : LogiEdgeDbContext
+    public class CustomerDbContext : LogiEdgeDbContext<CustomerDbContext>
     {
         public DbSet<Customer> Customers { get; init; }
 
-        public CustomerDbContext(DbContextOptions<CustomerDbContext> options) : base(options) { }
+        public CustomerDbContext(DbContextOptions<CustomerDbContext> options, IConfiguration configuration) : base(options, configuration) { }
     }
 }

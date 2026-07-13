@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20260530174939_InitialCreate")]
+    [Migration("20260620080307_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -283,10 +283,13 @@ namespace LogiEdge.WarehouseService.Migrations
                         .IsRequired()
                         .HasColumnType("uuid[]");
 
+                    b.Property<DateTime?>("BookedDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("CreatedByUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("Date")
+                    b.Property<DateTime>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("HandledByWorker")

@@ -19,12 +19,8 @@ namespace LogiEdge.Service.DocumentGenerator
     {
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string connectionString = builder.Configuration.GetConnectionString("DatabaseConnection")
-                                      ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-
             builder.Services.AddDbContextFactory<DocumentGeneratorDbContext>(options =>
             {
-                options.UseNpgsql(connectionString);
                 options.EnableDetailedErrors();
                 options.EnableSensitiveDataLogging();
             });

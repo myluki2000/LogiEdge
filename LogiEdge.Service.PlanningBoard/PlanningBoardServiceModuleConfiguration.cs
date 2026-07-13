@@ -15,9 +15,7 @@ namespace LogiEdge.Service.PlanningBoard
     {
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string connectionString = builder.Configuration.GetConnectionString("DatabaseConnection")
-                                      ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-            builder.Services.AddDbContextFactory<PlanningBoardDbContext>(options => options.UseNpgsql(connectionString));
+            builder.Services.AddDbContextFactory<PlanningBoardDbContext>();
         }
 
         public void OnAppBuilt(WebApplication app)

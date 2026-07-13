@@ -22,10 +22,7 @@ namespace LogiEdge.CustomerService
 
         public void RegisterServices(WebApplicationBuilder builder)
         {
-            string connectionString = builder.Configuration.GetConnectionString("DatabaseConnection") 
-                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-           
-            builder.Services.AddDbContextFactory<CustomerDbContext>(options => options.UseNpgsql(connectionString));
+            builder.Services.AddDbContextFactory<CustomerDbContext>();
             builder.Services.AddSingleton<CustomerManagementService>();
         }
     }

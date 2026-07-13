@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using EntityFrameworkCore.Projectables.Extensions;
 using LogiEdge.CustomerService.Data;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
@@ -17,11 +18,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             InventoryTransaction? transaction = ctx.InventoryTransactions
-                .Include(t => t.InboundTransactionPart).ThenInclude(i => i.DraftItems)
-                .Include(t => t.InboundTransactionPart).ThenInclude(i => i.NewItemStates)
-                .Include(t => t.OutboundTransactionPart).ThenInclude(o => o.DraftSelectedItems)
-                .Include(t => t.OutboundTransactionPart).ThenInclude(o => o.NewItemStates)
-                .Include(t => t.RelocationTransactionPart)
+                .AsTracking()
                 .FirstOrDefault(t => t.Id == transactionId);
 
             if (transaction == null)
@@ -37,9 +34,14 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             transaction.State = TransactionState.BOOKED;
             transaction.BookedDate = DateTime.UtcNow;
 
-            BookInboundTransactionPart(ctx, transaction.InboundTransactionPart);
-            BookOutboundTransactionPart(transaction.OutboundTransactionPart);
-            BookRelocationTransactionPart(transaction.RelocationTransactionPart);
+            if(transaction.InboundTransactionPartId.HasValue)
+                await BookInboundTransactionPart(ctx, transaction.InboundTransactionPartId.Value, transaction.BookedDate.Value);
+
+            if(transaction.OutboundTransactionPartId.HasValue)
+                await BookOutboundTransactionPart(ctx, transaction.OutboundTransactionPartId.Value, transaction.BookedDate.Value);
+
+            if(transaction.RelocationTransactionPartId.HasValue)
+                await BookRelocationTransactionPart(ctx, transaction.RelocationTransactionPartId.Value);
 
             await ctx.SaveChangesAsync();
 
@@ -62,10 +64,17 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
-        private void BookInboundTransactionPart(WarehouseDbContext ctx, InboundTransactionPart? transactionPart)
+        private async Task BookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionPartId, DateTime bookDate)
         {
+            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+                .Include(i => i.Transaction)
+                .Include(i => i.DraftItems)
+                .Include(i => i.NewItemStates)
+                .FirstOrDefaultAsync();
+
             if (transactionPart == null)
-                return;
+                throw new Exception("BookInboundTransactionPart called with transaction part id " + transactionPartId +
+                                    ", which could not be found.");
 
             transactionPart.NewItemStates ??= [];
 
@@ -73,35 +82,54 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             {
                 try
                 {
-                    Item item = CreateItemForDraftItem(transactionPart, draftItem);
+                    Item item = CreateItemForDraftItem(transactionPart, draftItem, bookDate);
                     ctx.Items.Add(item);
                     transactionPart.NewItemStates.AddRange(item.ItemStates);
                 }
                 catch (Exception ex)
                 {
-                    throw new BookingException($"Could not book inbound transaction with Id {transactionPart.Transaction.Id}.", ex);
+                    throw new BookingException($"Could not book inbound transaction part with Id {transactionPart.Id}.", ex);
                 }
             }
         }
 
-        private void BookOutboundTransactionPart(OutboundTransactionPart? transactionPart)
+        private async Task BookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionPartId, DateTime bookDate)
         {
+            var a = await ctx.OutboundTransactionParts
+                .Select(x =>
+                new {
+                    x.Id,
+                    DraftSelectedItems = x.DraftSelectedItems.Select(y => new
+                    {
+                        y.CurrentState,
+                        y
+                    }),
+                    x.NewItemStates,
+                    x.Transaction
+                })
+                .ExpandProjectables()
+                .FirstOrDefaultAsync(t => t.Id == transactionPartId);
+
+            OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
+                .AsTracking()
+                .Include(o => o.DraftSelectedItems)
+                .Include(o => o.NewItemStates)
+                .Include(p => p.Transaction)
+                .FirstOrDefaultAsync(t => t.Id == transactionPartId);
+
             if (transactionPart == null)
                 return;
 
             transactionPart.NewItemStates ??= [];
 
-            if (transactionPart.Transaction.BookedDate == null)
-                throw new Exception("Transaction has no BookedDate set even though it was booked!");
-
             foreach (Item item in transactionPart.DraftSelectedItems!)
             {
                 ItemState newItemState = new()
                 {
-                    Date = transactionPart.Transaction.BookedDate.Value,
+                    Date = bookDate,
                     Location = SpecialLocations.SHIPPED,
-                    WarehouseId = item.ItemStates.Last().WarehouseId,
-                    IsQuarantined = item.ItemStates.Last().IsQuarantined,
+                    WarehouseId = item.CurrentState!.WarehouseId,
+                    IsQuarantined = item.CurrentState!.IsQuarantined,
                 };
 
                 item.ItemStates.Add(newItemState);
@@ -109,17 +137,13 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
         }
 
-        private void BookRelocationTransactionPart(RelocationTransactionPart? transactionPart)
+        private async Task BookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionPartId)
         {
-            if (transactionPart == null)
-                return;
+            // TODO: Implement booking logic for relocation transaction part
         }
 
-        private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem)
+        private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem, DateTime bookDate)
         {
-            if (transactionPart.Transaction.BookedDate == null)
-                throw new Exception("Transaction has no BookedDate set even though it was booked!");
-
             Item item = new()
             {
                 Id = Guid.NewGuid(),
@@ -133,16 +157,16 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     {
                         Text = c,
                         AuthorId = transactionPart.Transaction.CreatedByUserId,
-                        Date = transactionPart.Transaction.BookedDate.Value,
+                        Date = bookDate,
                         Retracted = false,
                     })),
                 ItemStates = [],
             };
             item.ItemStates.Add(new ItemState()
             {
-                Date = transactionPart.Transaction.BookedDate.Value,
+                Date = bookDate,
                 Location = draftItem.Location,
-                RelatedTransaction = transactionPart.Transaction,
+                RelatedTransactionId = transactionPart.Transaction.Id,
                 WarehouseId = draftItem.WarehouseId,
                 Item = item,
                 IsQuarantined = draftItem.IsQuarantined,

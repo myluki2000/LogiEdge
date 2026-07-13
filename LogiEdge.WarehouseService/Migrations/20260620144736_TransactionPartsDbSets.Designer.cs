@@ -14,8 +14,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20260604124608_AddBookedDate")]
-    partial class AddBookedDate
+    [Migration("20260620144736_TransactionPartsDbSets")]
+    partial class TransactionPartsDbSets
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -270,7 +270,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InboundTransactionPart");
+                    b.ToTable("InboundTransactionParts");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
@@ -340,7 +340,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OutboundTransactionPart");
+                    b.ToTable("OutboundTransactionParts");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", b =>
@@ -351,7 +351,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RelocationTransactionPart");
+                    b.ToTable("RelocationTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>

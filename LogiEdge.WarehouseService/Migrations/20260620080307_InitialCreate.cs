@@ -125,7 +125,8 @@ namespace LogiEdge.WarehouseService.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CreatedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    BookedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
                     HandledByWorker = table.Column<string>(type: "text", nullable: false),
                     AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),

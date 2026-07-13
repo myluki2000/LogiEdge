@@ -267,7 +267,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InboundTransactionPart");
+                    b.ToTable("InboundTransactionParts");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
@@ -337,7 +337,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OutboundTransactionPart");
+                    b.ToTable("OutboundTransactionParts");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", b =>
@@ -348,7 +348,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RelocationTransactionPart");
+                    b.ToTable("RelocationTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>

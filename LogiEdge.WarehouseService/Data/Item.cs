@@ -2,8 +2,10 @@
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using EntityFrameworkCore.Projectables;
 using LogiEdge.CustomerService.Data;
 using LogiEdge.Shared.Attributes;
+using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.WarehouseService.Data
 {
@@ -41,18 +43,17 @@ namespace LogiEdge.WarehouseService.Data
         /// is not in the PRE_ARRIVAL or SHIPPED location.
         /// </summary>
         [DisplayColumnProperty]
-        [NotMapped]
-        public DateTime? EntryDate
-        {
-            get
-            {
-                ItemState? state = ItemStates
-                    .Where(st => st.Location != SpecialLocations.PRE_ARRIVAL)
-                    .MinBy(st => st.Date);
+        [Projectable(UseMemberBody = nameof(EntryDateImpl))]
+        public DateTime? EntryDate { get; private set; }
+        private DateTime? EntryDateImpl => ItemStates
+            .Where(state =>
+                state.Location != SpecialLocations.PRE_ARRIVAL && state.Location != SpecialLocations.SHIPPED)
+            .Select(x => x.Date)
+            .Min();
 
-                return state?.Date;
-            }
-        }
+        [Projectable(UseMemberBody = nameof(CurrentStateImpl))]
+        public ItemState? CurrentState { get; private set; }
+        private ItemState? CurrentStateImpl => ItemStates.OrderByDescending(s => s.Date).FirstOrDefault();
 
         /// <summary>
         /// Returns the value of the additional property with the given property name, deserialized to an object of appropriate type.
