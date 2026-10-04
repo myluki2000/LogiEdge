@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
     public record ItemsTableSortParameters
     {

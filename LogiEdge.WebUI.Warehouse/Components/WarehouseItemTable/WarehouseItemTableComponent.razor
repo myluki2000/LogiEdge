@@ -1,10 +1,10 @@
 ﻿@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
-@using Microsoft.EntityFrameworkCore
-
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.ItemsTable
 
 @code {
+    [Parameter]
+    public required ItemsTableResultDto Items { get; set; }
     [Parameter]
     public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
     [Parameter]
@@ -26,29 +26,13 @@
     public EventCallback<ItemsTableStateParameters> ItemStateParametersChanged { get; set; }
 
     [Parameter]
-    public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
-
-    [Parameter]
-    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
+    public RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
     public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
-
-    private IQueryable<ItemState> ItemStateQueryableFactory(WarehouseDbContext ctx)
-    {
-        // TODO: No need to load all ItemStates, the one which is the latest before ItemStateParameters.AtTime is enough.
-        // Can use .MaxBy() as soon as it is supported in EF Core 11
-        IQueryable<Item> itemsQueryable = ItemsQueryableFactory.Invoke(ctx)
-            .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Comments)
-            .Include(it => it.ItemStates).ThenInclude(st => st.Warehouse)
-            .Include(it => it.ItemStates).ThenInclude(st => st.Item).ThenInclude(it => it.Customer);
-
-        ItemsTableStateFilter filter = new();
-        return filter.Filter(itemsQueryable, ItemStateParameters);
-    }
 }
 
-<WarehouseItemAtStateTableComponent ItemStateQueryableFactory="ItemStateQueryableFactory"
+<WarehouseItemAtStateTableComponent Items="Items"
                                     FilterParameters="FilterParameters"
                                     FilterParametersChanged="FilterParametersChanged"
                                     SortParameters="SortParameters"

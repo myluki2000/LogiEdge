@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
     internal class ItemsTableStateFilter
     {

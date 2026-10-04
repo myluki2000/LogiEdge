@@ -1,11 +1,9 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using LogiEdge.CustomerService.Data;
+using LogiEdge.Shared.Attributes;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using EntityFrameworkCore.Projectables;
-using LogiEdge.CustomerService.Data;
-using LogiEdge.Shared.Attributes;
-using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.WarehouseService.Data
 {
@@ -39,23 +37,6 @@ namespace LogiEdge.WarehouseService.Data
         public required List<ItemState> ItemStates { get; set; }
 
         /// <summary>
-        /// The date when the item first entered one of the warehouses of the system, i.e. the date of the first ItemState which
-        /// is not in the PRE_ARRIVAL or SHIPPED location.
-        /// </summary>
-        [DisplayColumnProperty]
-        [Projectable(UseMemberBody = nameof(EntryDateImpl))]
-        public DateTime? EntryDate { get; private set; }
-        private DateTime? EntryDateImpl => ItemStates
-            .Where(state =>
-                state.Location != SpecialLocations.PRE_ARRIVAL && state.Location != SpecialLocations.SHIPPED)
-            .Select(x => x.Date)
-            .Min();
-
-        [Projectable(UseMemberBody = nameof(CurrentStateImpl))]
-        public ItemState? CurrentState { get; private set; }
-        private ItemState? CurrentStateImpl => ItemStates.OrderByDescending(s => s.Date).FirstOrDefault();
-
-        /// <summary>
         /// Returns the value of the additional property with the given property name, deserialized to an object of appropriate type.
         /// If the item does not have an additional property with the given name, returns null.
         ///
@@ -67,10 +48,16 @@ namespace LogiEdge.WarehouseService.Data
                 throw new Exception("ItemSchema of this item needs to be .Include()ed to use .GetAdditionalProperty() method.");
 
             ItemSchemaProperty? property = ItemSchema.AdditionalProperties.FirstOrDefault(pr => pr.Name == propertyName);
+            
             if (property == null)
                 return null;
-            
-            JsonElement element = AdditionalProperties.RootElement.GetProperty(propertyName);
+
+            return GetAdditionalProperty(property);
+        }
+
+        public object? GetAdditionalProperty(ItemSchemaProperty property)
+        {
+            JsonElement element = AdditionalProperties.RootElement.GetProperty(property.Name);
             object? value = property.Type switch
             {
                 ItemSchemaProperty.SupportedTypes.String => element.GetString(),
@@ -78,7 +65,7 @@ namespace LogiEdge.WarehouseService.Data
                 ItemSchemaProperty.SupportedTypes.Single => element.GetSingle(),
                 ItemSchemaProperty.SupportedTypes.Boolean => element.GetBoolean(),
                 ItemSchemaProperty.SupportedTypes.DateTime => element.GetDateTime(),
-                _ => throw new Exception($"Unknown type '{property.Type}' for property '{propertyName}'.")
+                _ => throw new Exception($"Unknown type '{property.Type}' for property '{property.Name}'.")
             };
 
             return value;

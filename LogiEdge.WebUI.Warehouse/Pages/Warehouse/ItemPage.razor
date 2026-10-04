@@ -1,9 +1,12 @@
 ﻿@page "/warehouse/item/{ItemId}"
 @using System.Text.Json
+@using AutoMapper
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Persistence
 @using Microsoft.EntityFrameworkCore
+@using AutoMapper.QueryableExtensions
 
+@inject IConfigurationProvider AutoMapperConfig
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
 
 @code {
@@ -14,11 +17,9 @@
 @{
     WarehouseDbContext warehouseDbContext = WarehouseDbContextFactory.CreateDbContext();
     Item item = warehouseDbContext.Items
-        .Include(x => x.Comments)
-        .Include(x => x.Customer)
-        //.Include(x => x.ItemStates)
-        //.ThenInclude(st => st.Warehouse)
-        .First(x => x.Id == Guid.Parse(ItemId));
+        .Where(x => x.Id == Guid.Parse(ItemId))
+        .Include(it => it.ItemStates)
+        .First();
 }
 
 <h3>ItemPage</h3>
@@ -38,7 +39,7 @@
     </tr>
     <tr>
         <th>Entry Date</th>
-        <td>@item.EntryDate</td>
+        <td>@item.ItemStates.Where(x => x.IsInWarehouse).MinBy(x => x.Date)</td>
     </tr>
     <tr>
         <th>Comments</th>
@@ -77,7 +78,7 @@
         </tr>
         <tr>
             <th>Warehouse</th>
-            <td><a href="/items?WarehouseId=@(state.WarehouseId)">@state.Warehouse.Name</a></td>
+            <td><a href="/items?WarehouseId=@(state.WarehouseId)">@state.Warehouse?.Name</a></td>
         </tr>
     </table>
 }

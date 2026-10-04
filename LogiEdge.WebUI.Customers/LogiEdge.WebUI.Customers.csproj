@@ -8,7 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\LogiEdge.WebUI.Shared\GlobalUsings.cs" Link="GlobalUsings.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
+    <ProjectReference Include="..\LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

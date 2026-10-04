@@ -64,7 +64,10 @@ namespace LogiEdge
             }
 
             // auto mapper profiles
-            builder.Services.AddAutoMapper(cfg => { }, [typeof(Program).Assembly, ..modules.Select(x => x.Assembly).Distinct()]);
+            builder.Services.AddAutoMapper(cfg =>
+            {
+                cfg.AddMaps(modules.Select(x => x.Assembly).Distinct());
+            }, [typeof(Program).Assembly, ..modules.Select(x => x.Assembly).Distinct()]);
             
             // build app
             var app = builder.Build();

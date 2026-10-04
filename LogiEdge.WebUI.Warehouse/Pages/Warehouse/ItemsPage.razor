@@ -1,9 +1,13 @@
 ﻿@page "/warehouse/items"
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.Extensions.Primitives
+
 @inject NavigationManager NavigationManager
+@inject ItemsTableService ItemsTableService
 
 <h3>Items by Property</h3>
 
@@ -13,9 +17,11 @@
 
     private ItemsTableFilterParameters? FilterParameters { get; set; }
 
-    private ItemsTableStateParameters StateParameters { get; set; }
+    private ItemsTableStateParameters? StateParameters { get; set; }
 
     private ItemsTableColumnDisplayParameters? ColumnDisplayParameters { get; set; }
+
+    private ItemsTableResultDto? _items;
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
@@ -33,6 +39,9 @@
         // (as this one consumes everything as a wildcard, interpreted as additional item properties)
         FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
         StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
+
+        _items = await ItemsTableService.GetAllItemsAsync(SortParameters, FilterParameters, StateParameters);
+        StateHasChanged();
     }
 
     public static string GetPageUrlWithParams(IReadOnlyDictionary<string, StringValues>? queryParams = null)
@@ -83,7 +92,7 @@
         }
 
         ItemsTableStateParameters urlStateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
-        if (!urlStateParameters.Equals(StateParameters) && urlStateParameters != null)
+        if (!urlStateParameters.Equals(StateParameters) && StateParameters != null)
         {
             AddToNewQueryParameters(StateParameters.ToQueryParameters());
             changed = true;
@@ -136,19 +145,26 @@
     <span>Show Warehouse at Point in Time:</span>
     <InputDate TValue="DateTime?"
                Type="InputDateType.DateTimeLocal"
-               Value="StateParameters.AtTime"
+               Value="StateParameters?.AtTime"
                ValueChanged="(DateTime? dt) => StateParameters = StateParameters with { AtTime = dt }"
                ValueExpression="() => StateParameters.AtTime" />
 </div>
 
 
 
-<WarehouseItemTableComponent ItemsQueryableFactory="ctx => ctx.Items"
-                             ColumnDisplayParameters="ColumnDisplayParameters"
-                             ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
-                             FilterParameters="FilterParameters"
-                             FilterParametersChanged="OnFilterParametersChanged"
-                             SortParameters="SortParameters"
-                             SortParametersChanged="OnSortParametersChanged"
-                             ItemStateParameters="StateParameters"
-                             ItemStateParametersChanged="OnStateParametersChanged" />
+@if (_items != null)
+{
+    <WarehouseItemTableComponent Items="_items"
+                                 ColumnDisplayParameters="ColumnDisplayParameters"
+                                 ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
+                                 FilterParameters="FilterParameters"
+                                 FilterParametersChanged="OnFilterParametersChanged"
+                                 SortParameters="SortParameters"
+                                 SortParametersChanged="OnSortParametersChanged"
+                                 ItemStateParameters="StateParameters"
+                                 ItemStateParametersChanged="OnStateParametersChanged" />
+}
+else
+{
+    <p>Loading items...</p>
+}

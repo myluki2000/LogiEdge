@@ -16,6 +16,8 @@ namespace LogiEdge.WarehouseService.Persistence
 
         public DbSet<Item> Items { get; set; }
 
+        public DbSet<ItemState> ItemsStates { get; set; }
+
         public DbSet<ItemSchema> ItemSchemas { get; set; }
 
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
@@ -42,6 +44,21 @@ namespace LogiEdge.WarehouseService.Persistence
 
             modelBuilder.Entity<InventoryTransaction>()
                 .UseTpcMappingStrategy();
+
+            modelBuilder.Entity<InboundTransactionPart>()
+                .HasOne(p => p.Transaction)
+                .WithOne(t => t.InboundTransactionPart)
+                .HasForeignKey<InboundTransactionPart>(p => p.TransactionId);
+
+            modelBuilder.Entity<OutboundTransactionPart>()
+                .HasOne(p => p.Transaction)
+                .WithOne(t => t.OutboundTransactionPart)
+                .HasForeignKey<OutboundTransactionPart>(p => p.TransactionId);
+
+            modelBuilder.Entity<RelocationTransactionPart>()
+                .HasOne(p => p.Transaction)
+                .WithOne(t => t.RelocationTransactionPart)
+                .HasForeignKey<RelocationTransactionPart>(p => p.TransactionId);
         }
     }
 }

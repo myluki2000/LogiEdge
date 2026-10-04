@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using LogiEdge.Shared.Utility;
 
-namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
     public record ItemsTableStateParameters
     {

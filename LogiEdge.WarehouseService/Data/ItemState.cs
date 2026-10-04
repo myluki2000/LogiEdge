@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq.Expressions;
 using LogiEdge.Shared.Attributes;
 using LogiEdge.WarehouseService.Data.Transactions;
 
@@ -33,10 +34,11 @@ namespace LogiEdge.WarehouseService.Data
         public Guid? RelatedTransactionId { get; set; }
         public InventoryTransaction? RelatedTransaction { get; set; }
 
-        public bool IsInWarehouse()
-        {
-            bool inWarehouse = Location != SpecialLocations.PRE_ARRIVAL && Location != SpecialLocations.SHIPPED;
-            return inWarehouse;
-        }
+        public bool IsInWarehouse => IsInWarehouseExpr.Compile().Invoke(this);
+
+        public bool IsShipped => Location == SpecialLocations.SHIPPED;
+
+        public static Expression<Func<ItemState, bool>> IsInWarehouseExpr => st =>
+            st.Location != SpecialLocations.PRE_ARRIVAL && st.Location != SpecialLocations.SHIPPED;
     }
 }

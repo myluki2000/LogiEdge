@@ -1,11 +1,7 @@
-﻿using LogiEdge.WarehouseService.Data;
+﻿using LogiEdge.Shared.Utility;
+using LogiEdge.WarehouseService.Data;
+using LogiEdge.WarehouseService.Dto;
 using Microsoft.Extensions.Primitives;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using LogiEdge.Shared.Utility;
 
 namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {
@@ -38,12 +34,12 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             return
                 new List<string>
                 {
-                    nameof(Item.Id),
-                    nameof(Item.Customer),
-                    nameof(Item.ItemNumber),
-                    nameof(ItemState.Warehouse),
-                    nameof(ItemState.Location),
-                    nameof(Item.EntryDate)
+                    nameof(ItemsTableResultDto.ItemsTableItem.Id),
+                    nameof(ItemsTableResultDto.ItemsTableItem.Customer),
+                    nameof(ItemsTableResultDto.ItemsTableItem.ItemNumber),
+                    nameof(ItemsTableResultDto.ItemsTableItem.Warehouse),
+                    nameof(ItemsTableResultDto.ItemsTableItem.CurrentLocation),
+                    nameof(ItemsTableResultDto.ItemsTableItem.EntryDate)
                 }.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name));
 
         }

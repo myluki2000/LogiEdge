@@ -5,18 +5,14 @@
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.ItemsTable
 @using Microsoft.EntityFrameworkCore
 
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
-
 @code {
-    /// <summary>
-    /// Factory method which should return an IQueryable of the ItemState of each of the items of the table.
-    /// This method should only return one ItemState per Item, which represents the state of the item at the moment of the table.
-    /// </summary>
     [Parameter]
-    public required Func<WarehouseDbContext, IQueryable<ItemState>> ItemStateQueryableFactory { get; set; }
+    public required ItemsTableResultDto Items { get; set; }
 
     [Parameter]
     public required ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; }
@@ -34,14 +30,12 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
-    public RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
+    public RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
     public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
 
     private OrderedDictionary<string, bool> DisplayPropertyColumnsSetting { get; set; } = [];
-
-    private List<ItemState> ItemsAtMoment { get; set; } = [];
 
     private string? _editingFilterProperty;
 
@@ -84,55 +78,24 @@
         SortParametersChanged.InvokeAsync(SortParameters);
     }
 
-    public override async Task SetParametersAsync(ParameterView parameters)
+    protected override async Task OnParametersSetAsync()
     {
-        await base.SetParametersAsync(parameters);
-
-        ItemsTablePropertyFilter itemsTablePropertyFilter = new();
-
-        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-
-        IQueryable<ItemState> itemStatesQueryable = itemsTablePropertyFilter.Filter(ItemStateQueryableFactory.Invoke(ctx), FilterParameters);
-
-        // get the used item schemas and extract the additional properties our items could have
-        // When we get the schema entities directly, for some reason Distinct() does not work properly,
-        // so we first get the distinct IDs and then query the schemas by their IDs.
-        _itemSchemas = itemStatesQueryable
-            .Select(st => st.Item.ItemSchemaId)
-            .Distinct()
-            .ToList()
-            .Select(id => ctx.ItemSchemas.Include(sch => sch.AdditionalProperties).First(sch => sch.Id == id))
-            .ToHashSet();
-        List<string> schemasAdditionalProperties = _itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name).ToList();
-
-        // get a list of column property names which are allowed
-        List<string> allowedPropertyColumns = typeof(Item)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
-            .Select(p => p.Name)
-            .ToList();
-        allowedPropertyColumns.AddRange(typeof(ItemState)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)))
-            .Select(p => p.Name));
-        allowedPropertyColumns.AddRange(schemasAdditionalProperties);
+        await base.OnParametersSetAsync();
 
         DisplayPropertyColumnsSetting = [];
 
+        List<string> displayablePropertyColumns = Items.ItemProperties.Where(x => x.IsDisplayable).Select(x => x.Name).ToList();
+
         foreach (string columnName in ColumnDisplayParameters.GetColumnsToDisplayOrDefault(_itemSchemas))
         {
-            if (allowedPropertyColumns.Contains(columnName))
+            if (displayablePropertyColumns.Contains(columnName))
                 DisplayPropertyColumnsSetting.Add(columnName, true);
         }
 
-        foreach (string columnName in allowedPropertyColumns)
+        foreach (string columnName in displayablePropertyColumns)
         {
             DisplayPropertyColumnsSetting.TryAdd(columnName, false);
         }
-
-        // sort items
-        ItemsTableSorter itemsSorter = new();
-        ItemsAtMoment = itemsSorter.Sort(itemStatesQueryable.ToList(), SortParameters);
     }
 
     private async Task OnColumnsToDisplayChanged(OrderedDictionary<string, bool> columnsToDisplay)
@@ -142,30 +105,6 @@
             ColumnsToDisplay = columnsToDisplay.Where(col => col.Value).Select(col => col.Key).ToList()
         };
         await ColumnDisplayParametersChanged.InvokeAsync(ColumnDisplayParameters);
-    }
-
-    private object? GetItemPropertyValue(Item item, ItemState itemState, string propertyName)
-    {
-        PropertyInfo? itemProperty = item.GetType().GetProperty(propertyName);
-        PropertyInfo? stateProperty = itemState.GetType().GetProperty(propertyName);
-        object? propertyValue = null;
-        if (itemProperty != null)
-        {
-            propertyValue = itemProperty.GetValue(item);
-        }
-        else if (stateProperty != null)
-        {
-            propertyValue = stateProperty?.GetValue(itemState);
-        }
-        else
-        {
-            // try finding it in the additional properties
-            // TODO: Support additional properties with non-string types
-            if (item.AdditionalProperties.RootElement.TryGetProperty(propertyName, out JsonElement propertyElement))
-                propertyValue = propertyElement.GetString();
-        }
-
-        return propertyValue;
     }
 }
 
@@ -276,18 +215,18 @@
 
     <span class="ms-3 flex-grow-1">
         Filter:
-        @foreach (string property in ItemsTableFilterParameters.FilterableProperties)
+        @foreach (ItemsTableResultDto.ItemPropertyInfo property in Items.ItemProperties.Where(x => x.IsFilterable))
         {
             <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
                                           FilterParametersChanged="FilterParametersChanged"
-                                          PropertyName="@property"
-                                          PropertyType="FilterParameters.GetParameterType(_itemSchemas, property)"
-                                          IsEditing="_editingFilterProperty == property"
-                                          IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property, isEditing)" />
+                                          PropertyName="@property.Name"
+                                          PropertyType="property.Type"
+                                          IsEditing="_editingFilterProperty == property.Name"
+                                          IsEditingChanged="isEditing => PropertyBadgeIsEditingChanged(property.Name, isEditing)" />
         }
     </span>
     
-    <span class="fst-italic">Showing @(ItemsAtMoment.Count) items.</span>
+    <span class="fst-italic">Showing @(Items.Items.Count) items.</span>
 </div>
 
 <table class="table table-striped table-hover">
@@ -343,7 +282,7 @@
     <tbody>
         @if (SortParameters.GroupByProperties.Length > 0)
         {
-            ItemsTableGrouper itemsGrouper = new();
+            /*ItemsTableGrouper itemsGrouper = new();
             List<IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState>> groupedItems = itemsGrouper.Group(ItemsAtMoment, SortParameters).ToList();
 
             @foreach (IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState> itemGroup in groupedItems)
@@ -368,22 +307,20 @@
                 }
 
                 @GroupedTableRowRenderFragment((itemGroup.Select(st => st.Item).ToList(), itemGroup.ToList(), properties))
-            }
+            }*/
         }
         else
         {
-            @foreach (ItemState itemState in ItemsAtMoment)
+            @foreach (ItemsTableResultDto.ItemsTableItem item in Items.Items)
             {
-                Item item = itemState.Item;
-
                 OrderedDictionary<string, object?> properties = new();
 
                 @foreach (string propertyName in propertyColumnsToDisplay)
                 {
-                    properties.Add(propertyName, GetItemPropertyValue(item, itemState, propertyName));
+                    properties.Add(propertyName, item.GetPropertyValue(propertyName));
                 }
 
-                @TableRowRenderFragment((item, itemState, properties))
+                @TableRowRenderFragment((item, properties))
             }
         }
     </tbody>

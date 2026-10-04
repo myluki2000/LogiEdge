@@ -12,7 +12,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
-namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
     internal class ItemsTablePropertyFilter()
     {

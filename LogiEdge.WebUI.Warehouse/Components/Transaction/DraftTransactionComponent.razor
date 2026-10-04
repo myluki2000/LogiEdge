@@ -12,6 +12,7 @@
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject WarehouseManagementService WarehouseService
+@inject TransactionManagementService TransactionService
 @inject IHxMessageBoxService MessageBox
 @inject NavigationManager NavigationManager
 @inject FileAttachmentService FileAttachmentService
@@ -78,7 +79,7 @@
 
     private async Task BookTransaction()
     {
-        await WarehouseService.BookTransactionAsync(Transaction.Id);
+        await TransactionService.BookTransactionAsync(Transaction.Id);
         await OnTransactionBooked.InvokeAsync();
     }
 
@@ -90,7 +91,7 @@
         if (!msgBoxResult)
             return;
 
-        await WarehouseService.DeleteTransactionAsync(TransactionId);
+        await TransactionService.DeleteTransactionAsync(TransactionId);
 
         NavigationManager.NavigateTo(RouteTo<Pages.Warehouse.Transactions.Index>(), true);
     }

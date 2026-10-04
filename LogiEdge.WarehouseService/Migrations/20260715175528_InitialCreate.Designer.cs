@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20260620080307_InitialCreate")]
+    [Migration("20260715175528_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -204,7 +204,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasIndex("WarehouseId");
 
-                    b.ToTable("ItemState");
+                    b.ToTable("ItemsStates");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundDraftItem", b =>
@@ -270,7 +270,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("InboundTransactionPart");
+                    b.ToTable("InboundTransactionParts");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>
@@ -340,7 +340,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OutboundTransactionPart");
+                    b.ToTable("OutboundTransactionParts");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.RelocationTransactionPart", b =>
@@ -351,7 +351,7 @@ namespace LogiEdge.WarehouseService.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RelocationTransactionPart");
+                    b.ToTable("RelocationTransactions");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Warehouse", b =>

@@ -10,6 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\LogiEdge.ExcelImporterService\LogiEdge.ExcelImporterService.csproj" />
     <ProjectReference Include="..\LogiEdge.Test.Shared\LogiEdge.Test.Shared.csproj" />
   </ItemGroup>

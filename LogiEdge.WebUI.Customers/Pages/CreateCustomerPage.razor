@@ -3,6 +3,7 @@
 @using LogiEdge.CustomerService.Services;
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Text.RegularExpressions;
+@using LogiEdge.WebUI.Shared.Shared
 
 @inject CustomerManagementService CustomerService;
 @inject NavigationManager NavManager;
@@ -21,7 +22,7 @@
             return;
         }
 
-        if (Regex.IsMatch(customerAbbreviation, @"^[A-Z]+$"))
+        if (!Regex.IsMatch(customerAbbreviation, @"^[A-Z]+$"))
         {
             feedback = "Abbreviation must only contain uppercase letters!";
             return;
@@ -39,7 +40,7 @@
         });
 
         feedback = "New customer created successfully!";
-        NavManager.NavigateTo("/customers");
+        NavManager.NavigateToRoute<Pages.CustomersPage>();
     }
 }
 

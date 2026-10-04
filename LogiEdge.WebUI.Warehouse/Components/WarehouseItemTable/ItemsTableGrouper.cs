@@ -1,11 +1,6 @@
-﻿using LogiEdge.WarehouseService.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq.Expressions;
+using LogiEdge.WarehouseService.Data;
+using LogiEdge.WarehouseService.Services.ItemsTable;
 
 namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {

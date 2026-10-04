@@ -7,6 +7,10 @@
 	<LangVersion>preview</LangVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Include="..\LogiEdge.WebUI.Shared\GlobalUsings.cs" Link="GlobalUsings.cs" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />

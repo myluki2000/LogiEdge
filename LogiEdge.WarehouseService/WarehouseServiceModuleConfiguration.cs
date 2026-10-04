@@ -2,6 +2,7 @@
 using LogiEdge.CustomerService.Persistence;
 using LogiEdge.Shared;
 using LogiEdge.WarehouseService.Persistence;
+using LogiEdge.WarehouseService.Services.ItemsTable;
 using LogiEdge.WarehouseService.Services.WarehouseManagement;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
@@ -23,6 +24,7 @@ namespace LogiEdge.WarehouseService
                 options.EnableSensitiveDataLogging();
             });
             builder.Services.AddSingleton<WarehouseManagementService>();
+            builder.Services.AddSingleton<ItemsTableService>();
         }
 
         public void OnAppBuilt(WebApplication app)

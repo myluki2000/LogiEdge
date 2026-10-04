@@ -13,9 +13,7 @@ namespace LogiEdge.WarehouseService.Mapping
     {
         public WarehouseMappingProfile()
         {
-            // Define your object-object mapping configurations here
-            // Example:
-            // CreateMap<Source, Destination>();
+            
         }
     }
 }

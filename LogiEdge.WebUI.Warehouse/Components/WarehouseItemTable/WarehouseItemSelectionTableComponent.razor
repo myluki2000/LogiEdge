@@ -1,8 +1,13 @@
 ﻿@using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.ItemsTable
 @using Microsoft.AspNetCore.Components.Forms
 @code {
+    [Parameter]
+    public required ItemsTableResultDto Items { get; set; }
+
     [Parameter]
     public int SuggestedSelectedItemCount { get; set; }
 
@@ -34,19 +39,19 @@
     [Parameter]
     public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
 
-    private RenderFragment<(Item item, ItemState itemState, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
+    private RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
 
     private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? _groupedTableRowRenderFragment;
 
-    private void OnItemSelectionCheckboxChanged(ItemState itemState, bool newValue)
+    private void OnItemSelectionCheckboxChanged(Guid itemId, bool newValue)
     {
-        if (SelectedItemIds.Any(id => id == itemState.ItemId) && !newValue)
+        if (SelectedItemIds.Any(id => id == itemId) && !newValue)
         {
-            SelectedItemIds.Remove(itemState.ItemId);
+            SelectedItemIds.Remove(itemId);
         }
-        else if (SelectedItemIds.All(id => id != itemState.ItemId) && newValue)
+        else if (SelectedItemIds.All(id => id != itemId) && newValue)
         {
-            SelectedItemIds.Add(itemState.ItemId);
+            SelectedItemIds.Add(itemId);
         }
     }
 
@@ -83,7 +88,7 @@
                     {
                         <input type="checkbox"
                                checked="@SelectedItemIds.Any(id => id == data.item.Id)"
-                               @onchange="args => OnItemSelectionCheckboxChanged(data.itemState, (bool)(args.Value ?? false))" />
+                               @onchange="args => OnItemSelectionCheckboxChanged(data.item.Id, (bool)(args.Value ?? false))" />
                     }
 
                     <PropertyValueComponent PropertyValue="@property.Value"/>
@@ -133,7 +138,7 @@
         };
 }
 
-<WarehouseItemTableComponent ItemsQueryableFactory="ItemsQueryableFactory"
+<WarehouseItemTableComponent Items="Items"
                              ColumnDisplayParameters="ColumnDisplayParameters"
                              ColumnDisplayParametersChanged="ColumnDisplayParametersChanged"
                              FilterParameters="FilterParameters"

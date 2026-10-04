@@ -5,7 +5,7 @@ using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using Microsoft.Extensions.Primitives;
 
-namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
     public record ItemsTableFilterParameters
     {

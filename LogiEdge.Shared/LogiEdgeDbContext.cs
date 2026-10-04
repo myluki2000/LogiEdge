@@ -9,7 +9,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace LogiEdge.Shared
 {
-    public class LogiEdgeDbContext<TContext> : DbContext where TContext : DbContext
+    public abstract class LogiEdgeDbContext<TContext> : DbContext where TContext : DbContext
     {
         private readonly IConfiguration _configuration;
 
@@ -27,8 +27,7 @@ namespace LogiEdge.Shared
 
             optionsBuilder
                 .UseNpgsql(applicationConnectionString)
-                .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking)
-                .UseProjectables();
+                .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
         }
 
         protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

@@ -3,11 +3,14 @@
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject ItemsTableService ItemsTableService
 
 @code
 {
@@ -21,9 +24,11 @@
     private ItemsTableSortParameters? _sortParams;
     private ItemsTableColumnDisplayParameters? _columnDisplayParams;
 
-    public override async Task SetParametersAsync(ParameterView parameters)
+    private ItemsTableResultDto? _itemsOfTable = null;
+
+    protected override async Task OnParametersSetAsync()
     {
-        await base.SetParametersAsync(parameters);
+        await base.OnParametersSetAsync();
 
         await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
 
@@ -33,6 +38,15 @@
             .Select(st => (st.Item.Customer, st.Item.ItemSchema, st.Warehouse))
             .Distinct()
             .ToList();
+
+        _filterParams ??= ItemsTableFilterParameters.FromQueryParameters([]);
+        _sortParams ??= ItemsTableSortParameters.FromQueryParameters([]);
+        _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
+
+        _itemsOfTable = await ItemsTableService.GetItemsAtStateAsync(
+            Transaction.InboundTransactionPart.NewItemStates.Select(x => x.Id), 
+            _sortParams, 
+            _filterParams);
     }
 
     private InventoryTransaction GetTransaction(WarehouseDbContext ctx)
@@ -89,13 +103,14 @@
     }
 }
 
-@{
-    _filterParams ??= ItemsTableFilterParameters.FromQueryParameters([]);
-    _sortParams ??= ItemsTableSortParameters.FromQueryParameters([]);
-    _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
+@if (_itemsOfTable != null)
+{
+    <WarehouseItemAtStateTableComponent Items="_itemsOfTable"
+                                        @bind-FilterParameters="_filterParams"
+                                        @bind-ColumnDisplayParameters="_columnDisplayParams"
+                                        @bind-SortParameters="_sortParams"/>
 }
-
-<WarehouseItemAtStateTableComponent ItemStateQueryableFactory="ItemStateQueryableFactory"
-                                    @bind-FilterParameters="_filterParams"
-                                    @bind-ColumnDisplayParameters="_columnDisplayParams"
-                                    @bind-SortParameters="_sortParams"/>
+else
+{
+    <HxSpinner />
+}

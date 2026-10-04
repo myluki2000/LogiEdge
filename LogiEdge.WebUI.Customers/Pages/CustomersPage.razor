@@ -1,0 +1,20 @@
+﻿@page "/customer"
+
+@using Havit.Blazor.Components.Web.Bootstrap
+@using LogiEdge.CustomerService.Data;
+@using LogiEdge.CustomerService.Services;
+@using LogiEdge.WebUI.Shared.Shared
+
+@inject CustomerManagementService CustomerService
+@inject NavigationManager NavigationManager
+
+<h3>Customers</h3>
+
+<ul>
+    @foreach(Customer customer in CustomerService.GetCustomers())
+    {
+        <li>@customer.Name [@customer.Abbreviation]</li>
+    }
+</ul>
+
+<HxButton Color="ThemeColor.Primary" OnClick="() => NavigationManager.NavigateToRoute<CreateCustomerPage>()" Text="Create New Customer" />

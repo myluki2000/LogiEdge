@@ -1,4 +1,46 @@
-﻿@code {
+﻿@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.ItemsTable
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+
+@inject OutboundTransactionService OutboundTransactionService
+@inject ItemsTableService ItemsTableService
+
+@code {
     [Parameter]
     public Guid TransactionId { get; set; }
+
+    private OutboundTransactionPart? _outboundTransactionPart = null;
+
+    private ItemsTableResultDto? _items = null;
+
+    private ItemsTableSortParameters _tableSortParams = ItemsTableSortParameters.FromQueryParameters([]);
+    private ItemsTableColumnDisplayParameters _tableColumnParams = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
+    private ItemsTableFilterParameters _tableFilterParams = ItemsTableFilterParameters.FromQueryParameters([]);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+
+        _outboundTransactionPart = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
+
+        _items = await ItemsTableService.GetItemsAtStateAsync(
+            await OutboundTransactionService.GetLastInWarehouseStateIds(TransactionId),
+            _tableSortParams,
+            _tableFilterParams);
+    }
+}
+
+@if (_outboundTransactionPart != null)
+{
+    <WarehouseItemAtStateTableComponent Items="_items"
+                                        @bind-ColumnDisplayParameters="_tableColumnParams"
+                                        @bind-FilterParameters="_tableFilterParams"
+                                        @bind-SortParameters="_tableSortParams" />
+}
+else
+{
+    <HxSpinner />
 }

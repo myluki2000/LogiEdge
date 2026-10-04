@@ -34,7 +34,7 @@ namespace LogiEdge.BaseService.Services
         {
             await using ApplicationDbContext context = await applicationDbContextFactory.CreateDbContextAsync();
 
-            SettingsEntry? setting = await context.Settings.FindAsync(key);
+            SettingsEntry? setting = await context.Settings.AsTracking().Where(x => x.Key == key).FirstOrDefaultAsync();
 
             if(setting == null)
                 context.Settings.Add(new SettingsEntry(key, value));
