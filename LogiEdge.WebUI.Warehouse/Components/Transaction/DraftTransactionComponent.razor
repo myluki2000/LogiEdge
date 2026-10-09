@@ -133,7 +133,7 @@
                                 Add Transaction Parts
                             </div>
                             <div class="card-body">
-                                @if (_transaction.HasInboundPart)
+                                @if (!_transaction.HasInboundPart)
                                 {
                                     <HxButton Text="Add Inbound Items" 
                                               CssClass="me-2 mb-2" 
@@ -141,7 +141,7 @@
                                               Color="ThemeColor.Primary" 
                                               Outline="true" />
                                 }
-                                @if (_transaction.HasOutboundPart)
+                                @if (!_transaction.HasOutboundPart)
                                 {
                                     <HxButton Text="Add Outbound Items"
                                               CssClass="me-2 mb-2"
@@ -149,7 +149,7 @@
                                               Color="ThemeColor.Primary"
                                               Outline="true" />
                                 }
-                                @if (_transaction.HasRelocationPart)
+                                @if (!_transaction.HasRelocationPart)
                                 {
                                     <HxButton Text="Add Relocation Items"
                                               CssClass="me-2 mb-2"

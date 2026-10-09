@@ -101,9 +101,9 @@ namespace LogiEdge.WarehouseService.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_RelocationTransactions", x => x.TransactionId);
+                    table.PrimaryKey("PK_RelocationTransactionParts", x => x.TransactionId);
                     table.ForeignKey(
-                        name: "FK_RelocationTransactions_InventoryTransactions_TransactionId",
+                        name: "FK_RelocationTransactionParts_InventoryTransactions_Transactio~",
                         column: x => x.TransactionId,
                         principalTable: "InventoryTransactions",
                         principalColumn: "Id",

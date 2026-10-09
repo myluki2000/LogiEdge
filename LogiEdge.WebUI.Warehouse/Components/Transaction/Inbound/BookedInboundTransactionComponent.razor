@@ -1,15 +1,9 @@
-﻿@using System.ComponentModel.DataAnnotations
-@using LogiEdge.CustomerService.Data
-@using LogiEdge.Shared.Attributes
-@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Data.Transactions
-@using LogiEdge.WarehouseService.Dto
-@using LogiEdge.WarehouseService.Persistence
+﻿@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.ItemsTable
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
-@using Microsoft.EntityFrameworkCore
 
-@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject TransactionManagementService TransactionService
 @inject ItemsTableService ItemsTableService
 
 @code
@@ -17,8 +11,7 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private InventoryTransaction Transaction { get; set; } = null!;
-    private List<(Customer customer, ItemSchema itemSchema, Warehouse warehouse)> ItemSchemasToShow { get; set; } = [];
+    private List<Guid> _inboundNewItemStateIds = [];
 
     private ItemsTableFilterParameters? _filterParams;
     private ItemsTableSortParameters? _sortParams;
@@ -30,76 +23,16 @@
     {
         await base.OnParametersSetAsync();
 
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-
-        Transaction = GetTransaction(ctx);
-
-        ItemSchemasToShow = Transaction.InboundTransactionPart.NewItemStates
-            .Select(st => (st.Item.Customer, st.Item.ItemSchema, st.Warehouse))
-            .Distinct()
-            .ToList();
+        _inboundNewItemStateIds = await TransactionService.GetInboundNewItemStateIds(TransactionId);
 
         _filterParams ??= ItemsTableFilterParameters.FromQueryParameters([]);
         _sortParams ??= ItemsTableSortParameters.FromQueryParameters([]);
         _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
 
         _itemsOfTable = await ItemsTableService.GetItemsAtStateAsync(
-            Transaction.InboundTransactionPart.NewItemStates.Select(x => x.Id), 
+            _inboundNewItemStateIds, 
             _sortParams, 
             _filterParams);
-    }
-
-    private InventoryTransaction GetTransaction(WarehouseDbContext ctx)
-    {
-        InventoryTransaction? transaction = ctx.InventoryTransactions
-            .Include(t => t.InboundTransactionPart)
-                .ThenInclude(tr => tr.NewItemStates)!
-                    .ThenInclude(st => st.Item)
-                        .ThenInclude(it => it.Customer)
-            .Include(t => t.InboundTransactionPart)
-                .ThenInclude(tr => tr.NewItemStates)!
-                    .ThenInclude(st => st.Item)
-                        .ThenInclude(it => it.ItemSchema)
-            .Include(t => t.InboundTransactionPart)
-                .ThenInclude(tr => tr.NewItemStates)
-                    .ThenInclude(st => st.Warehouse)
-            .FirstOrDefault(t => t.Id == TransactionId);
-
-        if (transaction == null)
-            throw new InvalidOperationException($"Transaction {TransactionId} not found.");
-
-        if (transaction.State != TransactionState.BOOKED)
-            throw new InvalidOperationException($"Transaction {TransactionId} is not in BOOKED state.");
-
-        return transaction;
-    }
-
-    private List<(string propertyName, Type propertyType)> GetItemPropertyColumns(ItemSchema schema)
-    {
-        List<(string propertyName, Type propertyType)> propertyColumns = typeof(Item)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
-                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
-            .Select(p => (p.Name, p.PropertyType))
-            .ToList();
-        propertyColumns.AddRange(typeof(ItemState)
-            .GetProperties()
-            .Where(p => Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)) &&
-                        !Attribute.IsDefined(p, typeof(KeyAttribute)))
-            .Select(p => (p.Name, p.PropertyType)));
-        propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x.Name, x.Type.ToType())));
-
-        return propertyColumns;
-    }
-
-    private IQueryable<ItemState> ItemStateQueryableFactory(WarehouseDbContext ctx)
-    {
-        InventoryTransaction transaction = GetTransaction(ctx);
-
-        if(transaction.InboundTransactionPart == null)
-            throw new Exception($"Transaction {transaction.Id} does not have an inbound transaction part!");
-
-        return ctx.Entry(transaction.InboundTransactionPart).Collection(tp => tp.NewItemStates).Query();
     }
 }
 

@@ -73,7 +73,7 @@
                     <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
                                                 OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
                     <hr />
-                    <TransactionFileAttachmentManagerComponent Transaction="Transaction" />
+                    <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" />
                 </div>
             </Content>
         </HxTab>

@@ -36,6 +36,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 BookedDate = transaction.BookedDate,
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
+                State = transaction.State,
                 HasInboundPart = await ctx.InboundTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
                 HasOutboundPart = await ctx.OutboundTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
                 HasRelocationPart = await ctx.RelocationTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
@@ -62,6 +63,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 BookedDate = transaction.BookedDate,
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
+                State = transaction.State,
                 InboundTransactionPart = ctx.InboundTransactionParts
                     .Where(t => t.TransactionId == transactionId)
                     .Include(t => t.DraftItems)
@@ -117,6 +119,33 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     })
                     .FirstOrDefaultAsync(),
             };
+        }
+
+        /// <summary>
+        /// Gets the ids of the item states created by the inbound part of a booked transaction.
+        /// </summary>
+        public async Task<List<Guid>> GetInboundNewItemStateIds(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+            
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.BOOKED)
+            {
+                throw new InvalidOperationException($"Transaction {transactionId} is not in BOOKED state.");
+            }
+
+            return await ctx.InboundTransactionParts
+                .Where(t => t.TransactionId == transactionId)
+                .SelectMany(t => t.NewItemStates!)
+                .Select(st => st.Id)
+                .ToListAsync();
         }
 
         public async Task SetTransactionTitle(Guid transactionId, string title)
