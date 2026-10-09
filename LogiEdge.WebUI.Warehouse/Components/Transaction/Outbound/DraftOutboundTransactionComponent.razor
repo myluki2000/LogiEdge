@@ -15,8 +15,6 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private InventoryTransaction Transaction { get; set; } = null!;
-
     private ItemsTableColumnDisplayParameters _transactionColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
     private ItemsTableFilterParameters _transactionFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
     private ItemsTableSortParameters _transactionSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
@@ -31,21 +29,16 @@
 
     private List<Guid> _modalSelectedItemIds = [];
 
-    private ItemsTableResultDto? _transactionItems = null;
-    private ItemsTableResultDto? _selectableItems = null;
+    private ItemsTableResultDto? _transactionItemsTableData = null;
+    private ItemsTableResultDto? _selectableItemsTableData = null;
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
-        await RefreshTransactionItems();
+        await RefreshTransactionData();
 
-        _selectableItems = await ItemsTableService.GetAllItemsAsync(
-            _selectionModalSortParameters, 
-            _selectionModalFilterParameters, 
-            _selectionModalStateParameters);
-        List<Guid> selectedItemsIds = Transaction.OutboundTransactionPart.DraftSelectedItems!.Select(it => it.Id).ToList();
-        _selectableItems.Items.RemoveAll(it => selectedItemsIds.Contains(it.Id));
+
     }
 
     private async Task ShowItemSelectionModal()
@@ -54,13 +47,23 @@
         await _itemSelectionModal.ShowAsync();
     }
 
-    private async Task RefreshTransactionItems()
+    private async Task RefreshTransactionData()
     {
-        _transactionItems = await ItemsTableService.GetItemsAsync(
-            (await OutboundTransactionService.GetOutboundTransactionPart(TransactionId)).DraftSelectedItems.Select(x => x.Id),
+        OutboundTransactionPart part = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
+
+        _transactionItemsTableData = await ItemsTableService.GetItemsAsync(
+            part.DraftSelectedItems.Select(x => x.Id),
             _transactionSortParameters,
             _transactionFilterParameters,
             _transactionStateParameters);
+
+        _selectableItemsTableData = await ItemsTableService.GetAllItemsAsync(
+            _selectionModalSortParameters,
+            _selectionModalFilterParameters,
+            _selectionModalStateParameters);
+        
+        List<Guid> selectedItemsIds = part.DraftSelectedItems!.Select(it => it.Id).ToList();
+        _selectableItemsTableData.Items.RemoveAll(it => selectedItemsIds.Contains(it.Id));
     }
 
     private async Task BtnItemSelectionModalOkOnClick()
@@ -69,7 +72,7 @@
 
         _modalSelectedItemIds = [];
 
-        await RefreshTransactionItems();
+        await RefreshTransactionData();
 
         await _itemSelectionModal.HideAsync();
     }
@@ -78,7 +81,7 @@
     {
         await OutboundTransactionService.DeleteOutboundItem(TransactionId, itemId);
 
-        await RefreshTransactionItems();
+        await RefreshTransactionData();
     }
 }
 
@@ -91,9 +94,9 @@
     Add Item
 </button>
 
-@if (_transactionItems != null)
+@if (_transactionItemsTableData != null)
 {
-    <WarehouseItemTableComponent Items="@_transactionItems"
+    <WarehouseItemTableComponent Items="@_transactionItemsTableData"
                                  @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
                                  @bind-FilterParameters="_transactionFilterParameters"
                                  @bind-SortParameters="_transactionSortParameters"
@@ -154,7 +157,8 @@ else
     <HxSpinner />
 }
 
-@if (Transaction.OutboundTransactionPart.DraftPlaceholderItems is { Count: > 0 })
+@* TODO: Implement the placeholder items display *@
+@*if (Transaction.OutboundTransactionPart.DraftPlaceholderItems is { Count: > 0 })
 {
     <h4>Items to be Selected</h4>
     <ul>
@@ -178,16 +182,16 @@ else
             </li>
         }
     </ul>
-}
+}*@
 
 <HxModal @ref="_itemSelectionModal" 
          Size="ModalSize.ExtraLarge"
          Scrollable="true"
          Title="Select an Item to Add to the Transaction">
     <BodyTemplate>
-        @if (_selectableItems != null)
+        @if (_selectableItemsTableData != null)
         {
-            <WarehouseItemSelectionTableComponent Items="@_selectableItems"
+            <WarehouseItemSelectionTableComponent Items="@_selectableItemsTableData"
                                                   @bind-SelectedItemIds="_modalSelectedItemIds"
                                                   @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
                                                   @bind-FilterParameters="_selectionModalFilterParameters"

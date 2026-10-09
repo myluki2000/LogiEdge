@@ -25,6 +25,8 @@ namespace LogiEdge.WarehouseService
             });
             builder.Services.AddSingleton<WarehouseManagementService>();
             builder.Services.AddSingleton<ItemsTableService>();
+            builder.Services.AddSingleton<TransactionManagementService>();
+            builder.Services.AddSingleton<OutboundTransactionService>();
         }
 
         public void OnAppBuilt(WebApplication app)

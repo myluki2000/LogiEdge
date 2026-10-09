@@ -26,7 +26,7 @@ namespace LogiEdge.WarehouseService.Persistence
 
         public DbSet<OutboundTransactionPart> OutboundTransactionParts { get; set; }
 
-        public DbSet<RelocationTransactionPart> RelocationTransactions { get; set; }
+        public DbSet<RelocationTransactionPart> RelocationTransactionParts { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -42,22 +42,23 @@ namespace LogiEdge.WarehouseService.Persistence
                 .HasForeignKey(x => x.ItemId)
                 .IsRequired();
 
+            // Configure Table-Per-Type (TPT) inheritance for InventoryTransactionPart
+            modelBuilder.Entity<InventoryTransactionPart>()
+                .UseTpcMappingStrategy()
+                .HasKey(p => p.TransactionId);
+
+            // Configure relationships
             modelBuilder.Entity<InventoryTransaction>()
-                .UseTpcMappingStrategy();
-
-            modelBuilder.Entity<InboundTransactionPart>()
-                .HasOne(p => p.Transaction)
-                .WithOne(t => t.InboundTransactionPart)
+                .HasOne(t => t.InboundTransactionPart)
+                .WithOne(p => p.Transaction)
                 .HasForeignKey<InboundTransactionPart>(p => p.TransactionId);
-
-            modelBuilder.Entity<OutboundTransactionPart>()
-                .HasOne(p => p.Transaction)
-                .WithOne(t => t.OutboundTransactionPart)
+            modelBuilder.Entity<InventoryTransaction>()
+                .HasOne(t => t.OutboundTransactionPart)
+                .WithOne(p => p.Transaction)
                 .HasForeignKey<OutboundTransactionPart>(p => p.TransactionId);
-
-            modelBuilder.Entity<RelocationTransactionPart>()
-                .HasOne(p => p.Transaction)
-                .WithOne(t => t.RelocationTransactionPart)
+            modelBuilder.Entity<InventoryTransaction>()
+                .HasOne(t => t.RelocationTransactionPart)
+                .WithOne(p => p.Transaction)
                 .HasForeignKey<RelocationTransactionPart>(p => p.TransactionId);
         }
     }

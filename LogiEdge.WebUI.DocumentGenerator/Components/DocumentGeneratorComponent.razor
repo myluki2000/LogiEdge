@@ -12,7 +12,7 @@
 
 @code {
     [Parameter]
-    public required TInputType InputData { get; set; }
+    public required Func<Task<TInputType>> InputDataFunc { get; set; }
     /// <summary>
     /// Callback which is raised when the user presses save for the generated document.
     /// </summary>
@@ -45,7 +45,8 @@
     {
         if (_selectedGenerator != null)
         {
-            _generatedFileAttachment = await DocumentGenerationService.GenerateDocument(_selectedGenerator, InputData);
+            TInputType inputData = await InputDataFunc.Invoke();
+            _generatedFileAttachment = await DocumentGenerationService.GenerateDocument(_selectedGenerator, inputData);
             _cachedOutputDocId = MemoryCacheService.CacheFile(new CachedFile()
             {
                 Data = _generatedFileAttachment.Data.Data,

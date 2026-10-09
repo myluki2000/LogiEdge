@@ -22,4 +22,8 @@
     <PackageReference Include="PDFsharp-MigraDoc" Version="6.2.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
 </Project>

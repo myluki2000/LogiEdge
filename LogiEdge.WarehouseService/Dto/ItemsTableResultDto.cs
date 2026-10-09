@@ -15,7 +15,7 @@ namespace LogiEdge.WarehouseService.Dto
     public class ItemsTableResultDto
     {
         public required List<ItemsTableItem> Items { get; set; }
-        public required List<ItemPropertyInfo> ItemProperties { get; set; }
+        public required List<ItemPropertyInfoDto> ItemProperties { get; set; }
 
         public class ItemsTableItem
         {
@@ -41,7 +41,7 @@ namespace LogiEdge.WarehouseService.Dto
             [DisplayColumnProperty]
             public required string ItemNumber { get; set; }
 
-            public required List<AdditionalProperty> AdditionalProperties { get; set; }
+            public required List<ItemAdditionalPropertyDto> AdditionalProperties { get; set; }
 
             [DisplayColumnProperty]
             public required SortedSet<Comment> Comments { get; set; }
@@ -62,23 +62,9 @@ namespace LogiEdge.WarehouseService.Dto
                 if (itemProperty != null)
                     return itemProperty.GetValue(this);
 
-                AdditionalProperty? additionalProperty = AdditionalProperties.FirstOrDefault(x => x.Name == propertyName);
+                ItemAdditionalPropertyDto? additionalProperty = AdditionalProperties.FirstOrDefault(x => x.Name == propertyName);
                 return additionalProperty?.Value;
             }
-
-            public class AdditionalProperty
-            {
-                public required string Name { get; set; }
-                public required object? Value { get; set; }
-            }
-        }
-
-        public class ItemPropertyInfo
-        {
-            public string Name { get; set; }
-            public Type Type { get; set; }
-            public bool IsFilterable { get; set; }
-            public bool IsDisplayable { get; set; }
         }
     }
 }

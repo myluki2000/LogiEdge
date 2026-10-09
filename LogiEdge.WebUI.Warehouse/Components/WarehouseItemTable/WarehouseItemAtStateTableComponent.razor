@@ -215,7 +215,7 @@
 
     <span class="ms-3 flex-grow-1">
         Filter:
-        @foreach (ItemsTableResultDto.ItemPropertyInfo property in Items.ItemProperties.Where(x => x.IsFilterable))
+        @foreach (ItemPropertyInfoDto property in Items.ItemProperties.Where(x => x.IsFilterable))
         {
             <PropertyFilterBadgeComponent FilterParameters="FilterParameters"
                                           FilterParametersChanged="FilterParametersChanged"

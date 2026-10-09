@@ -5,13 +5,121 @@ using LogiEdge.WarehouseService.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using LogiEdge.BaseService.Data;
+using LogiEdge.BaseService.Services;
+using LogiEdge.WarehouseService.Dto;
 using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 {
-    public class TransactionManagementService(IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory)
+    public class TransactionManagementService(
+        IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory,
+        FileAttachmentService attachmentService)
     {
-        public async Task<InventoryTransaction> BookTransactionAsync(Guid transactionId)
+        public async Task<InventoryTransactionBaseInfoDto?> GetTransactionBaseInfo(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                return null;
+            }
+
+            return new InventoryTransactionBaseInfoDto()
+            {
+                Id = transactionId,
+                Title = transaction.Title,
+                CreatedDate = transaction.CreatedDate,
+                BookedDate = transaction.BookedDate,
+                CreatedByUserId = transaction.CreatedByUserId,
+                HandledByWorker = transaction.HandledByWorker,
+                HasInboundPart = await ctx.InboundTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
+                HasOutboundPart = await ctx.OutboundTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
+                HasRelocationPart = await ctx.RelocationTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
+            };
+        }
+
+        public async Task<InventoryTransactionFullInfoDto?> GetTransactionFullInfo(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                return null;
+            }
+
+            return new InventoryTransactionFullInfoDto()
+            {
+                Id = transactionId,
+                Title = transaction.Title,
+                CreatedDate = transaction.CreatedDate,
+                BookedDate = transaction.BookedDate,
+                CreatedByUserId = transaction.CreatedByUserId,
+                HandledByWorker = transaction.HandledByWorker,
+                InboundTransactionPart = ctx.InboundTransactionParts
+                    .Where(t => t.TransactionId == transactionId)
+                    .Include(t => t.DraftItems)
+                        .ThenInclude(di => di.ItemSchema)
+                    .Include(t => t.NewItemStates)
+                    .ToList()
+                    .Select(t => new InboundTransactionPartDto()
+                    {
+                        TransactionId = t.TransactionId,
+                        DraftItems = t.DraftItems.Select(di => new InboundTransactionPartDto.InboundDraftItemDto()
+                        {
+                            Id = di.Id,
+                            Location = di.Location,
+                            Count = di.Count,
+                            AdditionalProperties = di.ItemSchema.AdditionalProperties.Select(p => new ItemAdditionalPropertyDto()
+                            {
+                                Name = p.Name,
+                                Value = di.GetAdditionalProperty(p.Name),
+                            }).ToList(),
+                            Comments = [new CommentDto()
+                            {
+                                AuthorId = Guid.Empty,
+                                Date = DateTime.MinValue,
+                                Id = Guid.Empty,
+                                Retracted = false,
+                                Text = di.Comments
+                            }],
+                            CustomerId = di.CustomerId,
+                            IsQuarantined = di.IsQuarantined,
+                            ItemNumber = di.ItemNumber,
+                            ItemSchemaId = di.ItemSchemaId,
+                            WarehouseId = di.WarehouseId,
+                        }).ToList(),
+                        NewItemStates = t.NewItemStates,
+                    })
+                    .FirstOrDefault(),
+                OutboundTransactionPart = await ctx.OutboundTransactionParts
+                    .Where(t => t.TransactionId == transactionId)
+                    .Select(t => new OutboundTransactionPartDto()
+                    {
+                        TransactionId = t.TransactionId,
+                        DraftPlaceholderItems = t.DraftPlaceholderItems,
+                        DraftSelectedItems = t.DraftSelectedItems,
+                        NewItemStates = t.NewItemStates,
+                    })
+                    .FirstOrDefaultAsync(),
+                RelocationTransactionPart = await ctx.RelocationTransactionParts
+                    .Where(t => t.TransactionId == transactionId)
+                    .Select(t => new RelocationTransactionPartDto()
+                    {
+                        TransactionId = t.TransactionId,
+                        NewItemStates = t.NewItemStates
+                    })
+                    .FirstOrDefaultAsync(),
+            };
+        }
+
+        public async Task SetTransactionTitle(Guid transactionId, string title)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             InventoryTransaction? transaction = await ctx.InventoryTransactions
@@ -23,26 +131,139 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Inbound transaction with ID {transactionId} not found.");
             }
 
+            transaction.Title = title;
+
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task<List<FileAttachment>> GetAttachments(Guid transactionId, bool includeData = false)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            List<Guid>? attachmentIds =
+                (await ctx.InventoryTransactions.FirstOrDefaultAsync(t => t.Id == transactionId))?
+                .AttachmentIds;
+
+            if (attachmentIds == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            return await attachmentService.GetAttachmentsAsync(attachmentIds, includeData);
+        }
+
+        public async Task AddAttachment(Guid transactionId, Guid attachmentId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            transaction.AttachmentIds.Add(attachmentId);
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task RemoveAttachment(Guid transactionId, Guid attachmentId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            transaction.AttachmentIds.Remove(attachmentId);
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task<InventoryTransaction> BookTransactionAsync(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
             if (transaction.State == TransactionState.BOOKED)
             {
-                throw new InvalidOperationException($"Inbound transaction with ID {transactionId} is already booked.");
+                throw new InvalidOperationException($"Transaction with ID {transactionId} is already booked.");
             }
 
             transaction.State = TransactionState.BOOKED;
             transaction.BookedDate = DateTime.UtcNow;
+           
+            await TryBookInboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
 
-            if (transaction.InboundTransactionPartId.HasValue)
-                await BookInboundTransactionPart(ctx, transaction.InboundTransactionPartId.Value, transaction.BookedDate.Value);
+            await TryBookOutboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
 
-            if (transaction.OutboundTransactionPartId.HasValue)
-                await BookOutboundTransactionPart(ctx, transaction.OutboundTransactionPartId.Value, transaction.BookedDate.Value);
-
-            if (transaction.RelocationTransactionPartId.HasValue)
-                await BookRelocationTransactionPart(ctx, transaction.RelocationTransactionPartId.Value);
+            await TryBookRelocationTransactionPart(ctx, transactionId);
 
             await ctx.SaveChangesAsync();
 
             return transaction;
+        }
+
+        public async Task AddInboundPartToTransaction(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.DRAFT)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} is not in DRAFT state.");
+            }
+
+            transaction.InboundTransactionPart = new InboundTransactionPart()
+            {
+                Transaction = transaction,
+                DraftItems = [],
+            };
+
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task AddOutboundPartToTransaction(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.DRAFT)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} is not in DRAFT state.");
+            }
+
+            transaction.OutboundTransactionPart = new OutboundTransactionPart()
+            {
+                Transaction = transaction,
+                DraftSelectedItems = [],
+            };
+
+            await ctx.SaveChangesAsync();
         }
 
         public async Task DeleteTransactionAsync(Guid transactionId)
@@ -62,18 +283,19 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
-        private async Task BookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionPartId, DateTime bookDate)
+        private async Task TryBookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
         {
             InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
                 .AsTracking()
                 .Include(i => i.Transaction)
                 .Include(i => i.DraftItems)
                 .Include(i => i.NewItemStates)
-                .FirstOrDefaultAsync(i => i.Id == transactionPartId);
+                .FirstOrDefaultAsync(i => i.TransactionId == transactionId);
 
             if (transactionPart == null)
-                throw new Exception("BookInboundTransactionPart called with transaction part id " + transactionPartId +
-                                    ", which could not be found.");
+            {
+                return;
+            }
 
             transactionPart.NewItemStates ??= [];
 
@@ -87,23 +309,22 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 }
                 catch (Exception ex)
                 {
-                    throw new BookingException($"Could not book inbound transaction part with Id {transactionPart.Id}.", ex);
+                    throw new BookingException($"Could not book inbound transaction part with Transaction Id {transactionId}.", ex);
                 }
             }
         }
 
-        private async Task BookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionPartId, DateTime bookDate)
+        private async Task TryBookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
         {
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
                 .AsTracking()
                 .Include(p => p.DraftSelectedItems!)
                     .ThenInclude(i => i.ItemStates)
-                .FirstOrDefaultAsync(p => p.Id == transactionPartId);
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
 
             if (transactionPart == null)
             {
-                throw new Exception("BookOutboundTransactionPart called with transaction part id " + transactionPartId +
-                                    ", which could not be found.");
+                return;
             }
 
             transactionPart.NewItemStates ??= [];
@@ -138,7 +359,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
         }
 
-        private async Task BookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionPartId)
+        private async Task TryBookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionId)
         {
             // TODO: Implement booking logic for relocation transaction part
         }

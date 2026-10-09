@@ -2,50 +2,45 @@
 @using LogiEdge.BaseService.Services
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
 @using Microsoft.EntityFrameworkCore
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
 @inject FileAttachmentService FileAttachmentService
+@inject TransactionManagementService TransactionService
 
 @code {
     [Parameter]
-    public required InventoryTransaction Transaction { get; set; }
-    private List<FileAttachment> Attachments { get; set; } = [];
+    public required Guid TransactionId { get; set; }
+
+    private List<FileAttachment> _attachments = [];
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
-        Attachments = await FileAttachmentService.GetAttachmentsAsync(Transaction.AttachmentIds);
+        _attachments = await TransactionService.GetAttachments(TransactionId);
     }
 
     private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
     {
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.Attach(Transaction);
-
         foreach (FileAttachment attachment in newAttachments)
         {
             FileAttachment entity = await FileAttachmentService.CreateAttachmentAsync(attachment);
-            Transaction.AttachmentIds.Add(entity.Id);
-            Attachments.Add(entity);
+            _attachments.Add(entity);
+            await TransactionService.AddAttachment(TransactionId, entity.Id);
         }
-
-        await ctx.SaveChangesAsync();
     }
 
     private async Task OnAttachmentRemoved(Guid attachmentId)
     {
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.Attach(Transaction);
-        Transaction.AttachmentIds.Remove(attachmentId);
+        await TransactionService.RemoveAttachment(TransactionId, attachmentId);
         await FileAttachmentService.DeleteAttachmentAsync(attachmentId);
-        Attachments.RemoveAll(a => a.Id == attachmentId);
-        await ctx.SaveChangesAsync();
+        _attachments.RemoveAll(a => a.Id == attachmentId);
     }
 }
 
-<FileAttachmentManagerComponent Attachments="@Attachments"
+<FileAttachmentManagerComponent Attachments="@_attachments"
                                 OnAttachmentsUploaded="OnAttachmentsUploaded"
                                 OnAttachmentRemoveRequested="OnAttachmentRemoved" />

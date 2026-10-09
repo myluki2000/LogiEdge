@@ -12,7 +12,7 @@ using LogiEdge.Shared;
 
 namespace LogiEdge.WarehouseService.Data.Transactions;
 
-public class InventoryTransaction : IDocumentGeneratorInput
+public class InventoryTransaction
 {
     [Key]
     public Guid Id { get; set; }
@@ -29,13 +29,8 @@ public class InventoryTransaction : IDocumentGeneratorInput
     public List<Guid> AttachmentIds { get; set; } = [];
     public TransactionState State { get; set; }
 
-    public Guid? InboundTransactionPartId { get; set; } = null;
     public InboundTransactionPart? InboundTransactionPart { get; set; } = null;
-
-    public Guid? OutboundTransactionPartId { get; set; } = null;
     public OutboundTransactionPart? OutboundTransactionPart { get; set; } = null;
-
-    public Guid? RelocationTransactionPartId { get; set; } = null;
     public RelocationTransactionPart? RelocationTransactionPart { get; set; } = null;
 }
 public enum TransactionState

@@ -2,6 +2,7 @@
 @using LogiEdge.BaseService.Services
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
@@ -9,6 +10,7 @@
 
 @inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject FileAttachmentService FileAttachmentService
+@inject TransactionManagementService TransactionService
 
 @code {
     [Parameter]
@@ -68,8 +70,7 @@
             <Content>
                 <div>
                     <h5>Documents & Attachments</h5>
-                    <DocumentGeneratorComponent TInputType="InventoryTransaction" 
-                                                InputData="Transaction"
+                    <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
                                                 OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
                     <hr />
                     <TransactionFileAttachmentManagerComponent Transaction="Transaction" />

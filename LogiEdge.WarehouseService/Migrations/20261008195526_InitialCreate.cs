@@ -17,14 +17,21 @@ namespace LogiEdge.WarehouseService.Migrations
                 .Annotation("Npgsql:PostgresExtension:hstore", ",,");
 
             migrationBuilder.CreateTable(
-                name: "InboundTransactionParts",
+                name: "InventoryTransactions",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false)
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
+                    CreatedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    BookedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    HandledByWorker = table.Column<string>(type: "text", nullable: false),
+                    AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
+                    State = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_InboundTransactionParts", x => x.Id);
+                    table.PrimaryKey("PK_InventoryTransactions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -40,29 +47,6 @@ namespace LogiEdge.WarehouseService.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "OutboundTransactionParts",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    DraftPlaceholderItems = table.Column<List<Dictionary<string, string>>>(type: "hstore[]", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_OutboundTransactionParts", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "RelocationTransactions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_RelocationTransactions", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "Warehouses",
                 columns: table => new
                 {
@@ -72,6 +56,58 @@ namespace LogiEdge.WarehouseService.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Warehouses", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "InboundTransactionParts",
+                columns: table => new
+                {
+                    TransactionId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_InboundTransactionParts", x => x.TransactionId);
+                    table.ForeignKey(
+                        name: "FK_InboundTransactionParts_InventoryTransactions_TransactionId",
+                        column: x => x.TransactionId,
+                        principalTable: "InventoryTransactions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OutboundTransactionParts",
+                columns: table => new
+                {
+                    TransactionId = table.Column<Guid>(type: "uuid", nullable: false),
+                    DraftPlaceholderItems = table.Column<List<Dictionary<string, string>>>(type: "hstore[]", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OutboundTransactionParts", x => x.TransactionId);
+                    table.ForeignKey(
+                        name: "FK_OutboundTransactionParts_InventoryTransactions_TransactionId",
+                        column: x => x.TransactionId,
+                        principalTable: "InventoryTransactions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RelocationTransactionParts",
+                columns: table => new
+                {
+                    TransactionId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RelocationTransactions", x => x.TransactionId);
+                    table.ForeignKey(
+                        name: "FK_RelocationTransactions_InventoryTransactions_TransactionId",
+                        column: x => x.TransactionId,
+                        principalTable: "InventoryTransactions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -120,42 +156,6 @@ namespace LogiEdge.WarehouseService.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "InventoryTransactions",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    CreatedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    BookedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedByUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    HandledByWorker = table.Column<string>(type: "text", nullable: false),
-                    AttachmentIds = table.Column<List<Guid>>(type: "uuid[]", nullable: false),
-                    State = table.Column<int>(type: "integer", nullable: false),
-                    InboundTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true),
-                    OutboundTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true),
-                    RelocationTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_InventoryTransactions", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_InventoryTransactions_InboundTransactionParts_InboundTransa~",
-                        column: x => x.InboundTransactionPartId,
-                        principalTable: "InboundTransactionParts",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_InventoryTransactions_OutboundTransactionParts_OutboundTran~",
-                        column: x => x.OutboundTransactionPartId,
-                        principalTable: "OutboundTransactionParts",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_InventoryTransactions_RelocationTransactions_RelocationTran~",
-                        column: x => x.RelocationTransactionPartId,
-                        principalTable: "RelocationTransactions",
-                        principalColumn: "Id");
-                });
-
-            migrationBuilder.CreateTable(
                 name: "InboundDraftItem",
                 columns: table => new
                 {
@@ -169,7 +169,7 @@ namespace LogiEdge.WarehouseService.Migrations
                     Location = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     Count = table.Column<int>(type: "integer", nullable: false),
                     IsQuarantined = table.Column<bool>(type: "boolean", nullable: false),
-                    InboundTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true)
+                    InboundTransactionPartTransactionId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -182,9 +182,9 @@ namespace LogiEdge.WarehouseService.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_InboundDraftItem_InboundTransactionParts_InboundTransaction~",
-                        column: x => x.InboundTransactionPartId,
+                        column: x => x.InboundTransactionPartTransactionId,
                         principalTable: "InboundTransactionParts",
-                        principalColumn: "Id");
+                        principalColumn: "TransactionId");
                     table.ForeignKey(
                         name: "FK_InboundDraftItem_ItemSchemas_ItemSchemaId",
                         column: x => x.ItemSchemaId,
@@ -208,7 +208,7 @@ namespace LogiEdge.WarehouseService.Migrations
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
                     ItemNumber = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     AdditionalProperties = table.Column<JsonDocument>(type: "jsonb", nullable: false),
-                    OutboundTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true),
+                    OutboundTransactionPartTransactionId = table.Column<Guid>(type: "uuid", nullable: true),
                     WarehouseId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
@@ -227,10 +227,10 @@ namespace LogiEdge.WarehouseService.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Items_OutboundTransactionParts_OutboundTransactionPartId",
-                        column: x => x.OutboundTransactionPartId,
+                        name: "FK_Items_OutboundTransactionParts_OutboundTransactionPartTrans~",
+                        column: x => x.OutboundTransactionPartTransactionId,
                         principalTable: "OutboundTransactionParts",
-                        principalColumn: "Id");
+                        principalColumn: "TransactionId");
                     table.ForeignKey(
                         name: "FK_Items_Warehouses_WarehouseId",
                         column: x => x.WarehouseId,
@@ -276,18 +276,11 @@ namespace LogiEdge.WarehouseService.Migrations
                     Location = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     IsQuarantined = table.Column<bool>(type: "boolean", nullable: false),
                     RelatedTransactionId = table.Column<Guid>(type: "uuid", nullable: true),
-                    InboundTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true),
-                    OutboundTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true),
-                    RelocationTransactionPartId = table.Column<Guid>(type: "uuid", nullable: true)
+                    InventoryTransactionPartTransactionId = table.Column<Guid>(type: "uuid", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ItemsStates", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ItemsStates_InboundTransactionParts_InboundTransactionPartId",
-                        column: x => x.InboundTransactionPartId,
-                        principalTable: "InboundTransactionParts",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_ItemsStates_InventoryTransactions_RelatedTransactionId",
                         column: x => x.RelatedTransactionId,
@@ -299,16 +292,6 @@ namespace LogiEdge.WarehouseService.Migrations
                         principalTable: "Items",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ItemsStates_OutboundTransactionParts_OutboundTransactionPar~",
-                        column: x => x.OutboundTransactionPartId,
-                        principalTable: "OutboundTransactionParts",
-                        principalColumn: "Id");
-                    table.ForeignKey(
-                        name: "FK_ItemsStates_RelocationTransactions_RelocationTransactionPar~",
-                        column: x => x.RelocationTransactionPartId,
-                        principalTable: "RelocationTransactions",
-                        principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_ItemsStates_Warehouses_WarehouseId",
                         column: x => x.WarehouseId,
@@ -338,9 +321,9 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "CustomerId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_InboundDraftItem_InboundTransactionPartId",
+                name: "IX_InboundDraftItem_InboundTransactionPartTransactionId",
                 table: "InboundDraftItem",
-                column: "InboundTransactionPartId");
+                column: "InboundTransactionPartTransactionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_InboundDraftItem_ItemSchemaId",
@@ -353,24 +336,6 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "WarehouseId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_InventoryTransactions_InboundTransactionPartId",
-                table: "InventoryTransactions",
-                column: "InboundTransactionPartId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryTransactions_OutboundTransactionPartId",
-                table: "InventoryTransactions",
-                column: "OutboundTransactionPartId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryTransactions_RelocationTransactionPartId",
-                table: "InventoryTransactions",
-                column: "RelocationTransactionPartId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Items_CustomerId",
                 table: "Items",
                 column: "CustomerId");
@@ -381,9 +346,9 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "ItemSchemaId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Items_OutboundTransactionPartId",
+                name: "IX_Items_OutboundTransactionPartTransactionId",
                 table: "Items",
-                column: "OutboundTransactionPartId");
+                column: "OutboundTransactionPartTransactionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Items_WarehouseId",
@@ -396,9 +361,9 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "ItemSchemaId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ItemsStates_InboundTransactionPartId",
+                name: "IX_ItemsStates_InventoryTransactionPartTransactionId",
                 table: "ItemsStates",
-                column: "InboundTransactionPartId");
+                column: "InventoryTransactionPartTransactionId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ItemsStates_ItemId",
@@ -406,19 +371,9 @@ namespace LogiEdge.WarehouseService.Migrations
                 column: "ItemId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ItemsStates_OutboundTransactionPartId",
-                table: "ItemsStates",
-                column: "OutboundTransactionPartId");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_ItemsStates_RelatedTransactionId",
                 table: "ItemsStates",
                 column: "RelatedTransactionId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ItemsStates_RelocationTransactionPartId",
-                table: "ItemsStates",
-                column: "RelocationTransactionPartId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ItemsStates_WarehouseId",
@@ -445,16 +400,13 @@ namespace LogiEdge.WarehouseService.Migrations
                 name: "ItemsStates");
 
             migrationBuilder.DropTable(
-                name: "InventoryTransactions");
-
-            migrationBuilder.DropTable(
-                name: "Items");
+                name: "RelocationTransactionParts");
 
             migrationBuilder.DropTable(
                 name: "InboundTransactionParts");
 
             migrationBuilder.DropTable(
-                name: "RelocationTransactions");
+                name: "Items");
 
             migrationBuilder.DropTable(
                 name: "ItemSchemas");
@@ -464,6 +416,9 @@ namespace LogiEdge.WarehouseService.Migrations
 
             migrationBuilder.DropTable(
                 name: "Warehouses");
+
+            migrationBuilder.DropTable(
+                name: "InventoryTransactions");
         }
     }
 }

@@ -37,19 +37,19 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             List<Guid> itemSchemaIds = q.Select(x => x.Item.ItemSchemaId).Distinct().ToList();
             IReadOnlySet<ItemSchema> itemSchemas = await ctx.ItemSchemas.Where(sch => itemSchemaIds.Contains(sch.Id)).ToHashSetAsync();
 
-            List<ItemPropertyInfo> itemProperties = [];
+            List<ItemPropertyInfoDto> itemProperties = [];
 
             // get a list of column property names which are allowed
             itemProperties.AddRange(typeof(ItemsTableItem)
                 .GetProperties()
-                .Select(p => new ItemPropertyInfo()
+                .Select(p => new ItemPropertyInfoDto()
                 {
                     Name = p.Name,
                     IsDisplayable = Attribute.IsDefined(p, typeof(DisplayColumnPropertyAttribute)),
                     IsFilterable = Attribute.IsDefined(p, typeof(QueryFilterablePropertyAttribute)),
                     Type = p.PropertyType,
                 }));
-            itemProperties.AddRange(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => new ItemPropertyInfo()
+            itemProperties.AddRange(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => new ItemPropertyInfoDto()
             {
                 Name = pr.Name,
                 Type = pr.Type.ToType(),
@@ -69,7 +69,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                     WarehouseId = st.WarehouseId,
                     Warehouse = st.Warehouse,
                     ItemNumber = st.Item.ItemNumber,
-                    AdditionalProperties = st.Item.ItemSchema.AdditionalProperties.Select(ap => new ItemsTableItem.AdditionalProperty()
+                    AdditionalProperties = st.Item.ItemSchema.AdditionalProperties.Select(ap => new ItemAdditionalPropertyDto()
                     {
                         Name = ap.Name,
                         Value = st.Item.GetAdditionalProperty(ap),

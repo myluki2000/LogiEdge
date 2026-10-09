@@ -14,6 +14,8 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
+                .Include(t => t.DraftSelectedItems)
+                .Include(t => t.NewItemStates)
                 .FirstOrDefaultAsync(o => o.TransactionId == transactionId);
 
             if (transactionPart == null)
@@ -46,6 +48,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
                 .AsTracking()
+                .Include(t => t.DraftSelectedItems)
                 .FirstOrDefaultAsync(o => o.TransactionId == transactionId);
 
             if (transactionPart == null)
