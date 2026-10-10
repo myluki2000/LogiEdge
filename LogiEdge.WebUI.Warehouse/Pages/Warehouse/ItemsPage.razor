@@ -40,7 +40,7 @@
         FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
         StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
 
-        _items = await ItemsTableService.GetAllItemsAsync(SortParameters, FilterParameters, StateParameters);
+        _items = await ItemsTableService.GetAllItemsAsync(FilterParameters, StateParameters);
         StateHasChanged();
     }
 

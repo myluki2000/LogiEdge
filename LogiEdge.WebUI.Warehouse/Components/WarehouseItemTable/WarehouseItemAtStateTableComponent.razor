@@ -96,6 +96,9 @@
         {
             DisplayPropertyColumnsSetting.TryAdd(columnName, false);
         }
+
+        ItemsTableSorter sorter = new();
+        sorter.Sort(Items, SortParameters);
     }
 
     private async Task OnColumnsToDisplayChanged(OrderedDictionary<string, bool> columnsToDisplay)

@@ -28,7 +28,6 @@
 
         _items = await ItemsTableService.GetItemsAtStateAsync(
             await OutboundTransactionService.GetLastInWarehouseStateIds(TransactionId),
-            _tableSortParams,
             _tableFilterParams);
     }
 }

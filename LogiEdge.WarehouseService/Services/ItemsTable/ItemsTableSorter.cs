@@ -8,8 +8,10 @@ using LogiEdge.WarehouseService.Dto;
 
 namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
-    internal class ItemsTableSorter
+    public class ItemsTableSorter
     {
+        // TODO: Should probably be moved to the WebUI.Warehouse project, as it is used directly in components, not by services.
+
         public void Sort(ItemsTableResultDto items, ItemsTableSortParameters parameters)
         {
             if (parameters.SortByProperty == null)

@@ -16,7 +16,6 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
     {
         public async Task<ItemsTableResultDto> GetItemsAtStateAsync(
             IEnumerable<Guid> stateIds,
-            ItemsTableSortParameters sortParameters,
             ItemsTableFilterParameters filterParams)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
@@ -83,14 +82,10 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 }).ToListAsync(),
             };
 
-            ItemsTableSorter sorter = new();
-            sorter.Sort(result, sortParameters);
-
             return result;
         }
 
         public async Task<ItemsTableResultDto> GetItemsAsync(IEnumerable<Guid> itemIds,
-            ItemsTableSortParameters sortParameters,
             ItemsTableFilterParameters filterParams,
             ItemsTableStateParameters stateParams)
         {
@@ -99,11 +94,10 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             ItemsTableStateFilter stateFilter = new();
             List<Guid> stateIds = await stateFilter.Filter(ctx.Items.Where(it => itemIds.Contains(it.Id)), stateParams).Select(x => x.Id).ToListAsync();
 
-            return await GetItemsAtStateAsync(stateIds, sortParameters, filterParams);
+            return await GetItemsAtStateAsync(stateIds, filterParams);
         }
 
         public async Task<ItemsTableResultDto> GetAllItemsAsync(
-            ItemsTableSortParameters sortParameters,
             ItemsTableFilterParameters filterParams,
             ItemsTableStateParameters stateParams)
         {
@@ -112,7 +106,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             ItemsTableStateFilter stateFilter = new();
             List<Guid> stateIds = await stateFilter.Filter(ctx.Items, stateParams).Select(x => x.Id).ToListAsync();
 
-            return await GetItemsAtStateAsync(stateIds, sortParameters, filterParams);
+            return await GetItemsAtStateAsync(stateIds, filterParams);
         }
     }
 }

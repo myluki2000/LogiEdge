@@ -53,12 +53,10 @@
 
         _transactionItemsTableData = await ItemsTableService.GetItemsAsync(
             part.DraftSelectedItems.Select(x => x.Id),
-            _transactionSortParameters,
             _transactionFilterParameters,
             _transactionStateParameters);
 
         _selectableItemsTableData = await ItemsTableService.GetAllItemsAsync(
-            _selectionModalSortParameters,
             _selectionModalFilterParameters,
             _selectionModalStateParameters);
         
