@@ -1,46 +1,58 @@
-﻿.filter-badge {
+.filter-badge {
     border-style: solid;
     border-width: 1px;
-    border-color: var(--bs-indigo);
+    border-color: #c5cdfd;
     color: var(--bs-gray-800);
     cursor: pointer;
-    margin-left: 4px;
-    line-height: 2.25em;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    padding: 0.05rem 0.3rem 0.05rem 0.55rem;
+    margin: 2px 0;
     display: inline-flex;
     align-items: center;
-    font-weight: lighter;
-    margin: 4px;
+    border-radius: 50px;
+    font-weight: 400;
+    user-select: none;
 }
 
-    .filter-badge .btn-filter {
-        cursor: pointer;
-        font-size: 2em;
-        border-radius: 50%;
-        margin-left: 4px;
-        filter: grayscale(40%);
-    }
+.filter-badge .btn-filter {
+    cursor: pointer;
+    font-size: 1.1em;
+    line-height: 1;
+    padding: 1px 2px;
+    margin-left: 2px;
+    border-radius: 50%;
+    filter: grayscale(40%);
+}
 
-        .filter-badge .btn-filter:hover {
-            background-color: var(--bs-gray-500);
-            filter: grayscale(0%);
-        }
+.filter-badge .btn-filter:hover {
+    background-color: var(--bs-gray-500);
+    filter: grayscale(0%);
+}
 
-    .filter-badge .btn-filter-remove {
-        color: var(--bs-red);
-        
-    }
+.filter-badge .btn-filter-remove {
+    color: var(--bs-red);
+}
 
-    .filter-badge .btn-filter-save {
-        color: var(--bs-green);
-    }
+.filter-badge .btn-filter-save {
+    color: var(--bs-green);
+}
 
-    .filter-badge.active {
-        color: var(--bs-gray-900);
-        border: none;
-        background: #ded5f2;
-        background: linear-gradient(135deg,rgba(222, 213, 242, 1) 0%, rgba(157, 142, 230, 1) 70%);
-    }
+.filter-badge.active {
+    color: var(--bs-gray-900);
+    border-color: transparent;
+    background: linear-gradient(135deg, rgba(222, 213, 242, 1) 0%, rgba(157, 142, 230, 1) 70%);
+}
 
-    .filter-badge.active .value {
-        font-weight: bold;
-    }
+.filter-badge.active .value {
+    font-weight: bold;
+}
+
+/* Compact input while editing a filter value inside the badge */
+
+::deep .form-control {
+    font-size: 0.75rem;
+    padding: 0 0.3rem;
+    height: calc(1.4em + 4px);
+    margin-left: 2px;
+}

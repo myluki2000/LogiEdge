@@ -80,13 +80,13 @@
     _tableRowRenderFragment ??=
     data => __builder =>
     {
-        <tr>
+        <tr class="@(SelectedItemIds.Any(id => id == data.item.Id) ? "selected" : "")">
             @foreach (KeyValuePair<string, object?> property in data.properties)
             {
                 <td>
                     @if (property.Equals(data.properties.First()))
                     {
-                        <input type="checkbox"
+                        <input type="checkbox" class="wit-select-checkbox"
                                checked="@SelectedItemIds.Any(id => id == data.item.Id)"
                                @onchange="args => OnItemSelectionCheckboxChanged(data.item.Id, (bool)(args.Value ?? false))" />
                     }
@@ -102,8 +102,7 @@
         {
             <tr>
                 <td>
-                    <input type="number"
-                           width="50"
+                    <input type="number" class="wit-count-input"
                            step="1"
                            min="0"
                            max="@data.itemStates.Count"

@@ -1,6 +1,7 @@
 ﻿@page "/warehouse/items"
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.ItemsTable
+@using LogiEdge.WebUI.Shared.Shared
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.WebUtilities
@@ -9,9 +10,14 @@
 @inject NavigationManager NavigationManager
 @inject ItemsTableService ItemsTableService
 
-<h3>Items by Property</h3>
-
 @code {
+    [CascadingParameter]
+    public required MainLayout Layout { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Layout?.SetPadding(false);
+    }
 
     private ItemsTableSortParameters? SortParameters { get; set; }
 
@@ -141,28 +147,32 @@
     }
 }
 
-<div class="my-1">
-    <span>Show Warehouse at Point in Time:</span>
-    <InputDate TValue="DateTime?"
-               Type="InputDateType.DateTimeLocal"
-               Value="StateParameters?.AtTime"
-               ValueChanged="(DateTime? dt) => StateParameters = StateParameters with { AtTime = dt }"
-               ValueExpression="() => StateParameters.AtTime" />
+<div class="items-page-header d-flex align-items-center flex-wrap gap-3">
+    <h3 class="items-page-title mb-0">Items by Property</h3>
+
+    <div class="ms-auto d-flex align-items-center gap-2">
+        <span class="items-state-label">Warehouse state at</span>
+        <InputDate TValue="DateTime?"
+                   Type="InputDateType.DateTimeLocal"
+                   Value="StateParameters?.AtTime"
+                   ValueChanged="(DateTime? dt) => StateParameters = StateParameters with { AtTime = dt }"
+                   ValueExpression="() => StateParameters.AtTime" />
+    </div>
 </div>
-
-
 
 @if (_items != null)
 {
-    <WarehouseItemTableComponent Items="_items"
-                                 ColumnDisplayParameters="ColumnDisplayParameters"
-                                 ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
-                                 FilterParameters="FilterParameters"
-                                 FilterParametersChanged="OnFilterParametersChanged"
-                                 SortParameters="SortParameters"
-                                 SortParametersChanged="OnSortParametersChanged"
-                                 ItemStateParameters="StateParameters"
-                                 ItemStateParametersChanged="OnStateParametersChanged" />
+    <div class="items-table-wrap">
+        <WarehouseItemTableComponent Items="_items"
+                                     ColumnDisplayParameters="ColumnDisplayParameters"
+                                     ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
+                                     FilterParameters="FilterParameters"
+                                     FilterParametersChanged="OnFilterParametersChanged"
+                                     SortParameters="SortParameters"
+                                     SortParametersChanged="OnSortParametersChanged"
+                                     ItemStateParameters="StateParameters"
+                                     ItemStateParametersChanged="OnStateParametersChanged" />
+    </div>
 }
 else
 {

@@ -1,20 +1,30 @@
 .badge {
     border-style: solid;
     border-width: 1px;
-    border-color: var(--bs-indigo);
+    border-color: #c5cdfd;
     color: var(--bs-gray-800);
     cursor: pointer;
-    line-height: 2.25em;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    padding: 0.05rem 0.55rem;
+    margin: 2px 0;
     display: inline-flex;
     align-items: center;
     border-radius: 50px;
-    font-weight: lighter;
-    margin: 4px;
+    font-weight: 400;
+    user-select: none;
 }
 
-    .badge.checked {
-        color: var(--bs-gray-900);
-        border: none;
-        background: #ded5f2;
-        background: linear-gradient(135deg,rgba(222, 213, 242, 1) 0%, rgba(157, 142, 230, 1) 70%);
-    }
+.badge:hover {
+    background-color: #f1f3f5;
+}
+
+.badge.checked {
+    color: var(--bs-gray-900);
+    border-color: transparent;
+    background: linear-gradient(135deg, rgba(222, 213, 242, 1) 0%, rgba(157, 142, 230, 1) 70%);
+}
+
+.badge.checked:hover {
+    background: linear-gradient(135deg, rgba(210, 200, 238, 1) 0%, rgba(146, 130, 224, 1) 70%);
+}

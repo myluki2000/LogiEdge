@@ -1,0 +1,25 @@
+﻿/* Rows rendered by this component's row fragments */
+
+.warehouse-items-grid tbody tr:hover {
+    background-color: #f0f4f8;
+}
+
+.warehouse-items-grid tbody tr.selected {
+    background-color: #e8f1fb;
+}
+
+.warehouse-items-grid tbody tr.selected:hover {
+    background-color: #dbe9f9;
+}
+
+.wit-select-checkbox {
+    margin: 0 6px 0 0;
+    vertical-align: middle;
+}
+
+.wit-count-input {
+    width: 3.5ch;
+    padding: 0.1rem 0.25rem;
+    font-size: inherit;
+    text-align: right;
+}

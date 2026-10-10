@@ -1,8 +1,27 @@
-﻿.badge {
-    margin-left: 4px;
-    line-height: 1.5em;
-    display: inline-flex;
-    align-items: center;
-    background-color: var(--bs-primary);
-    color: white;
+﻿.items-page-header {
+    margin-bottom: 8px;
+    padding: 1rem 1rem 0;
+}
+
+.items-page-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.items-state-label {
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color, #6c757d);
+    white-space: nowrap;
+}
+
+/* The page renders without the layout padding (.content margin), so give the
+   toolbar its own horizontal padding while the table stays full-width */
+
+.items-table-wrap ::deep .wit-toolbar {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+::deep .form-control {
+    font-size: 0.8125rem;
 }
