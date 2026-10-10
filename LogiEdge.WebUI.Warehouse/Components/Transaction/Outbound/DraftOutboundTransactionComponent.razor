@@ -31,7 +31,6 @@
 
     private ItemsTableResultDto? _transactionItemsTableData = null;
     private ItemsTableResultDto? _selectableItemsTableData = null;
-    private List<Guid> _transactionItemIds = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -52,41 +51,19 @@
     {
         OutboundTransactionPart part = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
 
-        _transactionItemIds = part.DraftSelectedItems!.Select(x => x.Id).ToList();
-
-        await LoadTransactionItemsTable();
-        await LoadSelectionModalItemsTable();
-    }
-
-    private async Task LoadTransactionItemsTable()
-    {
         _transactionItemsTableData = await ItemsTableService.GetItemsAsync(
-            _transactionItemIds,
+            part.DraftSelectedItems.Select(x => x.Id),
             _transactionSortParameters,
             _transactionFilterParameters,
             _transactionStateParameters);
-    }
 
-    private async Task LoadSelectionModalItemsTable()
-    {
-        ItemsTableResultDto result = await ItemsTableService.GetAllItemsAsync(
+        _selectableItemsTableData = await ItemsTableService.GetAllItemsAsync(
             _selectionModalSortParameters,
             _selectionModalFilterParameters,
             _selectionModalStateParameters);
-        result.Items.RemoveAll(it => _transactionItemIds.Contains(it.Id));
-        _selectableItemsTableData = result;
-    }
-
-    private async Task OnTransactionTableRefreshRequested()
-    {
-        await LoadTransactionItemsTable();
-        StateHasChanged();
-    }
-
-    private async Task OnSelectionModalTableRefreshRequested()
-    {
-        await LoadSelectionModalItemsTable();
-        StateHasChanged();
+        
+        List<Guid> selectedItemsIds = part.DraftSelectedItems!.Select(it => it.Id).ToList();
+        _selectableItemsTableData.Items.RemoveAll(it => selectedItemsIds.Contains(it.Id));
     }
 
     private async Task BtnItemSelectionModalOkOnClick()
@@ -123,8 +100,7 @@
                                  @bind-ColumnDisplayParameters="_transactionColumnDisplayParameters"
                                  @bind-FilterParameters="_transactionFilterParameters"
                                  @bind-SortParameters="_transactionSortParameters"
-                                 @bind-ItemStateParameters="_transactionStateParameters"
-                                 OnItemsRefreshRequested="OnTransactionTableRefreshRequested">
+                                 @bind-ItemStateParameters="_transactionStateParameters">
         <TableRowRenderFragment>
             <tr>
                 @for (int i = 0; i < context.properties.Count; i++)
@@ -220,8 +196,7 @@ else
                                                   @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
                                                   @bind-FilterParameters="_selectionModalFilterParameters"
                                                   @bind-SortParameters="_selectionModalSortParameters"
-                                                  @bind-ItemStateParameters="_selectionModalStateParameters"
-                                                  OnItemsRefreshRequested="OnSelectionModalTableRefreshRequested" />
+                                                  @bind-ItemStateParameters="_selectionModalStateParameters" />
         }
         else
         {

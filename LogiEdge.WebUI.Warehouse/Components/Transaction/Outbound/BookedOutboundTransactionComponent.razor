@@ -26,21 +26,10 @@
 
         _outboundTransactionPart = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
 
-        await LoadItemsTable();
-    }
-
-    private async Task LoadItemsTable()
-    {
         _items = await ItemsTableService.GetItemsAtStateAsync(
             await OutboundTransactionService.GetLastInWarehouseStateIds(TransactionId),
             _tableSortParams,
             _tableFilterParams);
-    }
-
-    private async Task OnItemsRefreshRequested()
-    {
-        await LoadItemsTable();
-        StateHasChanged();
     }
 }
 
@@ -49,8 +38,7 @@
     <WarehouseItemAtStateTableComponent Items="_items"
                                         @bind-ColumnDisplayParameters="_tableColumnParams"
                                         @bind-FilterParameters="_tableFilterParams"
-                                        @bind-SortParameters="_tableSortParams"
-                                        OnItemsRefreshRequested="OnItemsRefreshRequested" />
+                                        @bind-SortParameters="_tableSortParams" />
 }
 else
 {

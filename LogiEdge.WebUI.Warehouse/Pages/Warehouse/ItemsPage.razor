@@ -23,9 +23,9 @@
 
     private ItemsTableResultDto? _items;
 
-    protected override async Task OnParametersSetAsync()
+    public override async Task SetParametersAsync(ParameterView parameters)
     {
-        await base.OnParametersSetAsync();
+        await base.SetParametersAsync(parameters);
 
         // get the query parameters
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -40,17 +40,8 @@
         FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
         StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
 
-        await LoadItems();
-    }
-
-    private async Task LoadItems()
-    {
         _items = await ItemsTableService.GetAllItemsAsync(SortParameters, FilterParameters, StateParameters);
-    }
-
-    private async Task OnItemsRefreshRequested()
-    {
-        await LoadItems();
+        StateHasChanged();
     }
 
     public static string GetPageUrlWithParams(IReadOnlyDictionary<string, StringValues>? queryParams = null)
@@ -164,7 +155,6 @@
 @if (_items != null)
 {
     <WarehouseItemTableComponent Items="_items"
-                                 OnItemsRefreshRequested="OnItemsRefreshRequested"
                                  ColumnDisplayParameters="ColumnDisplayParameters"
                                  ColumnDisplayParametersChanged="OnColumnDisplayParametersChanged"
                                  FilterParameters="FilterParameters"

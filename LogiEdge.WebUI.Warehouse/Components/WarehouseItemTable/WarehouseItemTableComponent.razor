@@ -25,12 +25,6 @@
     [Parameter]
     public EventCallback<ItemsTableStateParameters> ItemStateParametersChanged { get; set; }
 
-    /// <summary>
-    /// Callback which is raised when the sort, filter or item state parameters change and the items need to be reloaded.
-    /// </summary>
-    [Parameter]
-    public required EventCallback OnItemsRefreshRequested { get; set; }
-
     [Parameter]
     public RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
@@ -43,8 +37,6 @@
                                     FilterParametersChanged="FilterParametersChanged"
                                     SortParameters="SortParameters"
                                     SortParametersChanged="SortParametersChanged"
-                                    ItemStateParameters="ItemStateParameters"
-                                    OnItemsRefreshRequested="OnItemsRefreshRequested"
                                     ColumnDisplayParameters="ColumnDisplayParameters"
                                     ColumnDisplayParametersChanged="ColumnDisplayParametersChanged"
                                     TableRowRenderFragment="TableRowRenderFragment"

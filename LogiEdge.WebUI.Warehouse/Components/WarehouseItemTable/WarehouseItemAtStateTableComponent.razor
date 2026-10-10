@@ -11,10 +11,6 @@
 @using Microsoft.EntityFrameworkCore
 
 @code {
-    /// <summary>
-    /// The items to display, provided by the hosting page (initial load and refreshes triggered by the page itself,
-    /// e.g. after items were added to or removed from a transaction). The table keeps showing this data until the parent passes a new instance.
-    /// </summary>
     [Parameter]
     public required ItemsTableResultDto Items { get; set; }
 
@@ -32,16 +28,6 @@
     public required ItemsTableSortParameters SortParameters { get; set; }
     [Parameter]
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
-
-    /// <summary>
-    /// Callback which is raised when the sort, filter or item state parameters change (e.g. a column sort button was clicked).
-    /// The hosting component should reload the items with the new parameters and pass them back via the Items parameter.
-    /// </summary>
-    [Parameter]
-    public required EventCallback OnItemsRefreshRequested { get; set; }
-
-    [Parameter]
-    public ItemsTableStateParameters? ItemStateParameters { get; set; }
 
     [Parameter]
     public RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
@@ -92,33 +78,9 @@
         SortParametersChanged.InvokeAsync(SortParameters);
     }
 
-    private ItemsTableResultDto? _lastParentItems;
-    private ItemsTableSortParameters? _prevSortParameters;
-    private ItemsTableFilterParameters? _prevFilterParameters;
-    private ItemsTableStateParameters? _prevStateParameters;
-
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
-
-        if (Items != _lastParentItems)
-        {
-            // the parent provided (new) data - remember the parameters it was loaded with
-            _lastParentItems = Items;
-            _prevSortParameters = SortParameters;
-            _prevFilterParameters = FilterParameters;
-            _prevStateParameters = ItemStateParameters;
-        }
-        else if (!ReferenceEquals(_prevSortParameters, SortParameters)
-                 || !ReferenceEquals(_prevFilterParameters, FilterParameters)
-                 || !ReferenceEquals(_prevStateParameters, ItemStateParameters))
-        {
-            // the same data instance was passed again but a table parameter changed (e.g. a sort button was clicked) - ask the parent to reload
-            await OnItemsRefreshRequested.InvokeAsync();
-            _prevSortParameters = SortParameters;
-            _prevFilterParameters = FilterParameters;
-            _prevStateParameters = ItemStateParameters;
-        }
 
         DisplayPropertyColumnsSetting = [];
 
