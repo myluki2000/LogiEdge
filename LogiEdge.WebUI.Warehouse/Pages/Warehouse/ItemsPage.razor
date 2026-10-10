@@ -14,11 +14,6 @@
     [CascadingParameter]
     public required MainLayout Layout { get; set; }
 
-    protected override void OnInitialized()
-    {
-        Layout?.SetPadding(false);
-    }
-
     private ItemsTableSortParameters? SortParameters { get; set; }
 
     private ItemsTableFilterParameters? FilterParameters { get; set; }
@@ -145,6 +140,10 @@
         StateParameters = stateParams;
         UpdateUrl();
     }
+}
+
+@{
+    Layout?.SetPadding(false);
 }
 
 <div class="items-page-header d-flex align-items-center flex-wrap gap-3">

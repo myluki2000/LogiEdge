@@ -3,11 +3,13 @@
 @using System.Text
 @using System.Text.Json
 @using LogiEdge.CustomerService.Data
+@using LogiEdge.WebUI.Shared.Components
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services.ItemsTable
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 
 @code {
@@ -40,6 +42,10 @@
     private string? _editingFilterProperty;
 
     private IReadOnlySet<ItemSchema> _itemSchemas = new HashSet<ItemSchema>(0);
+
+    private HxModal _columnSelectionModal = null!;
+    private OrderedDictionary<string, bool> _modalPropertyColumns = [];
+    private readonly List<DraggableList<string>.ListItem> _propertyListItems = [];
 
     private void PropertyBadgeIsEditingChanged(string property, bool isEditing)
     {
@@ -97,6 +103,9 @@
             DisplayPropertyColumnsSetting.TryAdd(columnName, false);
         }
 
+        // keep the column selection modal's working copy in sync with the current display settings
+        _modalPropertyColumns = new OrderedDictionary<string, bool>(DisplayPropertyColumnsSetting);
+
         ItemsTableSorter sorter = new();
         sorter.Sort(Items, SortParameters);
     }
@@ -108,6 +117,18 @@
             ColumnsToDisplay = columnsToDisplay.Where(col => col.Value).Select(col => col.Key).ToList()
         };
         await ColumnDisplayParametersChanged.InvokeAsync(ColumnDisplayParameters);
+    }
+
+    private async Task ShowColumnSelectionModalAsync()
+    {
+        await _columnSelectionModal.ShowAsync();
+    }
+
+    private async Task HandleColumnSelectionModalHiding()
+    {
+        OrderedDictionary<string, bool> properties = new((_modalPropertyColumns ?? [])
+            .OrderBy(x => _propertyListItems.First(y => y.BackingElement == x.Key).Order).ToList());
+        await OnColumnsToDisplayChanged(properties);
     }
 }
 
@@ -268,9 +289,9 @@
                     @if (propertyName == propertyColumnsToDisplay.Last())
                     {
                         @* button to select which columns to show *@
-                        <WarehouseItemTableColumnSelectionComponent class="btn btn-secondary table-button column-selection-btn ms-auto"
-                                                                    ColumnsToDisplay="DisplayPropertyColumnsSetting"
-                                                                    ColumnsToDisplayChanged="OnColumnsToDisplayChanged" />
+                        <button type="button" class="btn btn-secondary table-button column-selection-btn ms-auto" @onclick="ShowColumnSelectionModalAsync">
+                            <span class="material-symbols-rounded">splitscreen_vertical_add</span>
+                        </button>
                     }
                     </span>
                 </th>
@@ -324,3 +345,31 @@
     </tbody>
 </table>
 </div>
+
+<HxModal @ref="_columnSelectionModal" Title="Table Columns" OnHiding="HandleColumnSelectionModalHiding">
+    <BodyTemplate>
+        <div style="font-weight: initial;">
+            <p style="width: 100%; text-align: center;">Select columns to display in the table. Drag the handles to change column order.</p>
+            <div id="modal-property-list" class="rounded border">
+                @{
+                    RenderFragment<string> listItemFragment = item => @<span>
+                                                                  <InputCheckbox @bind-Value="_modalPropertyColumns[item]" />
+                                                                  <label>@item</label>
+                                                              </span>;
+                    _propertyListItems.Clear();
+                    foreach (string propertyName in DisplayPropertyColumnsSetting.Keys)
+                    {
+                        _propertyListItems.Add(new DraggableList<string>.ListItem
+                        {
+                            Order = DisplayPropertyColumnsSetting.Keys.ToList().IndexOf(propertyName),
+                            ListElement = listItemFragment,
+                            BackingElement = propertyName
+                        });
+                    }
+                }
+
+                <DraggableList TItem="string" Items="_propertyListItems" Style="list-style-type: none;"></DraggableList>
+            </div>
+        </div>
+    </BodyTemplate>
+</HxModal>
