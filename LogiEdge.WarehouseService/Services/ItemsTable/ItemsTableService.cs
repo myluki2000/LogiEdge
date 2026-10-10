@@ -97,6 +97,27 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             return await GetItemsAtStateAsync(stateIds, filterParams);
         }
 
+        public async Task<List<ItemStateDto>> GetItemStatesAsync(Guid itemId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            return await ctx.ItemsStates
+                .Where(st => st.ItemId == itemId)
+                .Include(st => st.Warehouse)
+                .OrderByDescending(st => st.Date)
+                .Select(st => new ItemStateDto()
+                {
+                    Id = st.Id,
+                    Date = st.Date,
+                    Location = st.Location,
+                    IsQuarantined = st.IsQuarantined,
+                    WarehouseId = st.WarehouseId,
+                    Warehouse = st.Warehouse,
+                    RelatedTransactionId = st.RelatedTransactionId,
+                })
+                .ToListAsync();
+        }
+
         public async Task<ItemsTableResultDto> GetAllItemsAsync(
             ItemsTableFilterParameters filterParams,
             ItemsTableStateParameters stateParams)

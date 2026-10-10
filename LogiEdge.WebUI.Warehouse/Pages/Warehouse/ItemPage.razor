@@ -1,84 +1,251 @@
-﻿@page "/warehouse/item/{ItemId}"
-@using System.Text.Json
-@using AutoMapper
+@page "/warehouse/items/{ItemId:guid}"
 @using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
-@using Microsoft.EntityFrameworkCore
-@using AutoMapper.QueryableExtensions
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.ItemsTable
+@using Microsoft.Extensions.Primitives
 
-@inject IConfigurationProvider AutoMapperConfig
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
+@inject ItemsTableService ItemsTableService
 
 @code {
     [Parameter]
-    public required string ItemId { get; init; }
-}
+    public Guid ItemId { get; set; }
 
-@{
-    WarehouseDbContext warehouseDbContext = WarehouseDbContextFactory.CreateDbContext();
-    Item item = warehouseDbContext.Items
-        .Where(x => x.Id == Guid.Parse(ItemId))
-        .Include(it => it.ItemStates)
-        .First();
-}
+    private ItemsTableResultDto.ItemsTableItem? _item;
+    private List<ItemStateDto>? _states;
 
-<h3>ItemPage</h3>
-
-<table>
-    <tr>
-        <th>Id</th>
-        <td>@item.Id</td>
-    </tr>
-    <tr>
-        <th>Customer</th>
-        <td><a href="/items?CustomerId=@(item.CustomerId)">@item.Customer.Name</a></td>
-    </tr>
-    <tr>
-        <th>ItemNumber</th>
-        <td><a href="/items?ItemNumber=@(item.ItemNumber)">@item.ItemNumber</a></td>
-    </tr>
-    <tr>
-        <th>Entry Date</th>
-        <td>@item.ItemStates.Where(x => x.IsInWarehouse).MinBy(x => x.Date)</td>
-    </tr>
-    <tr>
-        <th>Comments</th>
-        <td>
-            @foreach (Comment comment in item.Comments)
-            {
-                <p>@comment.Text</p>
-            }
-        </td>
-    </tr>
-</table>
-
-<h4>Additional Properties</h4>
-
-<table>
-    @foreach (JsonProperty property in item.AdditionalProperties.RootElement.EnumerateObject())
+    protected override async Task OnParametersSetAsync()
     {
-        <tr>
-            <th>@property.Name</th>
-            <td><a href="/items?@(property.Name)=@(property.Value.ToString())">@property.Value.GetString()</a></td>
-        </tr>
+        await base.OnParametersSetAsync();
+        await LoadAsync();
     }
-</table>
 
-<h4>Item States:</h4>
-@foreach (ItemState state in item.ItemStates ?? [])
+    private async Task LoadAsync()
+    {
+        ItemsTableFilterParameters filterParams = ItemsTableFilterParameters.FromQueryParameters([]);
+        // show the item at its latest state, even if it has already been shipped
+        ItemsTableStateParameters stateParams = new()
+        {
+            AtTime = null,
+            ShowShipped = true,
+        };
+
+        ItemsTableResultDto itemResult = await ItemsTableService.GetItemsAsync([ItemId], filterParams, stateParams);
+        List<ItemStateDto> states = await ItemsTableService.GetItemStatesAsync(ItemId);
+
+        _item = itemResult.Items.FirstOrDefault();
+        _states = states;
+    }
+
+    private string ItemsUrl(string key, string value)
+    {
+        return ItemsPage.GetPageUrlWithParams(new Dictionary<string, StringValues>
+        {
+            [key] = new StringValues(value),
+        });
+    }
+
+    private static string FormatValue(object? value)
+    {
+        if (value is DateTime dateTime)
+            return dateTime.ToLocalTime().ToString("G");
+        return value?.ToString() ?? string.Empty;
+    }
+
+    // serialize the same way ItemsTableFilterParameters does, so the value round-trips through the items page query string
+    private static string ValueToUrlParameter(object value)
+    {
+        if (value is DateTime dateTime)
+            return dateTime.ToString("o");
+        return value.ToString() ?? string.Empty;
+    }
+}
+
+@if (_item == null || _states == null)
 {
-    <table>
-        <tr>
-            <th>Date</th>
-            <td>@state.Date.ToLocalTime()</td>
-        </tr>
-        <tr>
-            <th>Location</th>
-            <td>@state.Location</td>
-        </tr>
-        <tr>
-            <th>Warehouse</th>
-            <td><a href="/items?WarehouseId=@(state.WarehouseId)">@state.Warehouse?.Name</a></td>
-        </tr>
-    </table>
+    @if (_states != null && _states.Count == 0)
+    {
+        <div class="item-page">
+            <h3>Item not found</h3>
+            <p>No item with ID @ItemId exists.</p>
+        </div>
+    }
+    else
+    {
+        <HxSpinner />
+    }
+}
+else
+{
+    <div class="item-page">
+        <div class="item-page-header d-flex align-items-center flex-wrap gap-3">
+            <h3 class="item-page-title mb-0">@_item.ItemNumber</h3>
+
+            <span class="badge text-bg-secondary item-badge">
+                <a class="link-light" href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.Name</a>
+            </span>
+            @if (_item.CurrentLocation != null)
+            {
+                <span class="badge text-bg-info item-badge">
+                    <span class="material-symbols-rounded badge-icon">location_on</span>@_item.CurrentLocation
+                </span>
+            }
+            <span class="badge text-bg-secondary item-badge">
+                <a class="link-light" href="@ItemsUrl(nameof(ItemState.Warehouse), _item.WarehouseId.ToString())">@_item.Warehouse.Name</a>
+            </span>
+        </div>
+
+        <div class="row g-3 item-page-body">
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header">Details</div>
+                    <div class="card-body">
+                        <dl class="item-details mb-0">
+                            <dt>Item number</dt>
+                            <dd><a href="@ItemsUrl(nameof(Item.ItemNumber), _item.ItemNumber)">@_item.ItemNumber</a></dd>
+
+                            <dt>Customer</dt>
+                            <dd><a href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.Name</a></dd>
+
+                            <dt>Warehouse</dt>
+                            <dd><a href="@ItemsUrl(nameof(ItemState.Warehouse), _item.WarehouseId.ToString())">@_item.Warehouse.Name</a></dd>
+
+                            <dt>Current location</dt>
+                            <dd>@(_item.CurrentLocation ?? "—")</dd>
+
+                            <dt>Entry date</dt>
+                            <dd>@(_item.EntryDate?.ToLocalTime().ToString("G") ?? "—")</dd>
+
+                            <dt>ID</dt>
+                            <dd class="font-monospace small">@_item.Id</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Additional properties</span>
+                        <span class="badge text-bg-secondary">@_item.AdditionalProperties.Count</span>
+                    </div>
+                    <div class="card-body">
+                        @if (_item.AdditionalProperties.Count == 0)
+                        {
+                            <p class="text-muted mb-0">This item has no additional properties.</p>
+                        }
+                        else
+                        {
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Property</th>
+                                        <th scope="col">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (ItemAdditionalPropertyDto property in _item.AdditionalProperties)
+                                    {
+                                        <tr>
+                                            <th scope="row">@property.Name</th>
+                                            <td>
+                                                @if (property.Value != null)
+                                                {
+                                                    <a href="@ItemsUrl(property.Name, ValueToUrlParameter(property.Value))">@FormatValue(property.Value)</a>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 item-page-body">
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Comments</span>
+                        <span class="badge text-bg-secondary">@_item.Comments.Count</span>
+                    </div>
+                    <div class="card-body">
+                        @if (_item.Comments.Count == 0)
+                        {
+                            <p class="text-muted mb-0">This item has no comments.</p>
+                        }
+                        else
+                        {
+                            <ul class="list-unstyled item-comments mb-0">
+                                @foreach (Comment comment in _item.Comments)
+                                {
+                                    <li class="@(comment.Retracted ? "retracted" : "")">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="font-monospace small text-muted">@comment.AuthorId</span>
+                                            <span class="small text-muted">@comment.Date.ToLocalTime().ToString("G")</span>
+                                            @if (comment.Retracted)
+                                            {
+                                                <span class="badge text-bg-danger">retracted</span>
+                                            }
+                                        </div>
+                                        <div>@comment.Text</div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Item states</span>
+                        <span class="badge text-bg-secondary">@_states.Count</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Date</th>
+                                        <th scope="col">Location</th>
+                                        <th scope="col">Warehouse</th>
+                                        <th scope="col" class="text-end">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (ItemStateDto state in _states)
+                                    {
+                                        <tr>
+                                            <td class="text-nowrap">@state.Date.ToLocalTime().ToString("G")</td>
+                                            <td>@state.Location</td>
+                                            <td><a href="@ItemsUrl(nameof(ItemState.Warehouse), state.WarehouseId.ToString())">@state.Warehouse.Name</a></td>
+                                            <td class="text-end">
+                                                @if (state.IsQuarantined)
+                                                {
+                                                    <span class="badge text-bg-warning">quarantined</span>
+                                                }
+                                                @if (state.RelatedTransactionId != null)
+                                                {
+                                                    <a class="btn btn-sm btn-outline-secondary" href="/warehouse/transactions/@state.RelatedTransactionId">
+                                                        <span class="material-symbols-rounded btn-icon">receipt_long</span>
+                                                    </a>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 }
