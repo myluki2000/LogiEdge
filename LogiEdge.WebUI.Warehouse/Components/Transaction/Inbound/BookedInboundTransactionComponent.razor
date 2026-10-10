@@ -29,10 +29,21 @@
         _sortParams ??= ItemsTableSortParameters.FromQueryParameters([]);
         _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
 
+        await LoadItemsTable();
+    }
+
+    private async Task LoadItemsTable()
+    {
         _itemsOfTable = await ItemsTableService.GetItemsAtStateAsync(
-            _inboundNewItemStateIds, 
-            _sortParams, 
+            _inboundNewItemStateIds,
+            _sortParams,
             _filterParams);
+    }
+
+    private async Task OnItemsRefreshRequested()
+    {
+        await LoadItemsTable();
+        StateHasChanged();
     }
 }
 
@@ -41,7 +52,8 @@
     <WarehouseItemAtStateTableComponent Items="_itemsOfTable"
                                         @bind-FilterParameters="_filterParams"
                                         @bind-ColumnDisplayParameters="_columnDisplayParams"
-                                        @bind-SortParameters="_sortParams"/>
+                                        @bind-SortParameters="_sortParams"
+                                        OnItemsRefreshRequested="OnItemsRefreshRequested" />
 }
 else
 {
