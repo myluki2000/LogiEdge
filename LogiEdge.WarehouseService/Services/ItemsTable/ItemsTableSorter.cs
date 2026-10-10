@@ -29,8 +29,10 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             {
                 items.Items = items.Items.OrderByDescending(lambda).ToList();
             }
-
-            items.Items = items.Items.OrderBy(lambda).ToList();
+            else
+            {
+                items.Items = items.Items.OrderBy(lambda).ToList();
+            }
         }
     }
 }
