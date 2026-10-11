@@ -14,6 +14,7 @@ using LogiEdge.WebUI.DocumentGenerator;
 using LogiEdge.WebUI.PlanningBoard;
 using LogiEdge.WebUI.Warehouse;
 using LogiEdge.WarehouseService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -50,6 +51,13 @@ namespace LogiEdge
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
             builder.Services.AddHxMessageBoxHost();
+            builder.Services.AddAuthorization(options =>
+            {
+                // Default-deny: every endpoint requires sign-in unless explicitly marked [AllowAnonymous].
+                options.FallbackPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .Build();
+            });
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
 
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();

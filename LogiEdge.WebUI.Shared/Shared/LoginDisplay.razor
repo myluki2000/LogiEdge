@@ -1,15 +1,53 @@
-﻿@using Microsoft.AspNetCore.Components.Authorization
-<div style="width: 100%;">
-    <AuthorizeView>
-        <Authorized>
-            <a href="Identity/Account/Manage">@context.User.Identity?.Name!</a>
-            <form method="post" action="Identity/Account/Logout">
-                <button type="submit" class="nav-link btn btn-link">Log out</button>
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+
+<AuthorizeView>
+    <Authorized>
+        <div class="login-card login-card--user">
+            <div class="login-card__avatar" title="@DisplayName(@context)">@Initials(@context)</div>
+            <div class="login-card__identity">
+                <a href="Identity/Account/Manage" class="login-card__name" title="@Email(@context)">
+                    @DisplayName(@context)
+                    <span class="material-symbols-rounded login-card__settings-icon" aria-hidden="true">settings</span>
+                </a>
+                <span class="login-card__email">@Email(@context)</span>
+            </div>
+            <form method="post" action="Identity/Account/Logout" class="login-card__logout">
+                <button type="submit" class="login-card__logout-button" title="Sign out" aria-label="Sign out">
+                    <span class="material-symbols-rounded" aria-hidden="true">logout</span>
+                </button>
             </form>
-        </Authorized>
-        <NotAuthorized>
-            Not logged in<br/>
-            <a href="Identity/Account/Register">Register</a> · <a href="Identity/Account/Login">Log in</a>
-        </NotAuthorized>
-    </AuthorizeView>
-</div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="login-card login-card--anonymous">
+            <p class="login-card__hint">Not signed in</p>
+            <a href="Identity/Account/Login" class="btn btn-primary login-card__action">Log in</a>
+            <a href="Identity/Account/Register" class="btn btn-outline-light login-card__action">Register</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private static string Email(AuthenticationState state) =>
+        state.User.FindFirstValue(ClaimTypes.Email) ?? state.User.Identity?.Name ?? string.Empty;
+
+    private static string DisplayName(AuthenticationState state)
+    {
+        var email = Email(state);
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return "User";
+        }
+
+        var localPart = email.Split('@', 2)[0];
+        return string.IsNullOrWhiteSpace(localPart) ? email : localPart;
+    }
+
+    private static string Initials(AuthenticationState state)
+    {
+        var parts = DisplayName(state).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var initials = new string(parts.Take(2).Select(part => char.ToUpperInvariant(part[0])).ToArray());
+        return string.IsNullOrEmpty(initials) ? "?" : initials;
+    }
+}
