@@ -1,14 +1,12 @@
 ﻿@using LogiEdge.BaseService.Data
 @using LogiEdge.BaseService.Services
 @using LogiEdge.WarehouseService.Data.Transactions
-@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
-@using Microsoft.EntityFrameworkCore
 
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
 @inject FileAttachmentService FileAttachmentService
 @inject TransactionManagementService TransactionService
 
@@ -16,51 +14,40 @@
     [Parameter]
     public required Guid TransactionId { get; set; }
 
-    private InventoryTransaction? Transaction { get; set; }
+    private InventoryTransactionBaseInfoDto? _transaction { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
-        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-
-        Transaction = await ctx.InventoryTransactions
-            .Include(t => t.InboundTransactionPart)
-            .Include(t => t.OutboundTransactionPart)
-            .FirstOrDefaultAsync(t => t.Id == TransactionId);
+        _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
     }
 
     private async Task DocumentGeneratorComponentOnSaveRequested(FileAttachment att)
     {
-        if (Transaction == null)
+        if (_transaction == null)
             return;
 
         att = await FileAttachmentService.CreateAttachmentAsync(att);
-
-        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-        ctx.Attach(Transaction);
-
-        Transaction.AttachmentIds.Add(att.Id);
-
-        await ctx.SaveChangesAsync();
+        await TransactionService.AddAttachment(_transaction.Id, att.Id);
     }
 }
 
-@if (Transaction == null)
+@if (_transaction == null)
 {
     <p>Transaction with ID @TransactionId could not be found.</p>
     return;
 }
 
-@if (Transaction.State != TransactionState.BOOKED)
+@if (_transaction.State != TransactionState.BOOKED)
 {
-    <p>Unexpected transaction state: @Transaction.State</p>
+    <p>Unexpected transaction state: @_transaction.State</p>
 }
 
 <div class="header">
-    <span class="text-muted">Transaction · Created: <span class="text-dark">@Transaction.CreatedDate</span> · Booked: <span class="text-dark">@Transaction.BookedDate</span></span>
+    <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> · Booked: <span class="text-dark">@_transaction.BookedDate</span></span>
     <h3 class="m-0">
-        @Transaction.Title
+        @_transaction.Title
     </h3>
 </div>
 
@@ -77,7 +64,7 @@
                 </div>
             </Content>
         </HxTab>
-        @if (Transaction.InboundTransactionPart != null)
+        @if (_transaction.HasInboundPart)
         {
             <HxTab Id="inbound" Title="Inbound">
                 <Content>
@@ -85,7 +72,7 @@
                 </Content>
             </HxTab>
         }
-        @if (Transaction.OutboundTransactionPart != null)
+        @if (_transaction.HasOutboundPart)
         {
             <HxTab Id="outbound" Title="Outbound">
                 <Content>
@@ -93,7 +80,7 @@
                 </Content>
             </HxTab>
         }
-        @if (Transaction.RelocationTransactionPart != null)
+        @if (_transaction.HasRelocationPart)
         {
             <HxTab Id="relocation" Title="Relocation">
                 <Content>
