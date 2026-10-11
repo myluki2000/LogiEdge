@@ -6,13 +6,13 @@
         <div class="login-card login-card--user">
             <div class="login-card__avatar" title="@DisplayName(@context)">@Initials(@context)</div>
             <div class="login-card__identity">
-                <a href="Identity/Account/Manage" class="login-card__name" title="@Email(@context)">
+                <a href="/Identity/Account/Manage" class="login-card__name" title="@Email(@context)">
                     @DisplayName(@context)
                     <span class="material-symbols-rounded login-card__settings-icon" aria-hidden="true">settings</span>
                 </a>
                 <span class="login-card__email">@Email(@context)</span>
             </div>
-            <form method="post" action="Identity/Account/Logout" class="login-card__logout">
+            <form method="post" action="/Identity/Account/Logout" class="login-card__logout">
                 <button type="submit" class="login-card__logout-button" title="Sign out" aria-label="Sign out">
                     <span class="material-symbols-rounded" aria-hidden="true">logout</span>
                 </button>
@@ -22,8 +22,8 @@
     <NotAuthorized>
         <div class="login-card login-card--anonymous">
             <p class="login-card__hint">Not signed in</p>
-            <a href="Identity/Account/Login" class="btn btn-primary login-card__action">Log in</a>
-            <a href="Identity/Account/Register" class="btn btn-outline-light login-card__action">Register</a>
+            <a href="/Identity/Account/Login" class="btn btn-primary login-card__action">Log in</a>
+            <a href="/Identity/Account/Register" class="btn btn-outline-light login-card__action">Register</a>
         </div>
     </NotAuthorized>
 </AuthorizeView>
