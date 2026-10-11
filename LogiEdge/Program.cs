@@ -5,6 +5,7 @@ using LogiEdge.BaseService;
 using LogiEdge.WebUI.Customers;
 using LogiEdge.CustomerService;
 using LogiEdge.Data;
+using LogiEdge.Identity;
 using LogiEdge.ExcelImporterService;
 using LogiEdge.Service.DocumentGenerator;
 using LogiEdge.Service.PlanningBoard;
@@ -22,7 +23,7 @@ namespace LogiEdge
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +33,18 @@ namespace LogiEdge
             builder.Services.AddDbContext<AppIdentityDbContext>(options =>
                 options.UseNpgsql(appIdentityConnectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-            builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
+            builder.Services.AddDefaultIdentity<IdentityUser>(options =>
+            {
+                options.SignIn.RequireConfirmedAccount = true;
+                if (builder.Environment.IsDevelopment())
+                {
+                    // Allow simple test credentials (e.g. admin/admin) in Development only.
+                    options.Password.RequiredLength = 4;
+                    options.Password.RequireDigit = false;
+                    options.Password.RequireUppercase = false;
+                    options.Password.RequireNonAlphanumeric = false;
+                }
+            })
                 .AddEntityFrameworkStores<AppIdentityDbContext>();
             builder.Services.AddHxServices();
             builder.Services.AddRazorPages();
@@ -80,6 +92,11 @@ namespace LogiEdge
                 module.OnAppBuilt(app);
             }
 
+            // Seed a local test user in Development (admin@localhost / admin) - see .notes/auth-impl.md
+            if (app.Environment.IsDevelopment())
+            {
+                await TestUserSeeder.SeedAsync(app);
+            }
             // add module assemblies
 
             // Configure the HTTP request pipeline.
@@ -100,13 +117,14 @@ namespace LogiEdge
 
             app.UseRouting();
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();
             app.MapBlazorHub();
             app.MapFallbackToPage("/_Host");
 
-            app.Run();
+            await app.RunAsync();
         }
     }
 }
