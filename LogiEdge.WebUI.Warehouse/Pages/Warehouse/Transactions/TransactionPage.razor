@@ -1,19 +1,17 @@
 ﻿@page "/warehouse/transactions/{TransactionId:guid}"
 @using LogiEdge.WarehouseService.Data.Transactions
-@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
 @using LogiEdge.WebUI.Shared.Shared
 @using LogiEdge.WebUI.Warehouse.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction
 @using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.EntityFrameworkCore
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
 
 
-@inject WarehouseManagementService WarehouseService
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@inject TransactionManagementService TransactionService
 
 @code {
     /// <summary>
@@ -30,7 +28,7 @@
         Layout?.SetPadding(false);
     }
 
-    private InventoryTransaction? Transaction { get; set; }
+    private InventoryTransactionBaseInfoDto? _transaction { get; set; }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -40,32 +38,29 @@
 
     private async Task ReloadTransactionAsync()
     {
-        await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-
-        Transaction = await ctx.InventoryTransactions
-            .FirstOrDefaultAsync(t => t.Id == TransactionId);
+        _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
 
         StateHasChanged();
     }
 }
 
-@if (Transaction == null)
+@if (_transaction == null)
 {
     <p>Transaction with ID @TransactionId could not be found.</p>
     return;
 }
 
-@if (Transaction.State == TransactionState.DRAFT)
+@if (_transaction.State == TransactionState.DRAFT)
 {
     // TODO: If we pass Transaction instead of TransactionId, we don't have to reload the transaction after booking
     <DraftTransactionComponent TransactionId="TransactionId" OnTransactionBooked="ReloadTransactionAsync" />
 }
-else if (Transaction.State == TransactionState.BOOKED)
+else if (_transaction.State == TransactionState.BOOKED)
 {
     <BookedTransactionComponent TransactionId="TransactionId" />
 }
 else
 {
-    <p>Unknown transaction state encountered: @Transaction.State</p>
+    <p>Unknown transaction state encountered: @_transaction.State</p>
     return;
 }
