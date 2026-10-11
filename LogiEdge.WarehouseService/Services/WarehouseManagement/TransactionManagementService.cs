@@ -312,6 +312,52 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Gets the base info of all transactions, ordered by creation date (newest first).
+        /// </summary>
+        public async Task<List<InventoryTransactionBaseInfoDto>> GetTransactionsAsync()
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            return await ctx.InventoryTransactions
+                .OrderByDescending(t => t.CreatedDate)
+                .Select(t => new InventoryTransactionBaseInfoDto()
+                {
+                    Id = t.Id,
+                    Title = t.Title,
+                    CreatedDate = t.CreatedDate,
+                    BookedDate = t.BookedDate,
+                    CreatedByUserId = t.CreatedByUserId,
+                    HandledByWorker = t.HandledByWorker,
+                    State = t.State,
+                    HasInboundPart = ctx.InboundTransactionParts.Any(p => p.TransactionId == t.Id),
+                    HasOutboundPart = ctx.OutboundTransactionParts.Any(p => p.TransactionId == t.Id),
+                    HasRelocationPart = ctx.RelocationTransactionParts.Any(p => p.TransactionId == t.Id),
+                })
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Creates a new DRAFT transaction and returns its ID.
+        /// </summary>
+        public async Task<Guid> CreateTransaction(string handledByWorker)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InventoryTransaction transaction = new()
+            {
+                CreatedDate = DateTime.UtcNow,
+                CreatedByUserId = Guid.Empty, // TODO: Actual user ID should be set here
+                HandledByWorker = handledByWorker,
+                AttachmentIds = []
+            };
+
+            ctx.InventoryTransactions.Add(transaction);
+            await ctx.SaveChangesAsync();
+
+            return transaction.Id;
+        }
+
         private async Task TryBookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
         {
             InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
