@@ -1,4 +1,4 @@
-using Havit.Blazor.Components.Web;
+﻿using Havit.Blazor.Components.Web;
 using Havit.Blazor.Components.Web.Bootstrap;
 using LogiEdge.Areas.Identity;
 using LogiEdge.BaseService;
@@ -36,7 +36,7 @@ namespace LogiEdge
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
             builder.Services.AddDefaultIdentity<IdentityUser>(options =>
             {
-                options.SignIn.RequireConfirmedAccount = true;
+                options.SignIn.RequireConfirmedAccount = false;
                 if (builder.Environment.IsDevelopment())
                 {
                     // Allow simple test credentials (e.g. admin/admin) in Development only.
@@ -44,8 +44,10 @@ namespace LogiEdge
                     options.Password.RequireDigit = false;
                     options.Password.RequireUppercase = false;
                     options.Password.RequireNonAlphanumeric = false;
+                    options.Password.RequireLowercase = false;
                 }
             })
+                .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppIdentityDbContext>();
             builder.Services.AddHxServices();
             builder.Services.AddRazorPages();
@@ -100,7 +102,7 @@ namespace LogiEdge
                 module.OnAppBuilt(app);
             }
 
-            // Seed a local test user in Development (admin@localhost / admin) - see .notes/auth-impl.md
+            // Seed the Admin role + local test users in Development (admin@localhost / admin, user@localhost / 123456) - see .notes/auth-impl.md
             if (app.Environment.IsDevelopment())
             {
                 await TestUserSeeder.SeedAsync(app);

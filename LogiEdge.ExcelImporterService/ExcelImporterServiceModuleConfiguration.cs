@@ -2,6 +2,7 @@
 using System.Reflection;
 using LogiEdge.ExcelImporterService.Services;
 using LogiEdge.Shared;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,7 +17,9 @@ namespace LogiEdge.ExcelImporterService
 
         public void OnAppBuilt(WebApplication app)
         {
-            app.MapGet("/RunExcelImport", async () => await app.Services.GetService<ExcelImportingService>()!.RunImportAsync());
+            // Admin-only (state-changing import trigger).
+            app.MapGet("/RunExcelImport", async () => await app.Services.GetService<ExcelImportingService>()!.RunImportAsync())
+                .RequireAuthorization(new AuthorizeAttribute { Roles = AppRoles.Admin });
         }
 
         public Assembly Assembly => typeof(ExcelImporterServiceModuleConfiguration).Assembly;

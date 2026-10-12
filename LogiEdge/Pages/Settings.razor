@@ -1,6 +1,9 @@
 ﻿@page "/Settings"
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using LogiEdge.BaseService.Services
+@using LogiEdge.Shared
+@attribute [Authorize(Roles = AppRoles.Admin)]
 @inject SettingsService SettingsService;
 
 @code {
