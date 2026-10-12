@@ -31,7 +31,9 @@ namespace LogiEdge
             // Add services to the container.
             var appIdentityConnectionString = builder.Configuration.GetConnectionString("AppIdentityConnection") 
                                               ?? throw new InvalidOperationException("Connection string 'AppIdentityConnection' not found.");
-            builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+            // Factory registration (also registers the context itself as scoped) so host services can
+            // resolve the identity database outside of a request/circuit scope.
+            builder.Services.AddDbContextFactory<AppIdentityDbContext>(options =>
                 options.UseNpgsql(appIdentityConnectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
             builder.Services.AddDefaultIdentity<IdentityUser>(options =>
@@ -61,6 +63,8 @@ namespace LogiEdge
                     .Build();
             });
             builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
+            builder.Services.AddSingleton<ISystemUserProvider, SystemUserProvider>();
+            builder.Services.AddSingleton<IUserDirectory, UserDirectory>();
 
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
 

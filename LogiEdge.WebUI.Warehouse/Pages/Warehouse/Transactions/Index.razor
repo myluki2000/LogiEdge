@@ -3,21 +3,27 @@
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.Shared
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Routing
 
 @inject TransactionManagementService TransactionService
 @inject NavigationManager NavigationManager
+@inject IUserDirectory UserDirectory
 
 @code {
     private List<InventoryTransactionBaseInfoDto> _transactions = [];
+    private IReadOnlyDictionary<Guid, string> _creatorNames = new Dictionary<Guid, string>();
 
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
         _transactions = await TransactionService.GetTransactionsAsync();
+        _creatorNames = await UserDirectory.GetUserNamesAsync(_transactions.Select(t => t.CreatedByUserId));
     }
+
+    private string CreatorName(Guid userId) => _creatorNames.GetValueOrDefault(userId, "unknown");
 
     private async Task BtnCreateTransactionOnClick()
     {
@@ -57,7 +63,7 @@ else
                             }
                         </div>
 
-                        <small class="text-muted mt-2">Created @transaction.CreatedDate</small>
+                        <small class="text-muted mt-2">Created @transaction.CreatedDate by @CreatorName(transaction.CreatedByUserId)</small>
                         @if (transaction.BookedDate != null)
                         {
                             <small class="text-muted">Booked @transaction.BookedDate</small>
