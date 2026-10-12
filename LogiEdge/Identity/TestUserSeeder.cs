@@ -74,9 +74,6 @@ namespace LogiEdge.Identity
             {
                 UserName = userName,
                 Email = userName,
-                // RequireConfirmedAccount is enabled and no email infrastructure exists,
-                // so confirm the account directly to make it sign-in capable.
-                EmailConfirmed = true,
             };
 
             IdentityResult result = await userManager.CreateAsync(user, password);
