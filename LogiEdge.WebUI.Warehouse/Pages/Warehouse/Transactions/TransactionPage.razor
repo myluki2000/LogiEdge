@@ -23,11 +23,6 @@
     [CascadingParameter]
     public required MainLayout Layout { get; set; }
 
-    protected override void OnInitialized()
-    {
-        Layout?.SetPadding(false);
-    }
-
     private InventoryTransactionBaseInfoDto? _transaction { get; set; }
 
     protected override async Task OnParametersSetAsync()
@@ -44,23 +39,27 @@
     }
 }
 
-@if (_transaction == null)
-{
-    <p>Transaction with ID @TransactionId could not be found.</p>
-    return;
-}
+@{
+    Layout?.SetPadding(false);
 
-@if (_transaction.State == TransactionState.DRAFT)
-{
-    // TODO: If we pass Transaction instead of TransactionId, we don't have to reload the transaction after booking
-    <DraftTransactionComponent TransactionId="TransactionId" OnTransactionBooked="ReloadTransactionAsync" />
-}
-else if (_transaction.State == TransactionState.BOOKED)
-{
-    <BookedTransactionComponent TransactionId="TransactionId" />
-}
-else
-{
-    <p>Unknown transaction state encountered: @_transaction.State</p>
-    return;
+    if (_transaction == null)
+    {
+        <p>Transaction with ID @TransactionId could not be found.</p>
+        return;
+    }
+
+    if (_transaction.State == TransactionState.DRAFT)
+    {
+        // TODO: If we pass Transaction instead of TransactionId, we don't have to reload the transaction after booking
+        <DraftTransactionComponent TransactionId="TransactionId" OnTransactionBooked="ReloadTransactionAsync" />
+    }
+    else if (_transaction.State == TransactionState.BOOKED)
+    {
+        <BookedTransactionComponent TransactionId="TransactionId" />
+    }
+    else
+    {
+        <p>Unknown transaction state encountered: @_transaction.State</p>
+        return;
+    }
 }

@@ -1,4 +1,5 @@
-﻿using LogiEdge.Shared.Utility;
+﻿using LogiEdge.CustomerService.Data;
+using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
 using LogiEdge.WarehouseService.Persistence;
@@ -146,6 +147,166 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 .SelectMany(t => t.NewItemStates!)
                 .Select(st => st.Id)
                 .ToListAsync();
+        }
+
+        public async Task<InboundTransactionPart> GetInboundTransactionPart(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+                .AsNoTracking()
+                .Include(t => t.Transaction)
+                .Include(t => t.DraftItems)
+                    .ThenInclude(di => di.Customer)
+                .Include(t => t.DraftItems)
+                    .ThenInclude(di => di.Warehouse)
+                .Include(t => t.DraftItems)
+                    .ThenInclude(di => di.ItemSchema)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (transactionPart == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
+            }
+
+            if (transactionPart.Transaction.State != TransactionState.DRAFT)
+            {
+                throw new InvalidOperationException($"Transaction {transactionId} is not in DRAFT state.");
+            }
+
+            return transactionPart;
+        }
+
+        public async Task<InboundDraftItem> AddInboundDraftItem(Guid transactionId, Guid customerId, Guid itemSchemaId, Guid warehouseId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (transactionPart == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
+            }
+
+            Customer? customer = await ctx.Set<Customer>().FirstOrDefaultAsync(c => c.Id == customerId);
+            if (customer == null)
+            {
+                throw new InvalidOperationException($"Customer with ID {customerId} not found.");
+            }
+
+            ItemSchema? itemSchema = await ctx.ItemSchemas.FirstOrDefaultAsync(s => s.Id == itemSchemaId);
+            if (itemSchema == null)
+            {
+                throw new InvalidOperationException($"Item schema with ID {itemSchemaId} not found.");
+            }
+
+            Warehouse? warehouse = await ctx.Warehouses.FirstOrDefaultAsync(w => w.Id == warehouseId);
+            if (warehouse == null)
+            {
+                throw new InvalidOperationException($"Warehouse with ID {warehouseId} not found.");
+            }
+
+            InboundDraftItem newItem = new()
+            {
+                Customer = customer,
+                CustomerId = customerId,
+                ItemSchema = itemSchema,
+                ItemSchemaId = itemSchemaId,
+                Warehouse = warehouse,
+                WarehouseId = warehouseId,
+            };
+
+            transactionPart.DraftItems.Add(newItem);
+
+            await ctx.SaveChangesAsync();
+
+            return newItem;
+        }
+
+        public async Task UpdateInboundDraftItem(Guid transactionId, InboundDraftItem draftItem)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+                .AsTracking()
+                .Include(t => t.DraftItems)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (transactionPart == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
+            }
+
+            InboundDraftItem? existing = transactionPart.DraftItems.FirstOrDefault(di => di.Id == draftItem.Id);
+            if (existing == null)
+            {
+                throw new InvalidOperationException($"Inbound draft item with ID {draftItem.Id} does not belong to transaction {transactionId}.");
+            }
+
+            existing.ItemNumber = draftItem.ItemNumber;
+            existing.Comments = draftItem.Comments;
+            existing.Location = draftItem.Location;
+            existing.Count = draftItem.Count;
+            existing.IsQuarantined = draftItem.IsQuarantined;
+            existing.AdditionalProperties = draftItem.AdditionalProperties;
+
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task DeleteInboundDraftItem(Guid transactionId, Guid draftItemId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+                .AsTracking()
+                .Include(t => t.DraftItems)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (transactionPart == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
+            }
+
+            InboundDraftItem? existing = transactionPart.DraftItems.FirstOrDefault(di => di.Id == draftItemId);
+            if (existing == null)
+            {
+                throw new InvalidOperationException($"Inbound draft item with ID {draftItemId} does not belong to transaction {transactionId}.");
+            }
+
+            transactionPart.DraftItems.Remove(existing);
+
+            await ctx.SaveChangesAsync();
+        }
+
+        public async Task DeleteInboundDraftItemList(Guid transactionId, Guid customerId, Guid itemSchemaId, Guid warehouseId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+                .AsTracking()
+                .Include(t => t.DraftItems)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
+
+            if (transactionPart == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
+            }
+
+            List<InboundDraftItem> items = transactionPart.DraftItems
+                .Where(di => di.CustomerId == customerId && di.ItemSchemaId == itemSchemaId && di.WarehouseId == warehouseId)
+                .ToList();
+
+            if (items.Count == 0)
+            {
+                throw new InvalidOperationException($"No draft items found for the given item list in transaction {transactionId}.");
+            }
+
+            foreach (InboundDraftItem item in items)
+                transactionPart.DraftItems.Remove(item);
+
+            await ctx.SaveChangesAsync();
         }
 
         public async Task SetTransactionTitle(Guid transactionId, string title)

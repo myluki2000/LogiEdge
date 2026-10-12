@@ -11,6 +11,11 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 {
     public class WarehouseManagementService(IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory)
     {
-        
+        public async Task<List<Warehouse>> GetWarehousesAsync()
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            return await ctx.Warehouses.AsNoTracking().ToListAsync();
+        }
     }
 }

@@ -30,7 +30,8 @@ namespace LogiEdge.WarehouseService.Data.Transactions
         [MaxLength(64)]
         public string Location { get; set; } = string.Empty;
         [DisplayColumnProperty]
-        public int Count { get; set; }
+        [Range(1, int.MaxValue)]
+        public int Count { get; set; } = 1;
         [DisplayColumnProperty]
         public bool IsQuarantined { get; set; }
 

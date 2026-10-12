@@ -1,17 +1,15 @@
 ﻿@using System.ComponentModel.DataAnnotations
+@using System.Text.RegularExpressions
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WebUI.Warehouse.Components.PropertyValueInput
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
-@using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
-@using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.EntityFrameworkCore
 
-@inject WarehouseManagementService warehouseService
-@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject TransactionManagementService TransactionService
+@inject WarehouseManagementService WarehouseService
 
 @code {
     [Parameter]
@@ -19,15 +17,15 @@
     [Parameter]
     public required DebouncerComponent Debouncer { get; set; }
 
-    private InventoryTransaction Transaction { get; set; } = null!;
-    private Customer? SelectedCustomerToAdd { get; set; } = null;
-    private ItemSchema? SelectedItemSchemaToAdd { get; set; } = null;
+    private InboundTransactionPart _inboundPart = null!;
+    private Customer? SelectedCustomerToAdd { get; set; }
+    private ItemSchema? SelectedItemSchemaToAdd { get; set; }
     private List<(Warehouse warehouse, Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
 
-    private List<ItemSchema> _itemSchemas = [];
     private List<Warehouse> _warehouses = [];
+    private Guid? _modalSelectedWarehouseId = null;
 
-    private Warehouse? selectedWarehouse;
+    private HxModal _addItemListModal = null!;
 
     private Dictionary<(Guid customer, Guid itemSchema), InboundDraftItem> NewItems { get; set; } = new();
 
@@ -43,6 +41,11 @@
     private void UpdateInputInvalidState(Guid itemId, string propertyName, bool isInvalid)
     {
         LastInputInvalidMap[(itemId, propertyName)] = isInvalid;
+        RefreshAnyInputInvalidState();
+    }
+
+    private void RefreshAnyInputInvalidState()
+    {
         bool anyInvalid = LastInputInvalidMap.Values.Any(v => v);
         if (IsAnyInputInvalid != anyInvalid)
         {
@@ -52,46 +55,107 @@
     }
 
     private Dictionary<(Guid customer, Guid itemSchema, string propertyName), InboundDraftItemPropertyValueInput> lastItemInputComponents = [];
+    private Dictionary<(Guid customer, Guid itemSchema, string propertyName), InboundDraftItemPropertyValueInput> newItemRowInputComponents = [];
     private (Guid customer, Guid itemSchema, string propertyName)? focusOnLastElement = null;
+    private (Guid customer, Guid itemSchema, string propertyName)? focusOnNewItemRow = null;
 
-    public override async Task SetParametersAsync(ParameterView parameters)
+    protected override async Task OnParametersSetAsync()
     {
-        await base.SetParametersAsync(parameters);
+        await base.OnParametersSetAsync();
 
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
+        await ReloadInboundPartAsync();
 
-        Transaction = GetTransaction(ctx);
+        _warehouses = await WarehouseService.GetWarehousesAsync();
+        if (_modalSelectedWarehouseId == null)
+        {
+            Warehouse? firstWarehouse = _warehouses.FirstOrDefault();
+            if (firstWarehouse != null)
+                _modalSelectedWarehouseId = firstWarehouse.Id;
+        }
+    }
 
-        _itemSchemas = await ctx.ItemSchemas
-            .Include(x => x.Customers)
-            .ToListAsync();
-        _warehouses = await ctx.Warehouses
-            .ToListAsync();
+    private async Task ReloadInboundPartAsync()
+    {
+        _inboundPart = await TransactionService.GetInboundTransactionPart(TransactionId);
 
-        ItemSchemasToShow = Transaction.InboundTransactionPart.DraftItems.Select(it => (it.Warehouse, it.Customer, it.ItemSchema)).Distinct().ToList();
+        // use group by id instead of .Distinct() because with .NoTracking(), it doesn't reuse the same instance for Customer, Warehouse etc.
+        ItemSchemasToShow = _inboundPart.DraftItems
+            .GroupBy(it => (it.WarehouseId, it.CustomerId, it.ItemSchemaId))
+            .Select(g => (g.First().Warehouse, g.First().Customer, g.First().ItemSchema))
+            .ToList();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (focusOnLastElement != null)
+        if (focusOnLastElement != null && lastItemInputComponents.TryGetValue(focusOnLastElement.Value, out InboundDraftItemPropertyValueInput? inputComponent))
         {
-            if (lastItemInputComponents.TryGetValue(focusOnLastElement.Value, out InboundDraftItemPropertyValueInput? inputComponent))
-            {
-                await inputComponent.FocusAsync();
-            }
-            focusOnLastElement = null;
+            await inputComponent.FocusAsync();
         }
+        focusOnLastElement = null;
+
+        if (focusOnNewItemRow != null && newItemRowInputComponents.TryGetValue(focusOnNewItemRow.Value, out InboundDraftItemPropertyValueInput? newItemInputComponent))
+        {
+            await newItemInputComponent.FocusAsync();
+        }
+        focusOnNewItemRow = null;
 
         await base.OnAfterRenderAsync(firstRender);
     }
 
-    private void BtnAddSchemaOnClick()
-    {
-        if (SelectedCustomerToAdd == null || SelectedItemSchemaToAdd == null)
-            throw new Exception("No customer or item schema selected to add item schema for.");
+    private Warehouse? GetModalSelectedWarehouse()
+        => _warehouses.FirstOrDefault(w => w.Id == _modalSelectedWarehouseId);
 
-        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-        ItemSchemasToShow.Add((selectedWarehouse, SelectedCustomerToAdd, SelectedItemSchemaToAdd));
+    private bool IsAddingExistingItemList
+    {
+        get
+        {
+            if (SelectedCustomerToAdd == null || SelectedItemSchemaToAdd == null)
+                return false;
+
+            Warehouse? warehouse = GetModalSelectedWarehouse();
+            if (warehouse == null)
+                return false;
+
+            return ItemSchemasToShow.Any(g => g.warehouse.Id == warehouse.Id
+                                            && g.customer.Id == SelectedCustomerToAdd!.Id
+                                            && g.itemSchema.Id == SelectedItemSchemaToAdd!.Id);
+        }
+    }
+
+    private bool CanAddItemList
+        => GetModalSelectedWarehouse() != null
+           && SelectedCustomerToAdd != null
+           && SelectedItemSchemaToAdd != null
+           && !IsAddingExistingItemList;
+
+    private async Task ShowAddItemListModalAsync()
+    {
+        await _addItemListModal.ShowAsync();
+    }
+
+    private async Task BtnAddSchemaOnClick()
+    {
+        if (!CanAddItemList)
+            return;
+
+        Warehouse warehouse = GetModalSelectedWarehouse()!;
+        ItemSchemasToShow.Add((warehouse, SelectedCustomerToAdd!, SelectedItemSchemaToAdd!));
+        FocusNewItemRow(warehouse, SelectedCustomerToAdd!, SelectedItemSchemaToAdd!);
+
+        // Clear the selections before hiding so that the "already added" error message
+        // doesn't flash during the modal's close animation and the next add starts clean.
+        // The warehouse selection is kept as a convenience for adding further lists.
+        SelectedCustomerToAdd = null;
+        SelectedItemSchemaToAdd = null;
+
+        await _addItemListModal.HideAsync();
+    }
+
+    private void FocusNewItemRow(Warehouse warehouse, Customer customer, ItemSchema schema)
+    {
+        string firstPropertyName = GetPropertyColumns(schema).First().propertyName;
+        focusOnNewItemRow = (customer.Id, schema.Id, firstPropertyName);
+        StateHasChanged();
     }
 
     private List<(string propertyName, Type propertyType)> GetPropertyColumns(ItemSchema schema)
@@ -107,203 +171,228 @@
         return propertyColumns;
     }
 
-    private InventoryTransaction GetTransaction(WarehouseDbContext ctx, bool tracking = false)
+    private async Task NewItemPropertyValueChanged(InboundDraftItem item, string propertyName)
     {
-        InventoryTransaction? transaction = ctx.InventoryTransactions
-            .Include(tr => tr.InboundTransactionPart)
-                .ThenInclude(tr => tr.DraftItems)
-                    .ThenInclude(di => di.Customer)
-            .Include(tr => tr.InboundTransactionPart)
-                .ThenInclude(tr => tr.DraftItems)
-                    .ThenInclude(di => di.Warehouse)
-            .Include(tr => tr.InboundTransactionPart)
-                .ThenInclude(tr => tr.DraftItems)
-                    .ThenInclude(di => di.ItemSchema)
-            .FirstOrDefault(t => t.Id == TransactionId);
+        if (_inboundPart.DraftItems.Contains(item))
+            return;
 
-        if (transaction == null)
-            throw new InvalidOperationException($"Transaction {TransactionId} not found.");
+        InboundDraftItem saved = await TransactionService.AddInboundDraftItem(TransactionId, item.CustomerId, item.ItemSchemaId, item.WarehouseId);
 
-        if (transaction.State != TransactionState.DRAFT)
-            throw new InvalidOperationException($"Transaction {TransactionId} is not in DRAFT state.");
+        item.Id = saved.Id;
+        await TransactionService.UpdateInboundDraftItem(TransactionId, item);
 
-        return transaction;
-    }
+        _inboundPart.DraftItems.Add(item);
+        NewItems.Remove((item.CustomerId, item.ItemSchemaId));
+        focusOnLastElement = (item.CustomerId, item.ItemSchemaId, propertyName);
+        StateHasChanged();
 
-    private void NewItemPropertyValueChanged(InboundDraftItem item, string propertyName)
-    {
-        if (!Transaction.InboundTransactionPart.DraftItems.Contains(item))
-        {
-            using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-
-            ctx.Attach(item.Customer);
-            ctx.Attach(item.ItemSchema);
-
-            InventoryTransaction transaction = GetTransaction(ctx);
-            ctx.Attach(transaction);
-            transaction.InboundTransactionPart.DraftItems.Add(item);
-            ctx.SaveChanges();
-
-            // navigation references will have been fixed by EF Core after SaveChanges
-            Transaction = transaction;
-
-            NewItems.Remove((item.CustomerId, item.ItemSchemaId));
-            focusOnLastElement = (item.CustomerId, item.ItemSchemaId, propertyName);
-            StateHasChanged();
-        }
+        // Resync in case further input arrived before the re-render reached the client.
+        Debouncer.Debounce(async Task () => await SaveItemPropertyValueToDatabaseAsync(item));
     }
 
     private async Task DeleteItem(InboundDraftItem item)
     {
-        Transaction.InboundTransactionPart.DraftItems.Remove(item);
+        await TransactionService.DeleteInboundDraftItem(TransactionId, item.Id);
 
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.Remove(item);
-        await ctx.SaveChangesAsync();
+        LastInputInvalidMap = LastInputInvalidMap.Where(kvp => kvp.Key.item != item.Id).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        RefreshAnyInputInvalidState();
+
+        await ReloadInboundPartAsync();
     }
 
-    private async Task SaveItemPropertyValueToDatabaseAsync(InboundDraftItem item, string propertyName)
+    private async Task DeleteItemList(Warehouse warehouse, Customer customer, ItemSchema schema)
     {
-        await using WarehouseDbContext ctx = await WarehouseContextFactory.CreateDbContextAsync();
-        ctx.Update(item);
-        await ctx.SaveChangesAsync();
+        List<Guid> itemIds = _inboundPart.DraftItems
+            .Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id && it.WarehouseId == warehouse.Id)
+            .Select(it => it.Id)
+            .ToList();
+
+        await TransactionService.DeleteInboundDraftItemList(TransactionId, customer.Id, schema.Id, warehouse.Id);
+
+        NewItems.Remove((customer.Id, schema.Id));
+
+        LastInputInvalidMap = LastInputInvalidMap.Where(kvp => !itemIds.Contains(kvp.Key.item)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        RefreshAnyInputInvalidState();
+
+        await ReloadInboundPartAsync();
+    }
+
+    private async Task SaveItemPropertyValueToDatabaseAsync(InboundDraftItem item)
+    {
+        if (_inboundPart.DraftItems.All(di => di.Id != item.Id))
+            return;
+
+        await TransactionService.UpdateInboundDraftItem(TransactionId, item);
     }
 }
 
-@{
-    lastItemInputComponents.Clear();
+@if (ItemSchemasToShow.Count > 0)
+{
+    <div class="d-flex justify-content-end mb-3">
+        <HxButton Text="Add Item List"
+                  Icon="@BootstrapIcon.Plus"
+                  Color="ThemeColor.Primary"
+                  OnClick="ShowAddItemListModalAsync" />
+    </div>
+}
 
-    if (selectedWarehouse == null)
-    {
-        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-        selectedWarehouse = ctx.Warehouses.First();
-    }
+@if (ItemSchemasToShow.Count == 0)
+{
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <span class="material-symbols-rounded empty-state-icon">add_box</span>
+            <h6>No inbound items yet</h6>
+            <p class="text-muted mb-3">Add an item list to start entering the items that are coming into the warehouse.</p>
+            <HxButton Text="Add Item List"
+                      Icon="@BootstrapIcon.Plus"
+                      Color="ThemeColor.Primary"
+                      OnClick="ShowAddItemListModalAsync" />
+        </div>
+    </div>
 }
 
 @foreach ((Warehouse warehouse, Customer customer, ItemSchema schema) in ItemSchemasToShow)
 {
-    List<InboundDraftItem> schemaItems = Transaction.InboundTransactionPart.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
+    List<InboundDraftItem> schemaItems = _inboundPart.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
     List<(string propertyName, Type propertyType)> propertyColumns = GetPropertyColumns(schema);
 
-    <h6 class="text-muted mt-3">
-    @if (_itemSchemas.Count(x => x.Customers.Any(c => c.Id == customer.Id)) > 1)
-    {
-            <text>Items of Schema <span class="fw-bold text-dark">@schema.Name</span> · </text>
-    }
-
-    By Customer: <span class="fw-bold text-dark">@customer.Name</span> ·
-
-    @if (_warehouses.Count > 0)
-    {
-        <text>Stored in Warehouse: <span class="fw-bold text-dark">@warehouse.Name</span></text>
-    }
-    </h6>
-
-    <table class="table table-striped table-hover">
-        <thead>
-        <tr>
-            @foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
-            {
-                <th>@propertyColumn.propertyName</th>
-            }
-        </tr>
-        </thead>
-        <tbody>
-        @{
-            int tabIndex = 0;
-            foreach (InboundDraftItem item in schemaItems)
-            {
-                <tr>
-                    @foreach ((string propertyName, Type propertyType) in propertyColumns)
-                    {
-                        <td>
-                            @if (item == schemaItems.Last())
-                            {
-                                <InboundDraftItemPropertyValueInput 
-                                    @ref="lastItemInputComponents[(customer.Id, schema.Id, propertyName)]"
-                                    DraftItem="@item"
-                                    PropertyName="@propertyName"
-                                    PropertyValueChanged="e => Debouncer.Debounce(async Task () =>
-                                    {
-                                        await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
-                                    })"
-                                    LastInputInvalidChanged="e => UpdateInputInvalidState(item.Id, propertyName, e)"
-                                    tabindex="@(tabIndex++)"/>
-                            }
-                            else
-                            {
-                                <InboundDraftItemPropertyValueInput 
-                                    DraftItem="@item"
-                                    PropertyName="@propertyName"
-                                    PropertyValueChanged="e => Debouncer.Debounce(async Task () =>
-                                    {
-                                        await SaveItemPropertyValueToDatabaseAsync(item, e.PropertyName);
-                                    })"
-                                    LastInputInvalidChanged="e => UpdateInputInvalidState(item.Id, propertyName, e)"
-                                    tabindex="@(tabIndex++)"/>
-                            }
-                        </td>
-                    }
-
-                    <td>
-                        <HxButton Color="ThemeColor.Secondary" CssClass="row-button" OnClick="async Task () => await DeleteItem(item)">
-                            <span class="material-symbols-rounded">
-                                delete_forever
-                            </span>
-                        </HxButton>
-                    </td>
-                </tr>
-            }
-
-            <tr>
-                @{
-                    if (!NewItems.ContainsKey((customer.Id, schema.Id)))
-                    {
-                        InboundDraftItem newItem = new InboundDraftItem
-                        {
-                            Customer = customer,
-                            CustomerId = customer.Id,
-                            ItemSchema = schema,
-                            ItemSchemaId = schema.Id,
-                            Warehouse = warehouse,
-                            WarehouseId = warehouse.Id,
-                        };
-                        NewItems[(customer.Id, schema.Id)] = newItem;
-                    }
-                        
-                    foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
-                    {
-                        string propertyName = propertyColumn.propertyName;
-                        <td>
-                            <InboundDraftItemPropertyValueInput 
-                                DraftItem="@NewItems[(customer.Id, schema.Id)]"
-                                PropertyName="@propertyName"
-                                PropertyValueChanged="() => NewItemPropertyValueChanged(NewItems[(customer.Id, schema.Id)], propertyName)"
-                                tabindex="@(tabIndex++)"
-                                @key="NewItems[(customer.Id, schema.Id)]" />
-                        </td>
-                    }
-                    <td></td> @*Placeholder where other rows have the delete button *@
-                }
-            </tr>
-        }
-        </tbody>
-    </table>
-    <hr />
-}
-
-<div class="container-fluid">
-    <h5>Create Inbound Item List</h5>
-    <div class="row g-3">
-        <div>
-            <span>Target Warehouse for Items: </span>
-            <WarehousePropertyValueInput 
-                Value="selectedWarehouse"
-                ValueChanged="e => selectedWarehouse = e"/>
+    <div class="card mb-3 draft-items-card">
+        <div class="card-header d-flex justify-content-between align-items-center gap-2">
+            <div>
+                <span class="fw-bold">@schema.Name</span>
+                <div class="small text-muted">Customer: @customer.Name · Warehouse: @warehouse.Name</div>
+            </div>
+            <HxButton Color="ThemeColor.Secondary"
+                      CssClass="item-list-delete-button"
+                      Icon="BootstrapIcon.Trash"
+                      Tooltip="Remove this item list and all of its items from the transaction."
+                      OnClick="async Task () => await DeleteItemList(warehouse, customer, schema)" />
         </div>
-        <CustomerItemSchemaSelectorComponent @bind-SelectedCustomer="SelectedCustomerToAdd" @bind-SelectedItemSchema="SelectedItemSchemaToAdd"/>
-        <div class="col">
-            <HxButton Text="Add" OnClick="BtnAddSchemaOnClick" Color="ThemeColor.Secondary" />
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0 draft-items-table">
+                <thead>
+                    <tr>
+                        @foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
+                        {
+                            <th>@(propertyColumn.propertyName)</th>
+                        }
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        int tabIndex = 1;
+                        foreach (InboundDraftItem item in schemaItems)
+                        {
+                            <tr>
+                                @foreach ((string propertyName, Type propertyType) in propertyColumns)
+                                {
+                                    bool isCellInvalid = LastInputInvalidMap.TryGetValue((item.Id, propertyName), out bool cellInvalid) && cellInvalid;
+                                    <td class="@(isCellInvalid ? "cell-invalid" : null)">
+                                        @if (item == schemaItems.Last())
+                                        {
+                                            <InboundDraftItemPropertyValueInput
+                                                @ref="lastItemInputComponents[(customer.Id, schema.Id, propertyName)]"
+                                                TabIndex="@tabIndex"
+                                                DraftItem="@item"
+                                                PropertyName="@propertyName"
+                                                PropertyValueChanged="e => Debouncer.Debounce(async Task () =>
+                                                {
+                                                    await SaveItemPropertyValueToDatabaseAsync(item);
+                                                })"
+                                                LastInputInvalidChanged="e => UpdateInputInvalidState(item.Id, propertyName, e)"/>
+                                        }
+                                        else
+                                        {
+                                            <InboundDraftItemPropertyValueInput
+                                                DraftItem="@item"
+                                                TabIndex="@tabIndex"
+                                                PropertyName="@propertyName"
+                                                PropertyValueChanged="e => Debouncer.Debounce(async Task () =>
+                                                {
+                                                    await SaveItemPropertyValueToDatabaseAsync(item);
+                                                })"
+                                                LastInputInvalidChanged="e => UpdateInputInvalidState(item.Id, propertyName, e)"/>
+                                        }
+                                    </td>
+                                    tabIndex++;
+                                }
+
+                                <td>
+                                    <HxButton Color="ThemeColor.Secondary"
+                                              CssClass="row-button"
+                                              Icon="BootstrapIcon.Trash"
+                                              Tooltip="Remove this item from the transaction."
+                                              OnClick="async Task () => await DeleteItem(item)" />
+                                </td>
+                            </tr>
+                        }
+
+                        <tr class="draft-items-ghost-row">
+                            @{
+                                if (!NewItems.ContainsKey((customer.Id, schema.Id)))
+                                {
+                                    InboundDraftItem newItem = new InboundDraftItem
+                                    {
+                                        Customer = customer,
+                                        CustomerId = customer.Id,
+                                        ItemSchema = schema,
+                                        ItemSchemaId = schema.Id,
+                                        Warehouse = warehouse,
+                                        WarehouseId = warehouse.Id,
+                                    };
+                                    NewItems[(customer.Id, schema.Id)] = newItem;
+                                }
+
+                                foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
+                                {
+                                    string propertyName = propertyColumn.propertyName;
+                                    <td>
+                                        <InboundDraftItemPropertyValueInput
+                                            @ref="newItemRowInputComponents[(customer.Id, schema.Id, propertyName)]"
+                                            DraftItem="@NewItems[(customer.Id, schema.Id)]"
+                                            PropertyName="@propertyName"
+                                            TabIndex="@tabIndex"
+                                            Placeholder="@(propertyColumn.propertyName)"
+                                            PropertyValueChanged="() => NewItemPropertyValueChanged(NewItems[(customer.Id, schema.Id)], propertyName)"
+                                            @key="NewItems[(customer.Id, schema.Id)]" />
+                                    </td>
+                                    tabIndex++;
+                                }
+                                <td>
+                                    <span class="material-symbols-rounded new-item-plus"
+                                          title="Add a new item to this list"
+                                          @onclick="() => FocusNewItemRow(warehouse, customer, schema)">add</span>
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
-</div>
+}
+
+<HxModal @ref="_addItemListModal" Title="Add Item List">
+    <BodyTemplate>
+        <div class="d-flex flex-column gap-3">
+            <HxSelect TItem="Warehouse" TValue="Guid?"
+                      @bind-Value="_modalSelectedWarehouseId"
+                      Data="_warehouses"
+                      ValueSelector="w => w.Id"
+                      TextSelector="w => w.Name"
+                      Label="Target Warehouse"
+                      Nullable="true" />
+            <CustomerItemSchemaSelectorComponent @bind-SelectedCustomer="SelectedCustomerToAdd"
+                                                 @bind-SelectedItemSchema="SelectedItemSchemaToAdd" />
+        </div>
+        @if (IsAddingExistingItemList)
+        {
+            <div class="text-danger mt-3">This item list has already been added to the transaction.</div>
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Add" Color="ThemeColor.Primary" Enabled="@CanAddItemList" OnClick="BtnAddSchemaOnClick" />
+        <HxButton Text="Cancel" Color="ThemeColor.Secondary" OnClick="() => _addItemListModal.HideAsync()" />
+    </FooterTemplate>
+</HxModal>

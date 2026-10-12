@@ -26,12 +26,27 @@
         set
         {
             using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-            ItemSchema? schema = ctx.ItemSchemas.FirstOrDefault(sch => sch.Id == value) ?? null;
+            ItemSchema? schema = ctx.ItemSchemas
+                .Include(sch => sch.Customers)
+                .FirstOrDefault(sch => sch.Id == value) ?? null;
             if (schema?.Id != SelectedItemSchema?.Id)
             {
                 SelectedItemSchema = schema;
                 SelectedItemSchemaChanged.InvokeAsync(schema);
             }
+        }
+    }
+
+    private void CustomerPropertyValueInputOnValueChange(Customer? customer)
+    {
+        SelectedCustomer = customer;
+        SelectedCustomerChanged.InvokeAsync(customer);
+
+        if (SelectedItemSchema != null &&
+            (customer == null || !SelectedItemSchema.Customers.Any(c => c.Id == customer.Id)))
+        {
+            SelectedItemSchema = null;
+            SelectedItemSchemaChanged.InvokeAsync(null);
         }
     }
 
@@ -47,18 +62,19 @@
 }
 
 
-<div class="col-12 col-lg col-xxl-3 d-flex">
-    <label for="customerToAdd" class="col-form-label me-1">Customer:</label>
-    <CustomerPropertyValueInput Value="SelectedCustomer" 
-                                ValueChanged="SelectedCustomerChanged" 
+<div class="d-flex align-items-center gap-2">
+    <label for="customerToAdd" class="col-form-label text-nowrap">Customer:</label>
+    <CustomerPropertyValueInput Value="SelectedCustomer"
+                                ValueChanged="CustomerPropertyValueInputOnValueChange"
+                                Class="flex-fill"
                                 id="customerToAdd" />
 </div>
-<div class="col-12 col-lg col-xxl-3 d-flex">
-    <label for="schemaToAdd" class="col-form-label me-1">Item&nbsp;Schema:</label>
-    <InputSelect TValue="Guid" @bind-Value="SelectedItemSchemaId" class="form-select" id="schemaToAdd">
+<div class="d-flex align-items-center gap-2">
+    <label for="schemaToAdd" class="col-form-label text-nowrap">Item&nbsp;Schema:</label>
+    <InputSelect TValue="Guid" @bind-Value="SelectedItemSchemaId" class="form-select flex-fill" id="schemaToAdd">
         <option value="@Guid.Empty"></option>
         @{
-            
+
             foreach (ItemSchema schema in SelectedCustomer != null ? ItemSchemas.Where(sch => sch.Customers.Any(cu => cu.Id == SelectedCustomer.Id)) : [])
             {
                 <option value="@schema.Id">@schema.Name</option>

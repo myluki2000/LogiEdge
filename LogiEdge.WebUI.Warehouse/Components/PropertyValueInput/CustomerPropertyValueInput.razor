@@ -38,7 +38,7 @@
 <InputSelect TValue="Guid"
              @bind-Value:get="SelectedCustomerId"
              @bind-Value:set="v => ValueChanged.InvokeAsync(Customers.Find(cu => cu.Id == v))"
-             class="@((Class ?? "") + "form-select")"
+             class="@(string.IsNullOrEmpty(Class) ? "form-select" : Class + " form-select")"
              @attributes="InputAttributes">
     <option value="@Guid.Empty"> </option>
     @foreach (Customer customer in Customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
