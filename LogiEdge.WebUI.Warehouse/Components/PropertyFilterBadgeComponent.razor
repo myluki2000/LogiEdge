@@ -1,14 +1,12 @@
 ﻿@using LogiEdge.CustomerService.Data
 @using LogiEdge.CustomerService.Services
 @using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Warehouse.Components.PropertyValueInput
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
-@using Microsoft.EntityFrameworkCore
 @inject CustomerManagementService CustomerService
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory
+@inject WarehouseManagementService WarehouseService
 
 @code {
     [Parameter]
@@ -54,8 +52,7 @@
         } 
         else if (PropertyType == typeof(Warehouse) && _warehouseNameLookup == null)
         {
-            await using WarehouseDbContext ctx = await WarehouseDbContextFactory.CreateDbContextAsync();
-            _warehouseNameLookup = ctx.Warehouses
+            _warehouseNameLookup = (await WarehouseService.GetWarehouses())
                 .ToDictionary(w => w.Id, w => w.Name);
         }
 

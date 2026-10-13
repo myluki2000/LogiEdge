@@ -67,7 +67,7 @@
 </div>
 <div class="d-flex align-items-center gap-2">
     <label for="schemaToAdd" class="col-form-label text-nowrap">Item&nbsp;Schema:</label>
-    <InputSelect TValue="Guid?" Value="ItemSchemaId" ValueChanged="OnItemSchemaSelected" Class="form-select flex-fill" id="schemaToAdd">
+    <InputSelect TValue="Guid?" @bind-Value:get="ItemSchemaId" @bind-Value:set="v => OnItemSchemaSelected(v)" Class="form-select flex-fill" id="schemaToAdd">
         <option value="@((Guid?)null)"></option>
         @foreach (ItemSchemaDto schema in ItemSchemas.Where(sch => CustomerId == null || sch.CustomerIds.Contains(CustomerId.Value)))
         {

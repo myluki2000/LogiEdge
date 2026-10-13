@@ -20,8 +20,8 @@
 }
 
 <InputSelect TValue="Guid"
-             Value="Value"
-             ValueChanged="ValueChanged"
+             @bind-Value:get="Value"
+             @bind-Value:set="ValueChanged"
              class="form-select"
              @onclick:stopPropagation="true">
     <option value="@Guid.Empty"> </option>
