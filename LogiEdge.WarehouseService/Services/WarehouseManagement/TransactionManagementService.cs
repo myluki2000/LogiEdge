@@ -5,7 +5,10 @@ using LogiEdge.WarehouseService.Data.Transactions;
 using LogiEdge.WarehouseService.Persistence;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using LogiEdge.BaseService.Data;
 using LogiEdge.BaseService.Services;
 using LogiEdge.WarehouseService.Dto;
@@ -74,30 +77,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     .Select(t => new InboundTransactionPartDto()
                     {
                         TransactionId = t.TransactionId,
-                        DraftItems = t.DraftItems.Select(di => new InboundTransactionPartDto.InboundDraftItemDto()
-                        {
-                            Id = di.Id,
-                            Location = di.Location,
-                            Count = di.Count,
-                            AdditionalProperties = di.ItemSchema.AdditionalProperties.Select(p => new ItemAdditionalPropertyDto()
-                            {
-                                Name = p.Name,
-                                Value = di.GetAdditionalProperty(p.Name),
-                            }).ToList(),
-                            Comments = [new CommentDto()
-                            {
-                                AuthorId = Guid.Empty,
-                                Date = DateTime.MinValue,
-                                Id = Guid.Empty,
-                                Retracted = false,
-                                Text = di.Comments
-                            }],
-                            CustomerId = di.CustomerId,
-                            IsQuarantined = di.IsQuarantined,
-                            ItemNumber = di.ItemNumber,
-                            ItemSchemaId = di.ItemSchemaId,
-                            WarehouseId = di.WarehouseId,
-                        }).ToList(),
+                        DraftItems = t.DraftItems.Select(InboundDraftItemToDto).ToList(),
                         NewItemStates = t.NewItemStates,
                     })
                     .FirstOrDefault(),
@@ -149,12 +129,13 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 .ToListAsync();
         }
 
-        public async Task<InboundTransactionPart> GetInboundTransactionPart(Guid transactionId)
+        public async Task<InboundTransactionPartDto> GetInboundTransactionPart(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
             InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
                 .AsNoTracking()
+                .Include(t => t.NewItemStates)
                 .Include(t => t.Transaction)
                 .Include(t => t.DraftItems)
                     .ThenInclude(di => di.Customer)
@@ -174,10 +155,48 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Transaction {transactionId} is not in DRAFT state.");
             }
 
-            return transactionPart;
+            return new InboundTransactionPartDto()
+            {
+                TransactionId = transactionPart.TransactionId,
+                DraftItems = transactionPart.DraftItems.Select(InboundDraftItemToDto).ToList(),
+                NewItemStates = transactionPart.NewItemStates,
+            };
         }
 
-        public async Task<InboundDraftItem> AddInboundDraftItem(Guid transactionId, Guid customerId, Guid itemSchemaId, Guid warehouseId)
+        private InboundTransactionPartDto.InboundDraftItemDto InboundDraftItemToDto(InboundDraftItem di)
+        {
+            return new InboundTransactionPartDto.InboundDraftItemDto()
+            {
+                Id = di.Id,
+                Location = di.Location,
+                Count = di.Count,
+                AdditionalProperties = di.ItemSchema.AdditionalProperties.Select(p =>
+                    new ItemAdditionalPropertyDto()
+                    {
+                        Name = p.Name,
+                        Value = di.GetAdditionalProperty(p),
+                        Type = p.Type
+                    }).ToList(),
+                Comments =
+                [
+                    new CommentDto()
+                    {
+                        AuthorId = Guid.Empty,
+                        Date = DateTime.MinValue,
+                        Id = Guid.Empty,
+                        Retracted = false,
+                        Text = di.Comments
+                    }
+                ],
+                CustomerId = di.CustomerId,
+                IsQuarantined = di.IsQuarantined,
+                ItemNumber = di.ItemNumber,
+                ItemSchemaId = di.ItemSchemaId,
+                WarehouseId = di.WarehouseId,
+            };
+        }
+
+        public async Task<InboundTransactionPartDto.InboundDraftItemDto> AddInboundDraftItem(Guid transactionId, Guid customerId, Guid itemSchemaId, Guid warehouseId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
@@ -222,37 +241,49 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 
             await ctx.SaveChangesAsync();
 
-            return newItem;
+            return InboundDraftItemToDto(newItem);
         }
 
-        public async Task UpdateInboundDraftItem(Guid transactionId, InboundDraftItem draftItem)
+        public async Task<InboundTransactionPartDto.InboundDraftItemDto> UpdateInboundDraftItemPropertyValue(Guid transactionId, Guid draftItemId, string propertyName, object? newValue)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
-            InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
+            InboundTransactionPart? tp = await ctx.InboundTransactionParts
                 .AsTracking()
-                .Include(t => t.DraftItems)
+                .Include(tp => tp.DraftItems)
+                    .ThenInclude(di => di.ItemSchema)
                 .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
 
-            if (transactionPart == null)
+            if (tp == null)
             {
                 throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
             }
 
-            InboundDraftItem? existing = transactionPart.DraftItems.FirstOrDefault(di => di.Id == draftItem.Id);
+            InboundDraftItem? existing = tp.DraftItems.FirstOrDefault(di => di.Id == draftItemId);
             if (existing == null)
             {
-                throw new InvalidOperationException($"Inbound draft item with ID {draftItem.Id} does not belong to transaction {transactionId}.");
+                throw new InvalidOperationException($"Inbound draft item with ID {draftItemId} does not belong to transaction {transactionId}.");
             }
 
-            existing.ItemNumber = draftItem.ItemNumber;
-            existing.Comments = draftItem.Comments;
-            existing.Location = draftItem.Location;
-            existing.Count = draftItem.Count;
-            existing.IsQuarantined = draftItem.IsQuarantined;
-            existing.AdditionalProperties = draftItem.AdditionalProperties;
+            PropertyInfo? nativeProperty = existing.GetType().GetProperty(propertyName);
+            if (nativeProperty != null)
+            {
+                nativeProperty.SetValue(existing, newValue);
+            }
+            else
+            {
+                if (existing.ItemSchema.AdditionalProperties.All(p => p.Name != propertyName))
+                {
+                    throw new InvalidOperationException($"Inbound draft item with ID {draftItemId} has no property named '{propertyName}'.");
+                }
+
+                JsonObject jsonProperties = existing.AdditionalProperties.RootElement.Deserialize<JsonObject>() ?? new();
+                jsonProperties[propertyName] = JsonSerializer.SerializeToNode(newValue);
+                existing.AdditionalProperties = jsonProperties.Deserialize<JsonDocument>();
+            }
 
             await ctx.SaveChangesAsync();
+            return InboundDraftItemToDto(existing);
         }
 
         public async Task DeleteInboundDraftItem(Guid transactionId, Guid draftItemId)

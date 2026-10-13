@@ -72,6 +72,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                     {
                         Name = ap.Name,
                         Value = st.Item.GetAdditionalProperty(ap),
+                        Type = ap.Type,
                     }).ToList(),
                     Comments = st.Item.Comments,
                     EntryDate = st.Item.ItemStates

@@ -1,15 +1,20 @@
 ﻿@using System.ComponentModel.DataAnnotations
+@using System.Reflection
 @using System.Text.RegularExpressions
 @using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Dto
+@using LogiEdge.CustomerService.Services
 @using LogiEdge.Shared.Attributes
 @using LogiEdge.WebUI.Warehouse.Components.PropertyValueInput
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
 
 @inject TransactionManagementService TransactionService
 @inject WarehouseManagementService WarehouseService
+@inject CustomerManagementService CustomerService
 
 @code {
     [Parameter]
@@ -17,17 +22,24 @@
     [Parameter]
     public required DebouncerComponent Debouncer { get; set; }
 
-    private InboundTransactionPart _inboundPart = null!;
-    private Customer? SelectedCustomerToAdd { get; set; }
-    private ItemSchema? SelectedItemSchemaToAdd { get; set; }
-    private List<(Warehouse warehouse, Customer customer, ItemSchema itemSchema)> ItemSchemasToShow { get; set; } = [];
+    private InboundTransactionPartDto _inboundPart = null!;
+    private Guid? SelectedCustomerToAdd { get; set; }
+    private Guid? SelectedItemSchemaToAdd { get; set; }
+    private List<(WarehouseBaseInfoDto warehouse, CustomerDto customer, ItemSchemaDto schema)> ItemSchemasToShow { get; set; } = [];
 
-    private List<Warehouse> _warehouses = [];
+    private Dictionary<Guid, CustomerDto> _customerCache = new();
+    private Dictionary<Guid, ItemSchemaDto> _itemSchemaCache = new();
+    private Dictionary<Guid, WarehouseBaseInfoDto> _warehouseCache = new();
+
+    private List<WarehouseBaseInfoDto> _warehouses = [];
     private Guid? _modalSelectedWarehouseId = null;
 
     private HxModal _addItemListModal = null!;
 
-    private Dictionary<(Guid customer, Guid itemSchema), InboundDraftItem> NewItems { get; set; } = new();
+    /// <summary>
+    /// Dictionary to hold property values for the "new items", i.e. the ghost row at the bottom of each item list table
+    /// </summary>
+    private Dictionary<(Guid customer, Guid itemSchema), Dictionary<string, object?>> NewItems { get; set; } = new();
 
 
     [Parameter]
@@ -54,8 +66,8 @@
         }
     }
 
-    private Dictionary<(Guid customer, Guid itemSchema, string propertyName), InboundDraftItemPropertyValueInput> lastItemInputComponents = [];
-    private Dictionary<(Guid customer, Guid itemSchema, string propertyName), InboundDraftItemPropertyValueInput> newItemRowInputComponents = [];
+    private Dictionary<(Guid customer, Guid itemSchema, string propertyName), DraftPropertyValueInput> lastItemInputComponents = [];
+    private Dictionary<(Guid customer, Guid itemSchema, string propertyName), DraftPropertyValueInput> newItemRowInputComponents = [];
     private (Guid customer, Guid itemSchema, string propertyName)? focusOnLastElement = null;
     private (Guid customer, Guid itemSchema, string propertyName)? focusOnNewItemRow = null;
 
@@ -65,10 +77,10 @@
 
         await ReloadInboundPartAsync();
 
-        _warehouses = await WarehouseService.GetWarehousesAsync();
+        _warehouses = await WarehouseService.GetWarehouses();
         if (_modalSelectedWarehouseId == null)
         {
-            Warehouse? firstWarehouse = _warehouses.FirstOrDefault();
+            WarehouseBaseInfoDto? firstWarehouse = _warehouses.FirstOrDefault();
             if (firstWarehouse != null)
                 _modalSelectedWarehouseId = firstWarehouse.Id;
         }
@@ -79,21 +91,70 @@
         _inboundPart = await TransactionService.GetInboundTransactionPart(TransactionId);
 
         // use group by id instead of .Distinct() because with .NoTracking(), it doesn't reuse the same instance for Customer, Warehouse etc.
-        ItemSchemasToShow = _inboundPart.DraftItems
-            .GroupBy(it => (it.WarehouseId, it.CustomerId, it.ItemSchemaId))
-            .Select(g => (g.First().Warehouse, g.First().Customer, g.First().ItemSchema))
-            .ToList();
+        ItemSchemasToShow = (await Task.WhenAll(
+            _inboundPart.DraftItems
+                .GroupBy(it => (it.WarehouseId, it.CustomerId, it.ItemSchemaId))
+                .Select(async g =>
+                {
+                    InboundTransactionPartDto.InboundDraftItemDto item = g.First();
+
+                    return (
+                        warehouse: (await GetWarehouseFromCache(item.WarehouseId))!,
+                        customer: (await GetCustomerFromCache(item.CustomerId))!,
+                        schema: await GetItemSchemaFromCache(item.ItemSchemaId)
+                    );
+                })
+        )).ToList();
+    }
+
+    private async Task<CustomerDto?> GetCustomerFromCache(Guid customerId)
+    {
+        if (!_customerCache.TryGetValue(customerId, out CustomerDto? customer)) 
+        {
+            customer = await CustomerService.GetCustomerByIdAsync(customerId);
+            if (customer != null)
+            {
+                _customerCache[customerId] = customer;
+            }
+        }
+        return customer ?? null;
+    }
+
+    private async Task<WarehouseBaseInfoDto?> GetWarehouseFromCache(Guid warehouseId)
+    {
+        if (!_warehouseCache.TryGetValue(warehouseId, out WarehouseBaseInfoDto? warehouse))
+        {
+            warehouse = await WarehouseService.GetWarehouseById(warehouseId);
+            if (warehouse != null)
+            {
+                _warehouseCache[warehouseId] = warehouse;
+            }
+        }
+        return warehouse ?? null;
+    }
+
+    private async Task<ItemSchemaDto> GetItemSchemaFromCache(Guid schemaId)
+    {
+        if (!_itemSchemaCache.TryGetValue(schemaId, out ItemSchemaDto? schema))
+        {
+            schema = await WarehouseService.GetItemSchema(schemaId);
+            if (schema != null)
+            {
+                _itemSchemaCache[schemaId] = schema;
+            }
+        }
+        return schema ?? null;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (focusOnLastElement != null && lastItemInputComponents.TryGetValue(focusOnLastElement.Value, out InboundDraftItemPropertyValueInput? inputComponent))
+        if (focusOnLastElement != null && lastItemInputComponents.TryGetValue(focusOnLastElement.Value, out DraftPropertyValueInput? inputComponent))
         {
             await inputComponent.FocusAsync();
         }
         focusOnLastElement = null;
 
-        if (focusOnNewItemRow != null && newItemRowInputComponents.TryGetValue(focusOnNewItemRow.Value, out InboundDraftItemPropertyValueInput? newItemInputComponent))
+        if (focusOnNewItemRow != null && newItemRowInputComponents.TryGetValue(focusOnNewItemRow.Value, out DraftPropertyValueInput? newItemInputComponent))
         {
             await newItemInputComponent.FocusAsync();
         }
@@ -102,7 +163,7 @@
         await base.OnAfterRenderAsync(firstRender);
     }
 
-    private Warehouse? GetModalSelectedWarehouse()
+    private WarehouseBaseInfoDto? GetModalSelectedWarehouse()
         => _warehouses.FirstOrDefault(w => w.Id == _modalSelectedWarehouseId);
 
     private bool IsAddingExistingItemList
@@ -112,13 +173,13 @@
             if (SelectedCustomerToAdd == null || SelectedItemSchemaToAdd == null)
                 return false;
 
-            Warehouse? warehouse = GetModalSelectedWarehouse();
+            WarehouseBaseInfoDto? warehouse = GetModalSelectedWarehouse();
             if (warehouse == null)
                 return false;
 
             return ItemSchemasToShow.Any(g => g.warehouse.Id == warehouse.Id
-                                            && g.customer.Id == SelectedCustomerToAdd!.Id
-                                            && g.itemSchema.Id == SelectedItemSchemaToAdd!.Id);
+                                            && g.customer.Id == SelectedCustomerToAdd.Value
+                                            && g.schema.Id == SelectedItemSchemaToAdd.Value);
         }
     }
 
@@ -138,9 +199,11 @@
         if (!CanAddItemList)
             return;
 
-        Warehouse warehouse = GetModalSelectedWarehouse()!;
-        ItemSchemasToShow.Add((warehouse, SelectedCustomerToAdd!, SelectedItemSchemaToAdd!));
-        FocusNewItemRow(warehouse, SelectedCustomerToAdd!, SelectedItemSchemaToAdd!);
+        WarehouseBaseInfoDto warehouse = GetModalSelectedWarehouse()!;
+        CustomerDto customer = await GetCustomerFromCache(SelectedCustomerToAdd.Value);
+        ItemSchemaDto schema = await GetItemSchemaFromCache(SelectedItemSchemaToAdd.Value);
+        ItemSchemasToShow.Add((warehouse, customer, schema));
+        FocusNewItemRow(customer, schema);
 
         // Clear the selections before hiding so that the "already added" error message
         // doesn't flash during the modal's close animation and the next add starts clean.
@@ -151,14 +214,14 @@
         await _addItemListModal.HideAsync();
     }
 
-    private void FocusNewItemRow(Warehouse warehouse, Customer customer, ItemSchema schema)
+    private void FocusNewItemRow(CustomerDto customer, ItemSchemaDto schema)
     {
         string firstPropertyName = GetPropertyColumns(schema).First().propertyName;
         focusOnNewItemRow = (customer.Id, schema.Id, firstPropertyName);
         StateHasChanged();
     }
 
-    private List<(string propertyName, Type propertyType)> GetPropertyColumns(ItemSchema schema)
+    private List<(string propertyName, Type propertyType)> GetPropertyColumns(ItemSchemaDto schema)
     {
         List<(string propertyName, Type propertyType)> propertyColumns = typeof(InboundDraftItem)
             .GetProperties()
@@ -166,50 +229,104 @@
                         !Attribute.IsDefined(p, typeof(KeyAttribute)))
             .Select(p => (p.Name, p.PropertyType))
             .ToList();
-        propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x.Name, x.Type.ToType())));
+        propertyColumns.AddRange(schema.AdditionalProperties.Select((x, i) => (x.Name, x.Type)));
 
         return propertyColumns;
     }
 
-    private async Task NewItemPropertyValueChanged(InboundDraftItem item, string propertyName)
+    private object? GetItemPropertyValue(InboundTransactionPartDto.InboundDraftItemDto item, string propertyName)
     {
-        if (_inboundPart.DraftItems.Contains(item))
-            return;
+        if (propertyName == nameof(InboundTransactionPartDto.InboundDraftItemDto.Comments))
+            return item.Comments.FirstOrDefault()?.Text;
 
-        InboundDraftItem saved = await TransactionService.AddInboundDraftItem(TransactionId, item.CustomerId, item.ItemSchemaId, item.WarehouseId);
+        PropertyInfo? propertyInfo = typeof(InboundTransactionPartDto.InboundDraftItemDto).GetProperty(propertyName);
+        if (propertyInfo != null)
+            return propertyInfo.GetValue(item);
 
-        item.Id = saved.Id;
-        await TransactionService.UpdateInboundDraftItem(TransactionId, item);
-
-        _inboundPart.DraftItems.Add(item);
-        NewItems.Remove((item.CustomerId, item.ItemSchemaId));
-        focusOnLastElement = (item.CustomerId, item.ItemSchemaId, propertyName);
-        StateHasChanged();
-
-        // Resync in case further input arrived before the re-render reached the client.
-        Debouncer.Debounce(async Task () => await SaveItemPropertyValueToDatabaseAsync(item));
+        return item.AdditionalProperties.FirstOrDefault(p => p.Name == propertyName)?.Value;
     }
 
-    private async Task DeleteItem(InboundDraftItem item)
+    private void SetItemPropertyValue(InboundTransactionPartDto.InboundDraftItemDto item, string propertyName, object? value)
     {
-        await TransactionService.DeleteInboundDraftItem(TransactionId, item.Id);
+        if (propertyName == nameof(InboundTransactionPartDto.InboundDraftItemDto.Comments))
+        {
+            if (item.Comments.Count > 0)
+                item.Comments[0].Text = value?.ToString() ?? string.Empty;
+            return;
+        }
 
-        LastInputInvalidMap = LastInputInvalidMap.Where(kvp => kvp.Key.item != item.Id).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        PropertyInfo? propertyInfo = typeof(InboundTransactionPartDto.InboundDraftItemDto).GetProperty(propertyName);
+        if (propertyInfo != null)
+        {
+            propertyInfo.SetValue(item, value);
+            return;
+        }
+
+        ItemAdditionalPropertyDto? additionalProperty = item.AdditionalProperties.FirstOrDefault(p => p.Name == propertyName);
+        if (additionalProperty != null)
+            additionalProperty.Value = value;
+    }
+
+    private (int? min, int? max) GetNumericRange(string propertyName)
+    {
+        if (typeof(InboundDraftItem).GetProperty(propertyName)?.GetCustomAttribute<RangeAttribute>() is { Minimum: int min, Maximum: int max })
+            return (min, max);
+
+        return (null, null);
+    }
+
+    private void ItemPropertyInputChanged(InboundTransactionPartDto.InboundDraftItemDto item, string propertyName, DraftPropertyValueInput.DraftPropertyValueInputEventArgs e)
+    {
+        UpdateInputInvalidState(item.Id, propertyName, !e.IsValid);
+
+        if (!e.IsValid || Equals(e.Value, GetItemPropertyValue(item, propertyName)))
+            return;
+
+        SetItemPropertyValue(item, propertyName, e.Value);
+        Debouncer.Debounce(async Task () => await SaveItemPropertyValueToDatabaseAsync(item.Id, propertyName, e.Value));
+    }
+
+    private void NewItemPropertyInputChanged(Guid customerId, Guid itemSchemaId, Guid warehouseId, string propertyName, DraftPropertyValueInput.DraftPropertyValueInputEventArgs e)
+    {
+        if (!e.IsValid)
+            return;
+
+        NewItems[(customerId, itemSchemaId)][propertyName] = e.Value;
+        _ = NewItemPropertyValueChanged(customerId, itemSchemaId, warehouseId, propertyName, e.Value);
+    }
+
+    private async Task NewItemPropertyValueChanged(Guid customerId, Guid itemSchemaId, Guid warehouseId, string propertyName, object? newValue)
+    {
+        InboundTransactionPartDto.InboundDraftItemDto saved = await TransactionService.AddInboundDraftItem(TransactionId, customerId, itemSchemaId, warehouseId);
+
+        saved = await TransactionService.UpdateInboundDraftItemPropertyValue(TransactionId, saved.Id, propertyName, newValue);
+
+        _inboundPart.DraftItems.Add(saved);
+        NewItems[(customerId, itemSchemaId)].Remove(propertyName);
+        focusOnLastElement = (customerId, itemSchemaId, propertyName);
+        StateHasChanged();
+    }
+
+    private async Task DeleteItem(Guid itemId)
+    {
+        await TransactionService.DeleteInboundDraftItem(TransactionId, itemId);
+
+        LastInputInvalidMap = LastInputInvalidMap.Where(kvp => kvp.Key.item != itemId).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         RefreshAnyInputInvalidState();
 
         await ReloadInboundPartAsync();
     }
 
-    private async Task DeleteItemList(Warehouse warehouse, Customer customer, ItemSchema schema)
+    private async Task DeleteItemList(Guid warehouseId, Guid customerId, Guid schemaId)
     {
         List<Guid> itemIds = _inboundPart.DraftItems
-            .Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id && it.WarehouseId == warehouse.Id)
+            .Where(it => it.CustomerId == customerId && it.ItemSchemaId == schemaId && it.WarehouseId == warehouseId)
             .Select(it => it.Id)
             .ToList();
 
-        await TransactionService.DeleteInboundDraftItemList(TransactionId, customer.Id, schema.Id, warehouse.Id);
+        await TransactionService.DeleteInboundDraftItemList(TransactionId, customerId, schemaId, warehouseId);
 
-        NewItems.Remove((customer.Id, schema.Id));
+        NewItems.Remove((customerId, schemaId));
 
         LastInputInvalidMap = LastInputInvalidMap.Where(kvp => !itemIds.Contains(kvp.Key.item)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
         RefreshAnyInputInvalidState();
@@ -217,12 +334,12 @@
         await ReloadInboundPartAsync();
     }
 
-    private async Task SaveItemPropertyValueToDatabaseAsync(InboundDraftItem item)
+    private async Task SaveItemPropertyValueToDatabaseAsync(Guid draftItemId, string propertyName, object? newValue)
     {
-        if (_inboundPart.DraftItems.All(di => di.Id != item.Id))
+        if (_inboundPart.DraftItems.All(di => di.Id != draftItemId))
             return;
 
-        await TransactionService.UpdateInboundDraftItem(TransactionId, item);
+        await TransactionService.UpdateInboundDraftItemPropertyValue(TransactionId, draftItemId, propertyName, newValue);
     }
 }
 
@@ -251,9 +368,10 @@
     </div>
 }
 
-@foreach ((Warehouse warehouse, Customer customer, ItemSchema schema) in ItemSchemasToShow)
+@foreach ((WarehouseBaseInfoDto warehouse, CustomerDto customer, ItemSchemaDto schema) in ItemSchemasToShow)
 {
-    List<InboundDraftItem> schemaItems = _inboundPart.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
+    List<InboundTransactionPartDto.InboundDraftItemDto> schemaItems = 
+        _inboundPart.DraftItems.Where(it => it.CustomerId == customer.Id && it.ItemSchemaId == schema.Id).ToList();
     List<(string propertyName, Type propertyType)> propertyColumns = GetPropertyColumns(schema);
 
     <div class="card mb-3 draft-items-card">
@@ -266,7 +384,7 @@
                       CssClass="item-list-delete-button"
                       Icon="BootstrapIcon.Trash"
                       Tooltip="Remove this item list and all of its items from the transaction."
-                      OnClick="async Task () => await DeleteItemList(warehouse, customer, schema)" />
+                      OnClick="async Task () => await DeleteItemList(warehouse.Id, customer.Id, schema.Id)" />
         </div>
         <div class="card-body p-0">
             <table class="table table-hover align-middle mb-0 draft-items-table">
@@ -282,7 +400,7 @@
                 <tbody>
                     @{
                         int tabIndex = 1;
-                        foreach (InboundDraftItem item in schemaItems)
+                        foreach (InboundTransactionPartDto.InboundDraftItemDto item in schemaItems)
                         {
                             <tr>
                                 @foreach ((string propertyName, Type propertyType) in propertyColumns)
@@ -291,28 +409,24 @@
                                     <td class="@(isCellInvalid ? "cell-invalid" : null)">
                                         @if (item == schemaItems.Last())
                                         {
-                                            <InboundDraftItemPropertyValueInput
+                                            <DraftPropertyValueInput
                                                 @ref="lastItemInputComponents[(customer.Id, schema.Id, propertyName)]"
+                                                Value="GetItemPropertyValue(item, propertyName)"
+                                                ValueType="@propertyType"
+                                                Min="@GetNumericRange(propertyName).min"
+                                                Max="@GetNumericRange(propertyName).max"
                                                 TabIndex="@tabIndex"
-                                                DraftItem="@item"
-                                                PropertyName="@propertyName"
-                                                PropertyValueChanged="e => Debouncer.Debounce(async Task () =>
-                                                {
-                                                    await SaveItemPropertyValueToDatabaseAsync(item);
-                                                })"
-                                                LastInputInvalidChanged="e => UpdateInputInvalidState(item.Id, propertyName, e)"/>
+                                                OnInput="e => ItemPropertyInputChanged(item, propertyName, e)"/>
                                         }
                                         else
                                         {
-                                            <InboundDraftItemPropertyValueInput
-                                                DraftItem="@item"
+                                            <DraftPropertyValueInput
+                                                Value="GetItemPropertyValue(item, propertyName)"
+                                                ValueType="@propertyType"
+                                                Min="@GetNumericRange(propertyName).min"
+                                                Max="@GetNumericRange(propertyName).max"
                                                 TabIndex="@tabIndex"
-                                                PropertyName="@propertyName"
-                                                PropertyValueChanged="e => Debouncer.Debounce(async Task () =>
-                                                {
-                                                    await SaveItemPropertyValueToDatabaseAsync(item);
-                                                })"
-                                                LastInputInvalidChanged="e => UpdateInputInvalidState(item.Id, propertyName, e)"/>
+                                                OnInput="e => ItemPropertyInputChanged(item, propertyName, e)"/>
                                         }
                                     </td>
                                     tabIndex++;
@@ -323,38 +437,35 @@
                                               CssClass="row-button"
                                               Icon="BootstrapIcon.Trash"
                                               Tooltip="Remove this item from the transaction."
-                                              OnClick="async Task () => await DeleteItem(item)" />
+                                              OnClick="async Task () => await DeleteItem(item.Id)" />
                                 </td>
                             </tr>
                         }
 
                         <tr class="draft-items-ghost-row">
                             @{
-                                if (!NewItems.ContainsKey((customer.Id, schema.Id)))
+                                if (!NewItems.TryGetValue((customer.Id, schema.Id), out Dictionary<string, object?>? propertiesDict))
                                 {
-                                    InboundDraftItem newItem = new InboundDraftItem
-                                    {
-                                        Customer = customer,
-                                        CustomerId = customer.Id,
-                                        ItemSchema = schema,
-                                        ItemSchemaId = schema.Id,
-                                        Warehouse = warehouse,
-                                        WarehouseId = warehouse.Id,
-                                    };
-                                    NewItems[(customer.Id, schema.Id)] = newItem;
+                                    propertiesDict = new Dictionary<string, object?>();
+                                    NewItems[(customer.Id, schema.Id)] = propertiesDict;
                                 }
 
                                 foreach ((string propertyName, Type propertyType) propertyColumn in propertyColumns)
                                 {
                                     string propertyName = propertyColumn.propertyName;
+
+                                    propertiesDict.TryAdd(propertyName, null);
+
                                     <td>
-                                        <InboundDraftItemPropertyValueInput
+                                        <DraftPropertyValueInput
                                             @ref="newItemRowInputComponents[(customer.Id, schema.Id, propertyName)]"
-                                            DraftItem="@NewItems[(customer.Id, schema.Id)]"
-                                            PropertyName="@propertyName"
+                                            Value="@propertiesDict[propertyName]"
+                                            ValueType="@propertyColumn.propertyType"
+                                            Min="@GetNumericRange(propertyName).min"
+                                            Max="@GetNumericRange(propertyName).max"
                                             TabIndex="@tabIndex"
                                             Placeholder="@(propertyColumn.propertyName)"
-                                            PropertyValueChanged="() => NewItemPropertyValueChanged(NewItems[(customer.Id, schema.Id)], propertyName)"
+                                            OnInput="e => NewItemPropertyInputChanged(customer.Id, schema.Id, warehouse.Id, propertyName, e)"
                                             @key="NewItems[(customer.Id, schema.Id)]" />
                                     </td>
                                     tabIndex++;
@@ -362,7 +473,7 @@
                                 <td>
                                     <span class="material-symbols-rounded new-item-plus"
                                           title="Add a new item to this list"
-                                          @onclick="() => FocusNewItemRow(warehouse, customer, schema)">add</span>
+                                          @onclick="() => FocusNewItemRow(customer, schema)">add</span>
                                 </td>
                             }
                         </tr>
@@ -376,15 +487,15 @@
 <HxModal @ref="_addItemListModal" Title="Add Item List">
     <BodyTemplate>
         <div class="d-flex flex-column gap-3">
-            <HxSelect TItem="Warehouse" TValue="Guid?"
+            <HxSelect TItem="WarehouseBaseInfoDto" TValue="Guid?"
                       @bind-Value="_modalSelectedWarehouseId"
                       Data="_warehouses"
                       ValueSelector="w => w.Id"
                       TextSelector="w => w.Name"
                       Label="Target Warehouse"
                       Nullable="true" />
-            <CustomerItemSchemaSelectorComponent @bind-SelectedCustomer="SelectedCustomerToAdd"
-                                                 @bind-SelectedItemSchema="SelectedItemSchemaToAdd" />
+            <CustomerItemSchemaSelectorComponent @bind-CustomerId="SelectedCustomerToAdd"
+                                                 @bind-ItemSchemaId="SelectedItemSchemaToAdd" />
         </div>
         @if (IsAddingExistingItemList)
         {

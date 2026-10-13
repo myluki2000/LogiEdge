@@ -1,4 +1,5 @@
 ﻿@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Dto
 @using LogiEdge.CustomerService.Services
 @using Microsoft.AspNetCore.Components.Forms
 @inject CustomerManagementService CustomerService
@@ -13,7 +14,7 @@
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? InputAttributes { get; set; }
 
-    private List<Customer> Customers { get; set; } = [];
+    private List<CustomerDto> Customers { get; set; } = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -24,11 +25,11 @@
 <InputSelect TValue="Guid"
              @bind-Value:get="Value"
              @bind-Value:set="ValueChanged"
-             class="@((Class ?? "") + "form-select")"
+             class="@(Class == null ? "form-select" : Class + " form-select")"
              @attributes="InputAttributes"
              @onclick:stopPropagation="true">
     <option value="@Guid.Empty"> </option>
-    @foreach (Customer customer in Customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
+    @foreach (CustomerDto customer in Customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
     {
         <option value="@customer.Id">[@customer.Abbreviation] @customer.Name</option>
     }

@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 using LogiEdge.BaseService.Persistence;
 using LogiEdge.BaseService.Services;
 using LogiEdge.CustomerService.Data;
+using LogiEdge.CustomerService.Dto;
+using LogiEdge.CustomerService.Persistence;
 using LogiEdge.CustomerService.Services;
 using LogiEdge.ExcelImporterService.Data;
 using LogiEdge.ExcelImporterService.Internal;
@@ -26,7 +28,7 @@ namespace LogiEdge.ExcelImporterService.Services
 {
     public class ExcelImportingService(SettingsService settingsService,
                                        IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory,
-                                       CustomerManagementService customerService)
+                                       IDbContextFactory<CustomerDbContext> customerDbContextFactory)
     {
         public async Task RunImportAsync()
         {
@@ -53,6 +55,7 @@ namespace LogiEdge.ExcelImporterService.Services
         public void RunImportUsingConfig(ExcelImporterConfig config)
         {
             using WarehouseDbContext warehouseDbContext = warehouseDbContextFactory.CreateDbContext();
+            using CustomerDbContext customerDbContext = customerDbContextFactory.CreateDbContext();
 
             // create the item schemas listed in the config if they don't exist already
             foreach (InventoryItemSchema schema in config.InventoryItemSchemas)
@@ -87,14 +90,14 @@ namespace LogiEdge.ExcelImporterService.Services
                 // create customers associated with this schema if they don't exist already
                 foreach (string customerName in schema.Customers)
                 {
-                    Customer? customer = customerService.GetCustomers().FirstOrDefault(x => x.Name == customerName);
+                    Customer? customer = customerDbContext.Customers.FirstOrDefault(x => x.Name == customerName);
                     if (customer == null)
                     {
-                        customer = customerService.CreateCustomer(new Customer()
+                        customer = customerDbContext.Customers.Add(new Customer()
                         {
                             Name = customerName,
                             Abbreviation = customerName.Substring(0, 2).ToUpper()
-                        });
+                        }).Entity;
                     }
                     // add the item schema to the customer's schemas if it doesn't exist already
                     warehouseDbContext.Attach(customer);
@@ -110,7 +113,7 @@ namespace LogiEdge.ExcelImporterService.Services
             foreach (InventoryFileMatchingOptions options in config.InventoryFileMatchingOptions)
             {
                 // get or create the customer entry for this import
-                Customer? customer = customerService.GetCustomers().FirstOrDefault(x => x.Name == options.CustomerName);
+                Customer? customer = customerDbContext.Customers.FirstOrDefault(x => x.Name == options.CustomerName);
                 if (customer == null)
                 {
                     throw new Exception("Could not find defined customer with the given name " + options.CustomerName);

@@ -4,12 +4,13 @@
 @using System.ComponentModel.DataAnnotations
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Data.Transactions
+@using LogiEdge.WarehouseService.Dto
 
 @code {
     [Parameter]
     public required string PropertyName { get; set; }
     [Parameter]
-    public required InboundDraftItem DraftItem { get; set; }
+    public required InboundTransactionPartDto.InboundDraftItemDto DraftItem { get; set; }
     [Parameter]
     public EventCallback<PropertyValueChangedEventArgs> PropertyValueChanged { get; set; }
     [Parameter]
@@ -32,9 +33,7 @@
 
         if (pi == null)
         {
-            return DraftItem.AdditionalProperties.RootElement.TryGetProperty(PropertyName, out JsonElement ele) 
-                    ? ele.Deserialize(propertyType) 
-                    : null;
+            return DraftItem.AdditionalProperties.FirstOrDefault(p => p.Name == PropertyName)?.Value;
         }
 
         return pi.GetValue(DraftItem);
@@ -58,14 +57,10 @@
         }
         else
         {
-            JsonObject jo = DraftItem.AdditionalProperties.RootElement.Deserialize<JsonObject>();
-
-            JsonNode newNode = JsonSerializer.SerializeToNode(value);
-
-            if (!Equals(jo?[PropertyName]?.ToJsonString(), newNode?.ToJsonString()))
+            ItemAdditionalPropertyDto? additionalProperty = DraftItem.AdditionalProperties.FirstOrDefault(p => p.Name == PropertyName);
+            if (additionalProperty != null && additionalProperty.Value != value)
             {
-                jo[PropertyName] = newNode;
-                DraftItem.AdditionalProperties = jo.Deserialize<JsonDocument>();
+                additionalProperty.Value = value;
                 PropertyValueChanged.InvokeAsync(new PropertyValueChangedEventArgs()
                 {
                     PropertyName = PropertyName,
@@ -78,8 +73,8 @@
     private Type GetPropertyType()
     {
         PropertyInfo? pi = DraftItem.GetType().GetProperty(PropertyName);
-        Type? propertyType = pi?.PropertyType 
-                             ?? DraftItem.ItemSchema.AdditionalProperties.FirstOrDefault(x => x.Name == PropertyName)?.Type.ToType();
+        Type? propertyType = pi?.PropertyType
+                             ?? DraftItem.AdditionalProperties.FirstOrDefault(x => x.Name == PropertyName)?.Type.ToType();
 
         if(propertyType == null)
             throw new InvalidOperationException($"Property '{PropertyName}' not found in {DraftItem.GetType().Name} or ItemSchema.");

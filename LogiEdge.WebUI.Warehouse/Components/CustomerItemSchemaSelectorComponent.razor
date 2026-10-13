@@ -1,84 +1,77 @@
-﻿@using LogiEdge.CustomerService.Data
-@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
-@using Microsoft.EntityFrameworkCore
+﻿@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Warehouse.Components.PropertyValueInput
 @using Microsoft.AspNetCore.Components.Forms
 
-@inject IDbContextFactory<WarehouseDbContext> WarehouseContextFactory
+@inject WarehouseManagementService WarehouseService
 
 @code
 {
     [Parameter]
-    public required Customer? SelectedCustomer { get; set; }
+    public required Guid? CustomerId { get; set; }
     [Parameter]
-    public EventCallback<Customer?> SelectedCustomerChanged { get; set; }
+    public EventCallback<Guid?> CustomerIdChanged { get; set; }
     [Parameter]
-    public required ItemSchema? SelectedItemSchema { get; set; }
+    public required Guid? ItemSchemaId { get; set; }
     [Parameter]
-    public EventCallback<ItemSchema?> SelectedItemSchemaChanged { get; set; }
+    public EventCallback<Guid?> ItemSchemaIdChanged { get; set; }
 
-    private List<ItemSchema> ItemSchemas { get; set; } = [];
+    private List<ItemSchemaDto> ItemSchemas { get; set; } = [];
 
-    private Guid SelectedItemSchemaId
+    private Guid SelectedCustomerId
     {
-        get => SelectedItemSchema?.Id ?? Guid.Empty;
+        get => CustomerId ?? Guid.Empty;
         set
         {
-            using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-            ItemSchema? schema = ctx.ItemSchemas
-                .Include(sch => sch.Customers)
-                .FirstOrDefault(sch => sch.Id == value) ?? null;
-            if (schema?.Id != SelectedItemSchema?.Id)
+            Guid? customerId = value == Guid.Empty ? null : value;
+            if (customerId != CustomerId)
             {
-                SelectedItemSchema = schema;
-                SelectedItemSchemaChanged.InvokeAsync(schema);
+                CustomerId = customerId;
+                CustomerIdChanged.InvokeAsync(customerId);
+            }
+
+            ItemSchemaDto? selectedSchema = ItemSchemas.FirstOrDefault(s => s.Id == ItemSchemaId);
+            if (selectedSchema != null &&
+                (customerId == null || !selectedSchema.CustomerIds.Contains(customerId.Value)))
+            {
+                ItemSchemaId = null;
+                ItemSchemaIdChanged.InvokeAsync(null);
             }
         }
     }
 
-    private void CustomerPropertyValueInputOnValueChange(Customer? customer)
+    private async Task OnItemSchemaSelected(Guid? schemaId)
     {
-        SelectedCustomer = customer;
-        SelectedCustomerChanged.InvokeAsync(customer);
-
-        if (SelectedItemSchema != null &&
-            (customer == null || !SelectedItemSchema.Customers.Any(c => c.Id == customer.Id)))
+        if (schemaId != ItemSchemaId)
         {
-            SelectedItemSchema = null;
-            SelectedItemSchemaChanged.InvokeAsync(null);
+            ItemSchemaId = schemaId;
+            await ItemSchemaIdChanged.InvokeAsync(schemaId);
         }
     }
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
-        using WarehouseDbContext ctx = WarehouseContextFactory.CreateDbContext();
-        ItemSchemas = ctx.ItemSchemas
-            .Include(sch => sch.Customers)
-            .ToList();
+        ItemSchemas = await WarehouseService.GetItemSchemas();
 
-        return base.OnInitializedAsync();
+        await base.OnInitializedAsync();
     }
 }
 
 
 <div class="d-flex align-items-center gap-2">
     <label for="customerToAdd" class="col-form-label text-nowrap">Customer:</label>
-    <CustomerPropertyValueInput Value="SelectedCustomer"
-                                ValueChanged="CustomerPropertyValueInputOnValueChange"
-                                Class="flex-fill"
-                                id="customerToAdd" />
+    <CustomerIdPropertyValueInput Value="SelectedCustomerId"
+                                  ValueChanged="value => SelectedCustomerId = value"
+                                  Class="flex-fill"
+                                  id="customerToAdd" />
 </div>
 <div class="d-flex align-items-center gap-2">
     <label for="schemaToAdd" class="col-form-label text-nowrap">Item&nbsp;Schema:</label>
-    <InputSelect TValue="Guid" @bind-Value="SelectedItemSchemaId" class="form-select flex-fill" id="schemaToAdd">
-        <option value="@Guid.Empty"></option>
-        @{
-
-            foreach (ItemSchema schema in SelectedCustomer != null ? ItemSchemas.Where(sch => sch.Customers.Any(cu => cu.Id == SelectedCustomer.Id)) : [])
-            {
-                <option value="@schema.Id">@schema.Name</option>
-            }
+    <InputSelect TValue="Guid?" Value="ItemSchemaId" ValueChanged="OnItemSchemaSelected" Class="form-select flex-fill" id="schemaToAdd">
+        <option value="@((Guid?)null)"></option>
+        @foreach (ItemSchemaDto schema in ItemSchemas.Where(sch => CustomerId == null || sch.CustomerIds.Contains(CustomerId.Value)))
+        {
+            <option value="@schema.Id">@schema.Name</option>
         }
     </InputSelect>
 </div>

@@ -7,53 +7,54 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using LogiEdge.CustomerService.Dto;
 
 namespace LogiEdge.CustomerService.Services
 {
     public class CustomerManagementService(IDbContextFactory<CustomerDbContext> dbContextFactory)
     {
-        public List<Customer> GetCustomers()
+        public List<CustomerDto> GetCustomers()
         {
             using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
             
-            return dbContext.Customers.ToList();
+            return dbContext.Customers.Select(CustomerToDto).ToList();
         }
 
-        public async Task<List<Customer>> GetCustomersAsync()
+        public async Task<List<CustomerDto>> GetCustomersAsync()
         {
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
-            return await dbContext.Customers.ToListAsync();
+            return dbContext.Customers.Select(CustomerToDto).ToList();
         }
 
-        public Customer? GetCustomerByAbbreviation(string abbreviation)
+        public CustomerDto? GetCustomerByAbbreviation(string abbreviation)
         {
             abbreviation = abbreviation.ToUpper();
 
             using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
 
-            return dbContext.Customers.FirstOrDefault(x => x.Abbreviation == abbreviation);
+            return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Abbreviation == abbreviation);
         }
 
-        public async Task<Customer?> GetCustomerByAbbreviationAsync(string abbreviation)
+        public async Task<CustomerDto?> GetCustomerByAbbreviationAsync(string abbreviation)
         {
             abbreviation = abbreviation.ToUpper();
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
-            return await dbContext.Customers.FirstOrDefaultAsync(x => x.Abbreviation == abbreviation);
+            return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Abbreviation == abbreviation);
         }
 
-        public Customer? GetCustomerById(Guid id)
+        public CustomerDto? GetCustomerById(Guid id)
         {
             using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
-            return dbContext.Customers.Find(id);
+            return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Id == id);
         }
 
-        public async Task<Customer?> GetCustomerByIdAsync(Guid id)
+        public async Task<CustomerDto?> GetCustomerByIdAsync(Guid id)
         {
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
-            return await dbContext.Customers.FindAsync(id);
+            return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Id == id);
         }
 
-        public Customer CreateCustomer(Customer customer)
+        public CustomerDto CreateCustomer(Customer customer)
         {
             using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
 
@@ -61,14 +62,24 @@ namespace LogiEdge.CustomerService.Services
 
             dbContext.SaveChanges();
 
-            return entity.Entity;
+            return CustomerToDto(entity.Entity);
         }
 
-        public async Task<Customer> CreateCustomerAsync(Customer customer)
+        public async Task<CustomerDto> CreateCustomerAsync(Customer customer)
         {
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
             EntityEntry<Customer> entity = dbContext.Customers.Add(customer);
-            return await dbContext.SaveChangesAsync().ContinueWith(t => entity.Entity);
+            return await dbContext.SaveChangesAsync().ContinueWith(t => CustomerToDto(entity.Entity));
+        }
+
+        private CustomerDto CustomerToDto(Customer c)
+        {
+            return new CustomerDto()
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Abbreviation = c.Abbreviation,
+            };
         }
     }
 }

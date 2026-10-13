@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using LogiEdge.WarehouseService.Data;
 
 namespace LogiEdge.WarehouseService.Dto
 {
@@ -8,5 +9,6 @@ namespace LogiEdge.WarehouseService.Dto
     {
         public required string Name { get; set; }
         public required object? Value { get; set; }
+        public required ItemSchemaProperty.SupportedTypes Type { get; set; }
     }
 }

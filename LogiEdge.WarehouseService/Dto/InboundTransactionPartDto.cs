@@ -16,16 +16,16 @@ namespace LogiEdge.WarehouseService.Dto
 
         public class InboundDraftItemDto
         {
-            public Guid Id { get; set; }
-            public Guid ItemSchemaId { get; set; }
-            public Guid CustomerId { get; set; }
-            public Guid WarehouseId { get; set; }
-            public string ItemNumber { get; set; } = string.Empty;
-            public List<ItemAdditionalPropertyDto> AdditionalProperties { get; set; } = [];
-            public List<CommentDto> Comments { get; set; } = [];
-            public string Location { get; set; } = string.Empty;
-            public int Count { get; set; }
-            public bool IsQuarantined { get; set; }
+            public required Guid Id { get; set; }
+            public required Guid ItemSchemaId { get; set; }
+            public required Guid CustomerId { get; set; }
+            public required Guid WarehouseId { get; set; }
+            public required string ItemNumber { get; set; }
+            public required List<ItemAdditionalPropertyDto> AdditionalProperties { get; set; }
+            public required List<CommentDto> Comments { get; set; }
+            public required string Location { get; set; }
+            public required int Count { get; set; }
+            public required bool IsQuarantined { get; set; }
         }
     }
 }

@@ -1,45 +1,36 @@
 ﻿@page "/warehouse/create"
 
-@using LogiEdge.WarehouseService.Services
-@using LogiEdge.CustomerService.Data
-@using LogiEdge.CustomerService.Services
-@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.EntityFrameworkCore
 
-@inject IDbContextFactory<WarehouseDbContext> WarehouseDbContextFactory;
-@inject CustomerManagementService CustomerService;
+@inject WarehouseManagementService WarehouseService;
 
 @code {
-    private string warehouseName = string.Empty;
+    private string _warehouseName = string.Empty;
 
-    private string feedback = string.Empty;
+    private string _feedback = string.Empty;
 
-    private void CreateNewWarehouse()
+    private async Task CreateNewWarehouse()
     {
-        WarehouseDbContext warehouseDb = WarehouseDbContextFactory.CreateDbContext();
-
-        if(string.IsNullOrEmpty(warehouseName))
+        if(string.IsNullOrEmpty(_warehouseName))
         {
-            feedback = "A name must be set for the warehouse!";
+            _feedback = "A name must be set for the warehouse!";
             return;
         }
 
-        Warehouse newWarehouse = new()
-        {
-            Name = warehouseName,
-        };
-        newWarehouse = warehouseDb.Warehouses.Add(newWarehouse).Entity;
+        await WarehouseService.CreateWarehouse(_warehouseName);
+
+        _warehouseName = string.Empty;
+        _feedback = "New warehouse created successfully!";
     }
 }
 
 <h3>Create New Warehouse</h3>
 
 <label>Warehouse Name:</label>
-<InputText @bind-Value="warehouseName"></InputText>
+<InputText @bind-Value="_warehouseName"></InputText>
 <br />
 
-<p style="color:red;">@feedback</p>
+<p style="color:red;">@_feedback</p>
 <br />
 <button @onclick="CreateNewWarehouse">Create Warehouse</button>
