@@ -1,8 +1,7 @@
-﻿@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Persistence
-@using Microsoft.EntityFrameworkCore
+﻿@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using Microsoft.AspNetCore.Components.Forms
-@inject IDbContextFactory<WarehouseDbContext> DbContextFactory
+@inject WarehouseManagementService WarehouseService
 
 @code {
     [Parameter]
@@ -10,14 +9,12 @@
     [Parameter]
     public EventCallback<Guid> ValueChanged { get; set; }
 
-    private List<Warehouse> _warehouses = [];
+    private List<WarehouseBaseInfoDto> _warehouses = [];
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
-        using WarehouseDbContext ctx = DbContextFactory.CreateDbContext();
-        _warehouses = ctx.Warehouses.ToList();
-
-        return base.OnInitializedAsync();
+        _warehouses = await WarehouseService.GetWarehouses();
+        await base.OnInitializedAsync();
     }
 
 }
@@ -28,7 +25,7 @@
              class="form-select"
              @onclick:stopPropagation="true">
     <option value="@Guid.Empty"> </option>
-    @foreach (Warehouse warehouse in _warehouses.OrderBy(w => w.Name.ToUpper()))
+    @foreach (WarehouseBaseInfoDto warehouse in _warehouses.OrderBy(w => w.Name.ToUpper()))
     {
         <option value="@warehouse.Id">@warehouse.Name</option>
     }

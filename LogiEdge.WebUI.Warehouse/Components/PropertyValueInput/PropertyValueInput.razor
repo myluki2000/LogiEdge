@@ -1,6 +1,7 @@
 ﻿@using LogiEdge.CustomerService.Data
 @using LogiEdge.CustomerService.Dto
 @using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Dto
 @using Microsoft.AspNetCore.Components.Forms
 @code {
     [Parameter]
@@ -56,9 +57,9 @@
         set => Value = value;
     }
 
-    private Warehouse? ValueAsWarehouse
+    private WarehouseBaseInfoDto? ValueAsWarehouse
     {
-        get => Value as Warehouse;
+        get => Value as WarehouseBaseInfoDto;
         set => Value = value;
     }
 
