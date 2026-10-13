@@ -1,7 +1,6 @@
 ﻿@using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Dto
-@using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services.ItemsTable
 @using Microsoft.AspNetCore.Components.Forms
 @code {
@@ -35,9 +34,6 @@
     public required ItemsTableStateParameters ItemStateParameters { get; set; }
     [Parameter]
     public EventCallback<ItemsTableStateParameters> ItemStateParametersChanged { get; set; }
-
-    [Parameter]
-    public required Func<WarehouseDbContext, IQueryable<Item>> ItemsQueryableFactory { get; set; }
 
     private RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
 

@@ -1,12 +1,9 @@
 ﻿@using LogiEdge.BaseService.Data
-@using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Forms
 
 @inject IHxMessageBoxService MessageBox
 
 @code {
-    [Parameter]
-    public required DbContext DbContext { get; set; }
     [Parameter]
     public required List<FileAttachment> Attachments { get; set; }
     [Parameter]
