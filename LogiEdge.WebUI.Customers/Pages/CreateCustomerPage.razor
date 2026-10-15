@@ -1,5 +1,4 @@
 ﻿@page "/customer/create"
-@using LogiEdge.CustomerService.Data;
 @using LogiEdge.CustomerService.Services;
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Text.RegularExpressions;
@@ -14,7 +13,7 @@
 
     private string feedback = string.Empty;
 
-    private void CreateNewCustomer()
+    private async Task CreateNewCustomer()
     {
         if (customerName == null || customerAbbreviation == null)
         {
@@ -28,17 +27,12 @@
             return;
         }
 
-        if(CustomerService.GetCustomerByAbbreviation(customerAbbreviation) != null) {
+        if(await CustomerService.GetCustomerByAbbreviation(customerAbbreviation) != null) {
             feedback = "A customer with the specified abbreviation already exists! Abbreviations must be unique!";
             return;
         }
 
-        CustomerService.CreateCustomer(new Customer()
-        {
-            Abbreviation = customerAbbreviation,
-            Name = customerName
-        });
-
+        await CustomerService.CreateCustomer(customerName, customerAbbreviation);
         feedback = "New customer created successfully!";
         NavManager.NavigateToRoute<Pages.CustomersPage>();
     }

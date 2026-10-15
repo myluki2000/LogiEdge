@@ -26,16 +26,7 @@ namespace LogiEdge.CustomerService.Services
             return dbContext.Customers.Select(CustomerToDto).ToList();
         }
 
-        public CustomerDto? GetCustomerByAbbreviation(string abbreviation)
-        {
-            abbreviation = abbreviation.ToUpper();
-
-            using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
-
-            return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Abbreviation == abbreviation);
-        }
-
-        public async Task<CustomerDto?> GetCustomerByAbbreviationAsync(string abbreviation)
+        public async Task<CustomerDto?> GetCustomerByAbbreviation(string abbreviation)
         {
             abbreviation = abbreviation.ToUpper();
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
@@ -54,21 +45,14 @@ namespace LogiEdge.CustomerService.Services
             return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Id == id);
         }
 
-        public CustomerDto CreateCustomer(Customer customer)
-        {
-            using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
-
-            EntityEntry<Customer> entity = dbContext.Customers.Add(customer);
-
-            dbContext.SaveChanges();
-
-            return CustomerToDto(entity.Entity);
-        }
-
-        public async Task<CustomerDto> CreateCustomerAsync(Customer customer)
+        public async Task<CustomerDto> CreateCustomer(string name, string abbreviation)
         {
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
-            EntityEntry<Customer> entity = dbContext.Customers.Add(customer);
+            EntityEntry<Customer> entity = dbContext.Customers.Add(new Customer()
+            {
+                Name = name,
+                Abbreviation = abbreviation,
+            });
             return await dbContext.SaveChangesAsync().ContinueWith(t => CustomerToDto(entity.Entity));
         }
 
