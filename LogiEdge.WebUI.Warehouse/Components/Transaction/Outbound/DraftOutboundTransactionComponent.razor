@@ -48,7 +48,7 @@
 
     private async Task RefreshTransactionData()
     {
-        OutboundTransactionPart part = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
+        OutboundTransactionPartDto part = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
 
         _transactionItemsTableData = await ItemsTableService.GetItemsAsync(
             part.DraftSelectedItems.Select(x => x.Id),

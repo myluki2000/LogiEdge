@@ -1,7 +1,6 @@
 ﻿using LogiEdge.WarehouseService.Data;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace LogiEdge.WarehouseService.Dto
 {
@@ -11,7 +10,7 @@ namespace LogiEdge.WarehouseService.Dto
         /// If this transaction is in DRAFT state, this will contain the items which
         /// have been selected for outbound.
         /// </summary>
-        public List<Item>? DraftSelectedItems { get; set; }
+        public List<WarehouseItemDto>? DraftSelectedItems { get; set; }
         /// <summary>
         /// If this transaction is in DRAFT state, this will contain items which are part
         /// of the transaction but for which the user hasn't yet selected a specific item

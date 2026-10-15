@@ -60,6 +60,21 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 return null;
             }
 
+            OutboundTransactionPart? outboundPart = await ctx.OutboundTransactionParts
+                .Where(t => t.TransactionId == transactionId)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.ItemSchema)
+                        .ThenInclude(sch => sch.AdditionalProperties)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.Customer)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.Comments)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.ItemStates)
+                        .ThenInclude(st => st.Warehouse)
+                .Include(t => t.NewItemStates)
+                .FirstOrDefaultAsync();
+
             return new InventoryTransactionFullInfoDto()
             {
                 Id = transactionId,
@@ -82,16 +97,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                         NewItemStates = t.NewItemStates,
                     })
                     .FirstOrDefault(),
-                OutboundTransactionPart = await ctx.OutboundTransactionParts
-                    .Where(t => t.TransactionId == transactionId)
-                    .Select(t => new OutboundTransactionPartDto()
-                    {
-                        TransactionId = t.TransactionId,
-                        DraftPlaceholderItems = t.DraftPlaceholderItems,
-                        DraftSelectedItems = t.DraftSelectedItems,
-                        NewItemStates = t.NewItemStates,
-                    })
-                    .FirstOrDefaultAsync(),
+                OutboundTransactionPart = outboundPart == null ? null : OutboundTransactionPartToDto(outboundPart),
                 RelocationTransactionPart = await ctx.RelocationTransactionParts
                     .Where(t => t.TransactionId == transactionId)
                     .Select(t => new RelocationTransactionPartDto()
@@ -161,6 +167,17 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 TransactionId = transactionPart.TransactionId,
                 DraftItems = transactionPart.DraftItems.Select(InboundDraftItemToDto).ToList(),
                 NewItemStates = transactionPart.NewItemStates,
+            };
+        }
+
+        private static OutboundTransactionPartDto OutboundTransactionPartToDto(OutboundTransactionPart part)
+        {
+            return new OutboundTransactionPartDto()
+            {
+                TransactionId = part.TransactionId,
+                DraftSelectedItems = part.DraftSelectedItems?.Select(WarehouseItemDto.FromItem).ToList(),
+                DraftPlaceholderItems = part.DraftPlaceholderItems,
+                NewItemStates = part.NewItemStates,
             };
         }
 
@@ -608,7 +625,15 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
                 .AsTracking()
                 .Include(p => p.DraftSelectedItems!)
+                    .ThenInclude(i => i.ItemSchema)
+                        .ThenInclude(sch => sch.AdditionalProperties)
+                .Include(p => p.DraftSelectedItems!)
+                    .ThenInclude(i => i.Customer)
+                .Include(p => p.DraftSelectedItems!)
+                    .ThenInclude(i => i.Comments)
+                .Include(p => p.DraftSelectedItems!)
                     .ThenInclude(i => i.ItemStates)
+                        .ThenInclude(st => st.Warehouse)
                 .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
 
             if (transactionPart == null)
@@ -647,13 +672,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 transactionPart.NewItemStates.Add(newItemState);
             }
 
-            return new OutboundTransactionPartDto()
-            {
-                TransactionId = transactionPart.TransactionId,
-                DraftPlaceholderItems = transactionPart.DraftPlaceholderItems,
-                DraftSelectedItems = transactionPart.DraftSelectedItems,
-                NewItemStates = transactionPart.NewItemStates,
-            };
+            return OutboundTransactionPartToDto(transactionPart);
         }
 
         private async Task<RelocationTransactionPartDto?> TryBookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionId)

@@ -10,7 +10,7 @@
     [Parameter]
     public Guid ItemId { get; set; }
 
-    private ItemsTableResultDto.ItemsTableItem? _item;
+    private WarehouseItemDto? _item;
     private List<ItemStateDto>? _states;
 
     protected override async Task OnParametersSetAsync()

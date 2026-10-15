@@ -31,7 +31,7 @@
     public EventCallback<ItemsTableSortParameters> SortParametersChanged { get; set; }
 
     [Parameter]
-    public RenderFragment<(ItemsTableResultDto.ItemsTableItem item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
+    public RenderFragment<(WarehouseItemDto item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
     public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
@@ -329,7 +329,7 @@
         }
         else
         {
-            @foreach (ItemsTableResultDto.ItemsTableItem item in Items.Items)
+            @foreach (WarehouseItemDto item in Items.Items)
             {
                 OrderedDictionary<string, object?> properties = new();
 

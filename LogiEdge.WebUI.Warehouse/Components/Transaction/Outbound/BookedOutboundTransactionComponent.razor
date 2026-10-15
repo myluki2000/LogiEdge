@@ -1,5 +1,4 @@
 ﻿@using LogiEdge.WarehouseService.Data
-@using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
@@ -12,7 +11,7 @@
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private OutboundTransactionPart? _outboundTransactionPart = null;
+    private OutboundTransactionPartDto? _outboundTransactionPart = null;
 
     private ItemsTableResultDto? _items = null;
 

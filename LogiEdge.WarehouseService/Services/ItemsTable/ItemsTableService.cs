@@ -8,7 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
-using static LogiEdge.WarehouseService.Dto.ItemsTableResultDto;
 
 namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
@@ -39,7 +38,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             List<ItemPropertyInfoDto> itemProperties = [];
 
             // get a list of column property names which are allowed
-            itemProperties.AddRange(typeof(ItemsTableItem)
+            itemProperties.AddRange(typeof(WarehouseItemDto)
                 .GetProperties()
                 .Select(p => new ItemPropertyInfoDto()
                 {
@@ -59,7 +58,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             var result = new ItemsTableResultDto()
             {
                 ItemProperties = itemProperties,
-                Items = await q.Select(st => new ItemsTableItem()
+                Items = await q.Select(st => new WarehouseItemDto()
                 {
                     Id = st.ItemId,
                     ItemSchema = st.Item.ItemSchema,

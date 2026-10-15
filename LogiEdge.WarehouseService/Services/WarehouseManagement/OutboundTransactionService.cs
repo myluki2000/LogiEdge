@@ -1,5 +1,6 @@
 ﻿using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
+using LogiEdge.WarehouseService.Dto;
 using LogiEdge.WarehouseService.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -10,11 +11,20 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 {
     public class OutboundTransactionService(IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory)
     {
-        public async Task<OutboundTransactionPart> GetOutboundTransactionPart(Guid transactionId)
+        public async Task<OutboundTransactionPartDto> GetOutboundTransactionPart(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
                 .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.ItemSchema)
+                        .ThenInclude(sch => sch.AdditionalProperties)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.Customer)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.Comments)
+                .Include(t => t.DraftSelectedItems)
+                    .ThenInclude(it => it.ItemStates)
+                        .ThenInclude(st => st.Warehouse)
                 .Include(t => t.NewItemStates)
                 .FirstOrDefaultAsync(o => o.TransactionId == transactionId);
 
@@ -23,7 +33,18 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no outbound transaction part.");
             }
 
-            return transactionPart;
+            return OutboundTransactionPartToDto(transactionPart);
+        }
+
+        private static OutboundTransactionPartDto OutboundTransactionPartToDto(OutboundTransactionPart part)
+        {
+            return new OutboundTransactionPartDto()
+            {
+                TransactionId = part.TransactionId,
+                DraftSelectedItems = part.DraftSelectedItems?.Select(WarehouseItemDto.FromItem).ToList(),
+                DraftPlaceholderItems = part.DraftPlaceholderItems,
+                NewItemStates = part.NewItemStates,
+            };
         }
 
         public async Task DeleteOutboundItem(Guid transactionId, Guid itemId)
