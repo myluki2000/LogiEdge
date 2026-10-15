@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LogiEdge.BaseService.Data;
+using LogiEdge.BaseService.Dto;
 using LogiEdge.BaseService.Persistence;
 using LogiEdge.BaseService.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -19,12 +20,12 @@ namespace LogiEdge.BaseService.Controllers
         [HttpGet("download")]
         public async Task<IActionResult> Download(Guid attachmentId)
         {
-            FileAttachment? attachment = await service.GetAttachmentAsync(attachmentId, true);
+            FileAttachmentDto? attachment = await service.GetAttachment(attachmentId, true);
 
             if (attachment == null)
                 return NotFound();
 
-            return File(attachment.Data.Data, attachment.ContentType);
+            return File(attachment.Data!, attachment.ContentType);
         }
     }
 }

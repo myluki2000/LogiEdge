@@ -1,6 +1,6 @@
 ﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Dto
 @using LogiEdge.BaseService.Services
-@using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
 
@@ -11,7 +11,7 @@
     [Parameter]
     public required Guid TransactionId { get; set; }
 
-    private List<FileAttachment> _attachments = [];
+    private List<FileAttachmentDto> _attachments = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -20,11 +20,11 @@
         _attachments = await TransactionService.GetAttachments(TransactionId);
     }
 
-    private async Task OnAttachmentsUploaded(List<FileAttachment> newAttachments)
+    private async Task OnAttachmentsUploaded(List<FileAttachmentDto> newAttachments)
     {
-        foreach (FileAttachment attachment in newAttachments)
+        foreach (FileAttachmentDto attachment in newAttachments)
         {
-            FileAttachment entity = await FileAttachmentService.CreateAttachmentAsync(attachment);
+            FileAttachmentDto entity = await FileAttachmentService.CreateAttachment(attachment.FileName, attachment.ContentType, attachment.Data!);
             _attachments.Add(entity);
             await TransactionService.AddAttachment(TransactionId, entity.Id);
         }
@@ -33,7 +33,7 @@
     private async Task OnAttachmentRemoved(Guid attachmentId)
     {
         await TransactionService.RemoveAttachment(TransactionId, attachmentId);
-        await FileAttachmentService.DeleteAttachmentAsync(attachmentId);
+        await FileAttachmentService.DeleteAttachment(attachmentId);
         _attachments.RemoveAll(a => a.Id == attachmentId);
     }
 }

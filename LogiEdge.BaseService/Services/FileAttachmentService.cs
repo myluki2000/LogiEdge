@@ -4,8 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using LogiEdge.BaseService.Data;
+using LogiEdge.BaseService.Dto;
 using LogiEdge.BaseService.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace LogiEdge.BaseService.Services
 {
@@ -18,30 +20,26 @@ namespace LogiEdge.BaseService.Services
             this._applicationDbContextFactory = applicationDbContextFactory;
         }
 
-        public FileAttachment? GetAttachment(Guid id, bool includeData = false)
-        {
-            return GetAttachmentAsync(id, includeData).Result;
-        }
-
         /// <summary>
         /// Gets the attachment with the given id. If includeData is true, the attachment's data will also be included in the result.
         /// </summary>
-        public async Task<FileAttachment?> GetAttachmentAsync(Guid id, bool includeData = false)
+        public async Task<FileAttachmentDto?> GetAttachment(Guid id, bool includeData = false)
         {
             await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
 
-            if (includeData)
-                return await context.Attachments.Include(a => a.Data).FirstOrDefaultAsync(a => a.Id == id);
-            
-            return await context.Attachments.FindAsync(id);
+            FileAttachment? att = includeData
+                ? await context.Attachments.Include(a => a.Data).FirstOrDefaultAsync(a => a.Id == id)
+                : await context.Attachments.FindAsync(id);
+
+            if (att == null)
+            {
+                return null;
+            }
+
+            return FileAttachmentToDto(att);
         }
 
-        public List<FileAttachment> GetAttachments(List<Guid> ids, bool includeData = false)
-        {
-            return GetAttachmentsAsync(ids, includeData).Result;
-        }
-
-        public async Task<List<FileAttachment>> GetAttachmentsAsync(List<Guid> ids, bool includeData = false)
+        public async Task<List<FileAttachmentDto>> GetAttachments(List<Guid> ids, bool includeData = false)
         {
             if (ids.Count == 0)
                 return [];
@@ -52,33 +50,28 @@ namespace LogiEdge.BaseService.Services
             if (includeData)
                 q = q.Include(a => a.Data);
 
-            return await q.ToListAsync();
+            return q.AsEnumerable().Select(FileAttachmentToDto).ToList();
         }
 
-        public FileAttachment CreateAttachment(FileAttachment attachment)
-        {
-            return CreateAttachmentAsync(attachment).Result;
-        }
-
-        public async Task<FileAttachment> CreateAttachmentAsync(FileAttachment attachment)
+        public async Task<FileAttachmentDto> CreateAttachment(string fileName, string contentType, byte[] data)
         {
             await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
-            await context.Attachments.AddAsync(attachment);
+            EntityEntry<FileAttachment> saved = await context.Attachments.AddAsync(new FileAttachment()
+            {
+                FileName = fileName,
+                ContentType = contentType,
+                Data = new BinaryData(data),
+            });
             await context.SaveChangesAsync();
-            return attachment;
+            return FileAttachmentToDto(saved.Entity);
         }
 
-        public FileAttachment? DeleteAttachment(Guid id)
-        {
-            return DeleteAttachmentAsync(id).Result;
-        }
-
-        public async Task<FileAttachment?> DeleteAttachmentAsync(Guid id)
+        public async Task<FileAttachmentDto?> DeleteAttachment(Guid id)
         {
             await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
             FileAttachment? attachment = await context.Attachments.FindAsync(id);
 
-            if (attachment is null) return attachment;
+            if (attachment is null) return null;
 
             context.Attachments.Remove(attachment);
 
@@ -90,7 +83,18 @@ namespace LogiEdge.BaseService.Services
             }
             catch (DbUpdateConcurrencyException) { }
 
-            return attachment;
+            return FileAttachmentToDto(attachment);
+        }
+
+        private FileAttachmentDto FileAttachmentToDto(FileAttachment a)
+        {
+            return new FileAttachmentDto()
+            {
+                Id = a.Id,
+                ContentType = a.ContentType,
+                FileName = a.FileName,
+                Data = a.Data?.Data,
+            };
         }
     }
 }

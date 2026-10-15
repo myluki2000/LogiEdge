@@ -1,13 +1,14 @@
 ﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Dto
 @using Microsoft.AspNetCore.Components.Forms
 
 @inject IHxMessageBoxService MessageBox
 
 @code {
     [Parameter]
-    public required List<FileAttachment> Attachments { get; set; }
+    public required List<FileAttachmentDto> Attachments { get; set; }
     [Parameter]
-    public required EventCallback<List<FileAttachment>> OnAttachmentsUploaded { get; set; }
+    public required EventCallback<List<FileAttachmentDto>> OnAttachmentsUploaded { get; set; }
     [Parameter]
     public required EventCallback<Guid> OnAttachmentRemoveRequested { get; set; }
 
@@ -15,18 +16,18 @@
 
     private async Task InputFileOnChange(InputFileChangeEventArgs e)
     {
-        List<FileAttachment> newAttachments = [];
+        List<FileAttachmentDto> newAttachments = [];
 
         foreach (IBrowserFile file in e.GetMultipleFiles())
         {
             await using Stream rs = file.OpenReadStream(100000000);
             await using MemoryStream ms = new();
             await rs.CopyToAsync(ms);
-            newAttachments.Add(new FileAttachment()
+            newAttachments.Add(new FileAttachmentDto()
             {
                 ContentType = file.ContentType,
                 FileName = file.Name,
-                Data = new BinaryData(ms.ToArray())
+                Data = ms.ToArray(),
             });
         }
 
@@ -51,7 +52,7 @@
         <h3>Attachments</h3>
     </div>
     <div id="file-attachment-container">
-        @foreach (FileAttachment attachment in Attachments)
+        @foreach (FileAttachmentDto attachment in Attachments)
         {
             <div class="item">
                 <span class="btn-remove-attachment material-symbols-rounded"

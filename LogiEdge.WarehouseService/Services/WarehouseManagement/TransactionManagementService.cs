@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using LogiEdge.BaseService.Data;
+using LogiEdge.BaseService.Dto;
 using LogiEdge.BaseService.Services;
 using LogiEdge.WarehouseService.Dto;
 using Microsoft.EntityFrameworkCore;
@@ -357,7 +358,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
-        public async Task<List<FileAttachment>> GetAttachments(Guid transactionId, bool includeData = false)
+        public async Task<List<FileAttachmentDto>> GetAttachments(Guid transactionId, bool includeData = false)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             List<Guid>? attachmentIds =
@@ -369,7 +370,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
             }
 
-            return await attachmentService.GetAttachmentsAsync(attachmentIds, includeData);
+            return await attachmentService.GetAttachments(attachmentIds, includeData);
         }
 
         public async Task AddAttachment(Guid transactionId, Guid attachmentId)

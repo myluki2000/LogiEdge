@@ -3,6 +3,7 @@
 @using LogiEdge.BaseService.MemoryCache
 @using LogiEdge.BaseService.Services
 @using LogiEdge.Service.DocumentGenerator.DocumentGeneration
+@using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.Service.DocumentGenerator.Services
 
 @inject DocumentGenerationService DocumentGenerationService
@@ -17,7 +18,7 @@
     /// Callback which is raised when the user presses save for the generated document.
     /// </summary>
     [Parameter]
-    public required EventCallback<FileAttachment> OnFileAttachmentSaveRequested { get; set; }
+    public required EventCallback<GeneratedDocumentDto> OnFileAttachmentSaveRequested { get; set; }
 
     private List<IDocumentGenerator<TInputType>> Templates { get; set; } = [];
 
@@ -25,7 +26,7 @@
 
     private IDocumentGenerator<TInputType>? _selectedGenerator;
 
-    private FileAttachment? _generatedFileAttachment = null;
+    private GeneratedDocumentDto? _generatedFileAttachment = null;
     private Guid? _cachedOutputDocId = null;
 
     protected override async Task OnParametersSetAsync()
@@ -49,7 +50,7 @@
             _generatedFileAttachment = await DocumentGenerationService.GenerateDocument(_selectedGenerator, inputData);
             _cachedOutputDocId = MemoryCacheService.CacheFile(new CachedFile()
             {
-                Data = _generatedFileAttachment.Data.Data,
+                Data = _generatedFileAttachment.Data,
                 MimeType = _generatedFileAttachment.ContentType,
                 ServeAtEndpoint = true
             }, TimeSpan.FromHours(1));

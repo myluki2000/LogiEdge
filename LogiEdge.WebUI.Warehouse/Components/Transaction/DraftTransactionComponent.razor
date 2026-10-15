@@ -1,5 +1,7 @@
 ﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Dto
 @using LogiEdge.BaseService.Services
+@using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Persistence
@@ -70,12 +72,12 @@
         await TransactionService.SetTransactionTitle(_transaction.Id, _transaction.Title);
     }
 
-    private async Task DocumentGeneratorComponentOnFileAttachmentSaveRequested(FileAttachment att)
+    private async Task DocumentGeneratorComponentOnFileAttachmentSaveRequested(GeneratedDocumentDto doc)
     {
         if (_transaction == null)
             return;
 
-        att = await FileAttachmentService.CreateAttachmentAsync(att);
+        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data);
         await TransactionService.AddAttachment(_transaction.Id, att.Id);
     }
 }

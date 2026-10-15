@@ -1,5 +1,7 @@
 ﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Dto
 @using LogiEdge.BaseService.Services
+@using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
@@ -23,12 +25,13 @@
         _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
     }
 
-    private async Task DocumentGeneratorComponentOnSaveRequested(FileAttachment att)
+    private async Task DocumentGeneratorComponentOnSaveRequested(GeneratedDocumentDto doc)
     {
         if (_transaction == null)
             return;
 
-        att = await FileAttachmentService.CreateAttachmentAsync(att);
+        // TODO: Need to do this in a transaction, so that no orphaned attachments are left behind if the transaction fails
+        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data);
         await TransactionService.AddAttachment(_transaction.Id, att.Id);
     }
 }

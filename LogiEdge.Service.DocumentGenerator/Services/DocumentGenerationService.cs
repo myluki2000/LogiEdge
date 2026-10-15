@@ -3,18 +3,15 @@ using LogiEdge.Service.DocumentGenerator.Data;
 using LogiEdge.Service.DocumentGenerator.DocumentGeneration;
 using LogiEdge.Service.DocumentGenerator.Persistence;
 using LogiEdge.Shared;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
-using LogiEdge.BaseService.Data;
+using LogiEdge.Service.DocumentGenerator.Dto;
 
 namespace LogiEdge.Service.DocumentGenerator.Services
 {
     public class DocumentGenerationService(IServiceProvider serviceProvider)
     {
-        private readonly FileAttachmentService _fileAttachmentService = serviceProvider.GetRequiredService<FileAttachmentService>();
-
         private readonly IDbContextFactory<DocumentGeneratorDbContext> _dbContextFactory =
             serviceProvider.GetRequiredService<IDbContextFactory<DocumentGeneratorDbContext>>();
 
@@ -24,17 +21,15 @@ namespace LogiEdge.Service.DocumentGenerator.Services
         /// <summary>
         /// Generates a document using the specified generator and input data, and returns it as an UNSAVED FileAttachment.
         /// </summary>
-        public async Task<FileAttachment> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
+        public async Task<GeneratedDocumentDto> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
         {
             byte[] doc = await generator.GenerateDocumentAsync(inputData);
-            FileAttachment att = new FileAttachment()
+            return new GeneratedDocumentDto()
             {
                 ContentType = "application/pdf", // TODO: Must depend on the generator used
-                Data = new BinaryData(doc),
+                Data = doc,
                 FileName = $"{generator.GetType().Name}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf"
             };
-
-            return att;
         }
 
         /// <summary>
