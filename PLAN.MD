@@ -217,7 +217,7 @@ methods (sync versions are `.Result` wrappers — prefer the async ones in UI co
 
 **Booking flow** (`Services/WarehouseManagement/TransactionManagementService.cs`):
 
-- `BookTransactionAsync` (DRAFT only) sets `BookedDate`, then per part:
+- `BookTransaction` (DRAFT only) sets `BookedDate`, then per part; returns an `InventoryTransactionFullInfoDto` built from the booked part DTOs:
   - **Inbound**: each draft item becomes a real `Item` with an initial `ItemState`
     (location from the draft); failures throw `BookingException`.
   - **Outbound**: adds a new `ItemState` with `Location = __SHIPPED` to each selected

@@ -405,7 +405,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
-        public async Task<InventoryTransaction> BookTransactionAsync(Guid transactionId)
+        public async Task<InventoryTransactionFullInfoDto> BookTransaction(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
             InventoryTransaction? transaction = await ctx.InventoryTransactions
@@ -425,15 +425,28 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             transaction.State = TransactionState.BOOKED;
             transaction.BookedDate = DateTime.UtcNow;
            
-            await TryBookInboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
-
-            await TryBookOutboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
-
-            await TryBookRelocationTransactionPart(ctx, transactionId);
+            InboundTransactionPartDto? inboundPart = await TryBookInboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
+            OutboundTransactionPartDto? outboundPart = await TryBookOutboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
+            RelocationTransactionPartDto? relocationPart = await TryBookRelocationTransactionPart(ctx, transactionId);
 
             await ctx.SaveChangesAsync();
 
-            return transaction;
+            return new InventoryTransactionFullInfoDto()
+            {
+                Id = transaction.Id,
+                Title = transaction.Title,
+                CreatedDate = transaction.CreatedDate,
+                BookedDate = transaction.BookedDate,
+                CreatedByUserId = transaction.CreatedByUserId,
+                HandledByWorker = transaction.HandledByWorker,
+                State = transaction.State,
+                HasInboundPart = inboundPart != null,
+                HasOutboundPart = outboundPart != null,
+                HasRelocationPart = relocationPart != null,
+                InboundTransactionPart = inboundPart,
+                OutboundTransactionPart = outboundPart,
+                RelocationTransactionPart = relocationPart,
+            };
         }
 
         public async Task AddInboundPartToTransaction(Guid transactionId)
@@ -551,18 +564,19 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             return transaction.Id;
         }
 
-        private async Task TryBookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
+        private async Task<InboundTransactionPartDto?> TryBookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
         {
             InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
                 .AsTracking()
                 .Include(i => i.Transaction)
                 .Include(i => i.DraftItems)
+                    .ThenInclude(di => di.ItemSchema)
                 .Include(i => i.NewItemStates)
                 .FirstOrDefaultAsync(i => i.TransactionId == transactionId);
 
             if (transactionPart == null)
             {
-                return;
+                return null;
             }
 
             transactionPart.NewItemStates ??= [];
@@ -580,9 +594,16 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     throw new BookingException($"Could not book inbound transaction part with Transaction Id {transactionId}.", ex);
                 }
             }
+
+            return new InboundTransactionPartDto()
+            {
+                TransactionId = transactionPart.TransactionId,
+                DraftItems = transactionPart.DraftItems.Select(InboundDraftItemToDto).ToList(),
+                NewItemStates = transactionPart.NewItemStates,
+            };
         }
 
-        private async Task TryBookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
+        private async Task<OutboundTransactionPartDto?> TryBookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
         {
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
                 .AsTracking()
@@ -592,7 +613,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 
             if (transactionPart == null)
             {
-                return;
+                return null;
             }
 
             transactionPart.NewItemStates ??= [];
@@ -625,11 +646,35 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 item.ItemStates.Add(newItemState);
                 transactionPart.NewItemStates.Add(newItemState);
             }
+
+            return new OutboundTransactionPartDto()
+            {
+                TransactionId = transactionPart.TransactionId,
+                DraftPlaceholderItems = transactionPart.DraftPlaceholderItems,
+                DraftSelectedItems = transactionPart.DraftSelectedItems,
+                NewItemStates = transactionPart.NewItemStates,
+            };
         }
 
-        private async Task TryBookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionId)
+        private async Task<RelocationTransactionPartDto?> TryBookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionId)
         {
+            RelocationTransactionPart? transactionPart = await ctx.RelocationTransactionParts
+                .AsTracking()
+                .Include(p => p.NewItemStates)
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
+
+            if (transactionPart == null)
+            {
+                return null;
+            }
+
             // TODO: Implement booking logic for relocation transaction part
+
+            return new RelocationTransactionPartDto()
+            {
+                TransactionId = transactionPart.TransactionId,
+                NewItemStates = transactionPart.NewItemStates,
+            };
         }
 
         private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem, DateTime bookDate)
