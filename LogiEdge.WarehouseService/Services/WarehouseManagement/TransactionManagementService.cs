@@ -13,13 +13,15 @@ using LogiEdge.BaseService.Data;
 using LogiEdge.BaseService.Dto;
 using LogiEdge.BaseService.Services;
 using LogiEdge.WarehouseService.Dto;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 {
     public class TransactionManagementService(
         IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory,
-        FileAttachmentService attachmentService)
+        FileAttachmentService attachmentService,
+        AuthenticationStateProvider authenticationStateProvider)
     {
         public async Task<InventoryTransactionBaseInfoDto?> GetTransactionBaseInfo(Guid transactionId)
         {
@@ -561,16 +563,25 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         }
 
         /// <summary>
-        /// Creates a new DRAFT transaction and returns its ID.
+        /// Creates a new DRAFT transaction attributed to the currently signed-in user and returns its ID.
         /// </summary>
         public async Task<Guid> CreateTransaction(string handledByWorker)
+        {
+            Guid userId = await authenticationStateProvider.GetUserIdAsync();
+            return await CreateTransactionForUser(userId, handledByWorker);
+        }
+
+        /// <summary>
+        /// Creates a new DRAFT transaction attributed to the given user and returns its ID.
+        /// </summary>
+        public async Task<Guid> CreateTransactionForUser(Guid createdById, string handledByWorker)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
             InventoryTransaction transaction = new()
             {
                 CreatedDate = DateTime.UtcNow,
-                CreatedByUserId = Guid.Empty, // TODO: Actual user ID should be set here
+                CreatedByUserId = createdById,
                 HandledByWorker = handledByWorker,
                 AttachmentIds = []
             };

@@ -3,17 +3,20 @@
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.Shared
 @using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
 
 @inject TransactionManagementService TransactionService
+@inject IUserDirectory UserDirectory
 
 @code {
     [Parameter]
     public required Guid TransactionId { get; set; }
 
     private InventoryTransactionBaseInfoDto? _transaction { get; set; }
+    private string? _creatorName;
 
     private TransactionFileAttachmentManagerComponent _attachmentManager = null!;
 
@@ -22,6 +25,8 @@
         await base.OnParametersSetAsync();
 
         _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+        if (_transaction != null)
+            _creatorName = await UserDirectory.GetUserNameAsync(_transaction.CreatedByUserId);
     }
 
     private async Task DocumentGeneratorComponentOnSaveRequested(GeneratedDocumentDto doc)
@@ -45,7 +50,7 @@
 }
 
 <div class="header">
-    <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> · Booked: <span class="text-dark">@_transaction.BookedDate</span></span>
+    <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> by @(_creatorName ?? "unknown") · Booked: <span class="text-dark">@_transaction.BookedDate</span></span>
     <h3 class="m-0">
         @_transaction.Title
     </h3>

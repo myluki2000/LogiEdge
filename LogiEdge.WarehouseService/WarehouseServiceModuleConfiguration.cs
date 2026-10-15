@@ -25,7 +25,8 @@ namespace LogiEdge.WarehouseService
             });
             builder.Services.AddSingleton<WarehouseManagementService>();
             builder.Services.AddSingleton<ItemsTableService>();
-            builder.Services.AddSingleton<TransactionManagementService>();
+            // Scoped: resolves AuthenticationStateProvider (current user for transaction creation).
+            builder.Services.AddScoped<TransactionManagementService>();
             builder.Services.AddSingleton<OutboundTransactionService>();
         }
 
