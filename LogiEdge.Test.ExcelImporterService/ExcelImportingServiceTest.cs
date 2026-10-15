@@ -1,8 +1,9 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using LogiEdge.CustomerService.Persistence;
 using LogiEdge.CustomerService.Services;
 using LogiEdge.ExcelImporterService.Data;
 using LogiEdge.ExcelImporterService.Services;
+using LogiEdge.Shared;
 using LogiEdge.Test.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Persistence;
@@ -17,16 +18,27 @@ namespace LogiEdge.Test.ExcelImporterService
 {
     public class ExcelImportingServiceTest(DatabaseFixture dbFixture) : IClassFixture<DatabaseFixture>
     {
+        private static readonly Guid TestAuthorId = new("aaaaaaaa-bbbb-cccc-dddd-eeeeffff0001");
+
+        /// <summary>
+        /// Stand-in for the host's system user provider; imports under test are attributed to TestAuthorId.
+        /// </summary>
+        private sealed class TestSystemUserProvider : ISystemUserProvider
+        {
+            public Task<Guid> GetSystemUserIdAsync() => Task.FromResult(TestAuthorId);
+        }
+
+
         [Fact]
         public void TestSingleFile()
         {
             CustomerManagementService customerService = new(dbFixture.CustomerDbContextFactory);
 
-            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, customerService);
+            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, customerService, new TestSystemUserProvider());
 
             ExcelImporterConfig config = service.LoadConfigFromPath("./Resources/TestSingleFileConfig.json");
 
-            service.RunImportUsingConfig(config);
+            service.RunImportUsingConfig(config, TestAuthorId);
 
             using CustomerDbContext customerCtx = dbFixture.CustomerDbContextFactory.CreateDbContext();
             using WarehouseDbContext warehouseCtx = dbFixture.WarehouseDbContextFactory.CreateDbContext();
@@ -40,6 +52,10 @@ namespace LogiEdge.Test.ExcelImporterService
             List<Item> items = warehouseCtx.Items
                 .Include(x => x.ItemStates)
                 .ToList();
+
+            // assert that all imported comments are attributed to the given author
+            List<Comment> comments = warehouseCtx.Items.SelectMany(x => x.Comments).ToList();
+            Assert.All(comments, c => Assert.Equal(TestAuthorId, c.AuthorId));
 
             // assert all items have exactly 1 item state
             Assert.All(items, x => Assert.Single(x.ItemStates));
@@ -79,11 +95,11 @@ namespace LogiEdge.Test.ExcelImporterService
         {
             CustomerManagementService customerService = new(dbFixture.CustomerDbContextFactory);
 
-            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, customerService);
+            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, customerService, new TestSystemUserProvider());
 
             ExcelImporterConfig config = service.LoadConfigFromPath("./Resources/TestShippedAndArrivedConfig.json");
 
-            service.RunImportUsingConfig(config);
+            service.RunImportUsingConfig(config, TestAuthorId);
 
             using CustomerDbContext customerCtx = dbFixture.CustomerDbContextFactory.CreateDbContext();
             using WarehouseDbContext warehouseCtx = dbFixture.WarehouseDbContextFactory.CreateDbContext();

@@ -17,6 +17,7 @@ using LogiEdge.CustomerService.Persistence;
 using LogiEdge.CustomerService.Services;
 using LogiEdge.ExcelImporterService.Data;
 using LogiEdge.ExcelImporterService.Internal;
+using LogiEdge.Shared;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Persistence;
@@ -28,16 +29,37 @@ namespace LogiEdge.ExcelImporterService.Services
 {
     public class ExcelImportingService(SettingsService settingsService,
                                        IDbContextFactory<WarehouseDbContext> warehouseDbContextFactory,
-                                       IDbContextFactory<CustomerDbContext> customerDbContextFactory)
+                                       IDbContextFactory<CustomerDbContext> customerDbContextFactory,
+                                       ISystemUserProvider systemUserProvider)
     {
+        /// <summary>
+        /// Runs an import using the config from the settings entry. The import is triggered via API outside of a
+        /// UI circuit, so it is attributed to the (locked-out) system user (D4 in .notes/auth-impl.md).
+        /// </summary>
         public async Task RunImportAsync()
+        {
+            Guid systemUserId = await systemUserProvider.GetSystemUserIdAsync();
+            ExcelImporterConfig config = await LoadConfigFromSettingsAsync();
+
+            RunImportUsingConfig(config, systemUserId);
+        }
+
+        /// <summary>
+        /// Runs an import using the config from the settings entry, attributed to the given user.
+        /// </summary>
+        public async Task RunImportForUserAsync(Guid userId)
+        {
+            ExcelImporterConfig config = await LoadConfigFromSettingsAsync();
+
+            RunImportUsingConfig(config, userId);
+        }
+
+        private async Task<ExcelImporterConfig> LoadConfigFromSettingsAsync()
         {
             string configJson = await settingsService.GetSettingAsync("ExcelImporterConfig")
                                 ?? throw new Exception("Could not find 'ExcelImporterConfig' settings entry.");
 
-            ExcelImporterConfig config = LoadConfigFromPath(configJson);
-
-            RunImportUsingConfig(config);
+            return LoadConfigFromPath(configJson);
         }
 
         public ExcelImporterConfig LoadConfigFromPath(string path)
@@ -52,7 +74,7 @@ namespace LogiEdge.ExcelImporterService.Services
                    throw new Exception("Error parsing ExcelImporterConfig config json.");
         }
 
-        public void RunImportUsingConfig(ExcelImporterConfig config)
+        public void RunImportUsingConfig(ExcelImporterConfig config, Guid authorId)
         {
             using WarehouseDbContext warehouseDbContext = warehouseDbContextFactory.CreateDbContext();
             using CustomerDbContext customerDbContext = customerDbContextFactory.CreateDbContext();
@@ -164,7 +186,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                     .Where(c => !string.IsNullOrWhiteSpace(c))
                                     .Select(c => new Comment()
                                 {
-                                    AuthorId = Guid.Empty,
+                                    AuthorId = authorId,
                                     Date = item.EntryDate,
                                     Retracted = false,
                                     Text = c,
@@ -265,7 +287,7 @@ namespace LogiEdge.ExcelImporterService.Services
                                         .Where(c => !string.IsNullOrEmpty(c))
                                         .Select(c => new Comment()
                                         {
-                                            AuthorId = Guid.Empty,
+                                            AuthorId = authorId,
                                             Date = x.EntryDate,
                                             Retracted = false,
                                             Text = c,
@@ -330,7 +352,7 @@ namespace LogiEdge.ExcelImporterService.Services
 
                                         existingItem.Comments.Add(new Comment()
                                         {
-                                            AuthorId = Guid.Empty,
+                                            AuthorId = authorId,
                                             Date = day,
                                             Retracted = false,
                                             Text = x.Comment,

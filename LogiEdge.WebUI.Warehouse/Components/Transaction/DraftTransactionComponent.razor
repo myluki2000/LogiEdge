@@ -3,6 +3,7 @@
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.Shared
 @using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Shared.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
@@ -13,6 +14,7 @@
 @inject TransactionManagementService TransactionService
 @inject IHxMessageBoxService MessageBox
 @inject NavigationManager NavigationManager
+@inject IUserDirectory UserDirectory
 
 @code {
     [Parameter]
@@ -22,6 +24,7 @@
     public EventCallback OnTransactionBooked { get; set; }
 
     private InventoryTransactionBaseInfoDto? _transaction = null;
+    private string? _creatorName;
 
     private TransactionFileAttachmentManagerComponent _attachmentManager = null!;
 
@@ -34,6 +37,8 @@
         await base.OnParametersSetAsync();
 
         _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+        if (_transaction != null)
+            _creatorName = await UserDirectory.GetUserNameAsync(_transaction.CreatedByUserId);
     }
 
     private async Task BtnAddInboundItemsOnClick()
@@ -92,7 +97,7 @@
 }
 
 <div class="header">
-    <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span></span>
+    <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> by @(_creatorName ?? "unknown")</span>
     <h3>
         <InputText class="form-control"
                    @bind-Value="_transaction.Title"
