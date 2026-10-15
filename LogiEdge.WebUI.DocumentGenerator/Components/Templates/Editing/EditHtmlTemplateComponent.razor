@@ -1,9 +1,9 @@
 ﻿@using Havit.Blazor.Components.Web.Bootstrap
-@using LogiEdge.Service.DocumentGenerator.Data
+@using LogiEdge.Service.DocumentGenerator.Dto
 
 @code {
     [Parameter]
-    public required HtmlDocumentGenerationTemplate Template { get; set; }
+    public required HtmlDocumentGenerationTemplateDto Template { get; set; }
 
     [Parameter]
     public string Css { get; set; } = string.Empty;

@@ -19,7 +19,7 @@ namespace LogiEdge.Service.DocumentGenerator.Services
             .Where(t => typeof(IDocumentGenerator).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface).ToList();
 
         /// <summary>
-        /// Generates a document using the specified generator and input data, and returns it as an UNSAVED FileAttachment.
+        /// Generates a document using the specified generator and input data.
         /// </summary>
         public async Task<GeneratedDocumentDto> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
         {
@@ -37,10 +37,10 @@ namespace LogiEdge.Service.DocumentGenerator.Services
         /// </summary>
         /// <typeparam name="T">Type of document.</typeparam>
         /// <returns>IEnumerable of available document generator for the passed document type.</returns>
-        public async IAsyncEnumerable<IDocumentGenerator<T>> GetGeneratorsForDocumentTypeAsync<T>()
+        public async IAsyncEnumerable<IDocumentGenerator<T>> GetGeneratorsForDocumentType<T>()
         {
             // TODO: Should be cached
-            foreach (DocumentGenerationTemplate template in await GetTemplatesForDocumentTypeAsync<T>())
+            foreach (DocumentGenerationTemplate template in await GetTemplatesForDocumentType<T>())
             {
                 Type generatorType = DOCUMENT_GENERATORS
                     .Select(x => x.MakeGenericType(typeof(T))) // make a concrete type for each generator with the input type as generic param
@@ -50,34 +50,37 @@ namespace LogiEdge.Service.DocumentGenerator.Services
                             .GetValue(null)!
                             .Equals(template.GetType()));
 
-                // create an instance of the generator with the template as a constructor parameter
+                // create an instance of the generator with the template DTO as a constructor parameter
                 IDocumentGenerator<T> generator =
-                    (IDocumentGenerator<T>)Activator.CreateInstance(generatorType, serviceProvider, template)!;
+                    (IDocumentGenerator<T>)Activator.CreateInstance(generatorType, serviceProvider, DocumentGenerationTemplateToDto(template))!;
                 yield return generator;
             }
         }
 
-        public async Task<DocumentGenerationTemplate?> GetTemplateAsync(Guid templateId)
-        {
-            await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
-            return await ctx.DocumentTemplates.FirstOrDefaultAsync(t => t.Id == templateId);
-        }
-
-        public async Task<IEnumerable<DocumentGenerationTemplate>> GetTemplatesAsync()
+        public async Task<DocumentGenerationTemplateDto?> GetTemplate(Guid templateId)
         {
             await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
 
-            return await ctx.DocumentTemplates.ToListAsync();
+            DocumentGenerationTemplate? template = await ctx.DocumentTemplates.FirstOrDefaultAsync(t => t.Id == templateId);
+            return template is null ? null : DocumentGenerationTemplateToDto(template);
         }
 
-        public async Task<IEnumerable<DocumentGenerationTemplate>> GetTemplatesForDocumentTypeAsync<T>()
+        public async Task<IEnumerable<DocumentGenerationTemplateDto>> GetTemplates()
+        {
+            await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
+
+            List<DocumentGenerationTemplate> templates = await ctx.DocumentTemplates.ToListAsync();
+            return templates.Select(DocumentGenerationTemplateToDto).ToList();
+        }
+
+        private async Task<List<DocumentGenerationTemplate>> GetTemplatesForDocumentType<T>()
         {
             await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
 
             return await ctx.DocumentTemplates.Where(t => t.InputTypeName == typeof(T).FullName).ToListAsync();
         }
 
-        public async Task<DocumentGenerationTemplate> CreateTemplateForType<TTemplateType, TInputType>(
+        public async Task<DocumentGenerationTemplateDto> CreateTemplateForType<TTemplateType, TInputType>(
             string templateName)
             where TTemplateType : DocumentGenerationTemplate
             where TInputType : IDocumentGeneratorInput
@@ -91,15 +94,55 @@ namespace LogiEdge.Service.DocumentGenerator.Services
             ctx.DocumentTemplates.Add(template);
             await ctx.SaveChangesAsync();
 
-            return template;
+            return DocumentGenerationTemplateToDto(template);
         }
 
-        public async Task<DocumentGenerationTemplate> UpdateTemplateAsync(DocumentGenerationTemplate template)
+        /// <summary>
+        /// Updates an existing template with the data from the given DTO and returns the updated template as a DTO.
+        /// </summary>
+        public async Task<DocumentGenerationTemplateDto> UpdateTemplate(DocumentGenerationTemplateDto templateDto)
         {
             await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
-            ctx.DocumentTemplates.Update(template);
+
+            if (templateDto is not HtmlDocumentGenerationTemplateDto htmlDto)
+            {
+                throw new ArgumentException($"Unsupported template type: {templateDto.GetType().Name}.", nameof(templateDto));
+            }
+
+            HtmlDocumentGenerationTemplate? template = await ctx.HtmlTemplates
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == htmlDto.Id);
+            if (template is null)
+            {
+                throw new InvalidOperationException($"Template with ID {htmlDto.Id} does not exist.");
+            }
+
+            template.Name = htmlDto.Name;
+            template.InputTypeName = htmlDto.InputTypeName;
+            template.Html = htmlDto.Html;
+            template.HeaderHtml = htmlDto.HeaderHtml;
+            template.FooterHtml = htmlDto.FooterHtml;
             await ctx.SaveChangesAsync();
-            return template;
+
+            return DocumentGenerationTemplateToDto(template);
+        }
+
+        private static DocumentGenerationTemplateDto DocumentGenerationTemplateToDto(DocumentGenerationTemplate template)
+        {
+            if (template is HtmlDocumentGenerationTemplate html)
+            {
+                return new HtmlDocumentGenerationTemplateDto()
+                {
+                    Id = html.Id,
+                    Name = html.Name,
+                    InputTypeName = html.InputTypeName,
+                    Html = html.Html,
+                    HeaderHtml = html.HeaderHtml,
+                    FooterHtml = html.FooterHtml,
+                };
+            }
+
+            throw new NotSupportedException($"Unsupported template type: {template.GetType().Name}.");
         }
     }
 }

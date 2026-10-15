@@ -2,6 +2,7 @@
 @using System.Reflection
 @using Havit.Blazor.Components.Web.Bootstrap
 @using LogiEdge.Service.DocumentGenerator.Data
+@using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.Service.DocumentGenerator.DocumentGeneration
 @using LogiEdge.Service.DocumentGenerator.Services
 @using LogiEdge.Shared
@@ -11,7 +12,7 @@
 @inject NavigationManager NavigationManager
 
 @code {
-    private List<DocumentGenerationTemplate> _documentTemplates = [];
+    private List<DocumentGenerationTemplateDto> _documentTemplates = [];
 
     private List<Type> _inputTypesOfDocumentGeneratorComponent = [];
 
@@ -21,7 +22,7 @@
     {
         await base.OnInitializedAsync();
 
-        _documentTemplates = (await DocumentGenerationService.GetTemplatesAsync()).ToList();
+        _documentTemplates = (await DocumentGenerationService.GetTemplates()).ToList();
         _inputTypesOfDocumentGeneratorComponent = GetAllInputTypesOfDocumentGeneratorComponent().ToList();
     }
 
@@ -59,7 +60,7 @@
         </tr>
         </thead>
         <tbody>
-        @foreach (DocumentGenerationTemplate template in _documentTemplates)
+        @foreach (DocumentGenerationTemplateDto template in _documentTemplates)
         {
             <tr>
                 <td>@template.Name</td>
@@ -96,10 +97,10 @@
 
         if (method != null)
         {
-            await (Task<DocumentGenerationTemplate>)method.Invoke(DocumentGenerationService, [_templateName])!;
+            await (Task<DocumentGenerationTemplateDto>)method.Invoke(DocumentGenerationService, [_templateName])!;
         }
 
-        _documentTemplates = (await DocumentGenerationService.GetTemplatesAsync()).ToList();
+        _documentTemplates = (await DocumentGenerationService.GetTemplates()).ToList();
         await _modalCreateTemplate.HideAsync();
     }
 

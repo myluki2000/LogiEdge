@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using LogiEdge.Service.DocumentGenerator.Dto;
 
 namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 {
@@ -14,7 +15,7 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 
     public interface IDocumentGenerator
     {
-        public abstract DocumentGenerationTemplate Template { get; }
+        public abstract DocumentGenerationTemplateDto Template { get; }
         public abstract Type InputType { get; }
         public static virtual Type TemplateType => 
             throw new NotImplementedException("IDocumentGenerator.TemplateType needs to be implemented by all implementing classes!");

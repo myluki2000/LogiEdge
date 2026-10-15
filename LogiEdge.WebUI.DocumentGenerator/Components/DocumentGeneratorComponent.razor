@@ -33,7 +33,7 @@
     {
         await base.OnParametersSetAsync();
 
-        Templates = await DocumentGenerationService.GetGeneratorsForDocumentTypeAsync<TInputType>().ToListAsync();
+        Templates = await DocumentGenerationService.GetGeneratorsForDocumentType<TInputType>().ToListAsync();
         _selectedGenerator = null;
     }
 

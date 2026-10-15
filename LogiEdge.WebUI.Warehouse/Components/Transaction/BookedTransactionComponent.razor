@@ -1,6 +1,4 @@
 ﻿@using LogiEdge.BaseService.Data
-@using LogiEdge.BaseService.Dto
-@using LogiEdge.BaseService.Services
 @using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
@@ -9,7 +7,6 @@
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
 
-@inject FileAttachmentService FileAttachmentService
 @inject TransactionManagementService TransactionService
 
 @code {
@@ -17,6 +14,8 @@
     public required Guid TransactionId { get; set; }
 
     private InventoryTransactionBaseInfoDto? _transaction { get; set; }
+
+    private TransactionFileAttachmentManagerComponent _attachmentManager = null!;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -30,9 +29,7 @@
         if (_transaction == null)
             return;
 
-        // TODO: Need to do this in a transaction, so that no orphaned attachments are left behind if the transaction fails
-        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data);
-        await TransactionService.AddAttachment(_transaction.Id, att.Id);
+        await _attachmentManager.SaveGeneratedDocument(doc);
     }
 }
 
@@ -63,7 +60,7 @@
                     <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
                                                 OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
                     <hr />
-                    <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" />
+                    <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" @ref="_attachmentManager" />
                 </div>
             </Content>
         </HxTab>

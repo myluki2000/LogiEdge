@@ -1,10 +1,7 @@
 ﻿@using LogiEdge.BaseService.Data
-@using LogiEdge.BaseService.Dto
-@using LogiEdge.BaseService.Services
 @using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
-@using LogiEdge.WarehouseService.Persistence
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.DocumentGenerator.Components
 @using LogiEdge.WebUI.Shared.Components
@@ -16,7 +13,6 @@
 @inject TransactionManagementService TransactionService
 @inject IHxMessageBoxService MessageBox
 @inject NavigationManager NavigationManager
-@inject FileAttachmentService FileAttachmentService
 
 @code {
     [Parameter]
@@ -26,6 +22,8 @@
     public EventCallback OnTransactionBooked { get; set; }
 
     private InventoryTransactionBaseInfoDto? _transaction = null;
+
+    private TransactionFileAttachmentManagerComponent _attachmentManager = null!;
 
     private DebouncerComponent _debouncer = null!;
 
@@ -77,8 +75,7 @@
         if (_transaction == null)
             return;
 
-        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data);
-        await TransactionService.AddAttachment(_transaction.Id, att.Id);
+        await _attachmentManager.SaveGeneratedDocument(doc);
     }
 }
 
@@ -169,7 +166,7 @@
                                                     InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
                                                     OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnFileAttachmentSaveRequested" />
                         <hr />
-                        <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" />
+                        <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" @ref="_attachmentManager" />
                     </div>
                 </div>
             </Content>

@@ -1,6 +1,6 @@
-﻿@using LogiEdge.BaseService.Data
-@using LogiEdge.BaseService.Dto
+﻿@using LogiEdge.BaseService.Dto
 @using LogiEdge.BaseService.Services
+@using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Shared.Components
 
@@ -18,6 +18,16 @@
         await base.OnParametersSetAsync();
 
         _attachments = await TransactionService.GetAttachments(TransactionId);
+    }
+
+    public async Task SaveGeneratedDocument(GeneratedDocumentDto doc)
+    {
+        // TODO: Need to do this in a transaction, so that no orphaned attachments are left behind if the transaction fails
+        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data);
+        await TransactionService.AddAttachment(TransactionId, att.Id);
+
+        _attachments = [.. _attachments, att];
+        StateHasChanged();
     }
 
     private async Task OnAttachmentsUploaded(List<FileAttachmentDto> newAttachments)

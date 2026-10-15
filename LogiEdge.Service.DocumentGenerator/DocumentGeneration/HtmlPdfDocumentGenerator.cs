@@ -1,5 +1,6 @@
 ﻿using LogiEdge.Service.DocumentGenerator.Data;
 using System.Text.Json;
+using LogiEdge.Service.DocumentGenerator.Dto;
 using Gotenberg.Sharp.API.Client;
 using Gotenberg.Sharp.API.Client.Application.Builders;
 using Gotenberg.Sharp.API.Client.Domain.Pages;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 {
-    internal class HtmlPdfDocumentGenerator<T>(IServiceProvider serviceProvider, HtmlDocumentGenerationTemplate template) : IDocumentGenerator<T>
+    internal class HtmlPdfDocumentGenerator<T>(IServiceProvider serviceProvider, HtmlDocumentGenerationTemplateDto template) : IDocumentGenerator<T>
     {
         private GotenbergSharpClient _gotenbergClient = serviceProvider.GetRequiredService<GotenbergSharpClient>();
 
@@ -34,7 +35,7 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
             return ms.ToArray();
         }
 
-        public DocumentGenerationTemplate Template => template;
+        public DocumentGenerationTemplateDto Template => template;
 
         static Type IDocumentGenerator.TemplateType => typeof(HtmlDocumentGenerationTemplate);
     }
