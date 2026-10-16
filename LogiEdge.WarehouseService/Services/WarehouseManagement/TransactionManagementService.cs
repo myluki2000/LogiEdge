@@ -188,6 +188,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             return new InboundTransactionPartDto.InboundDraftItemDto()
             {
                 Id = di.Id,
+                CreatedItemId = di.CreatedItemId,
                 Location = di.Location,
                 Count = di.Count,
                 AdditionalProperties = di.ItemSchema.AdditionalProperties.Select(p =>
@@ -614,6 +615,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 try
                 {
                     Item item = CreateItemForDraftItem(transactionPart, draftItem, bookDate);
+                    draftItem.CreatedItemId = item.Id;
                     await ctx.Items.AddAsync(item);
                     transactionPart.NewItemStates.AddRange(item.ItemStates);
                 }

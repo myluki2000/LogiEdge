@@ -14,6 +14,13 @@ namespace LogiEdge.WarehouseService.Data.Transactions
     {
         [Key]
         public Guid Id { get; set; }
+
+        /// <summary>
+        /// The item created for this draft line when the parent transaction was booked.
+        /// Null while the parent transaction is still in DRAFT state.
+        /// </summary>
+        public Guid? CreatedItemId { get; set; }
+
         public Guid ItemSchemaId { get; set; }
         public required ItemSchema ItemSchema { get; set; }
         public Guid CustomerId { get; set; }
