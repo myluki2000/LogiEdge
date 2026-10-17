@@ -26,5 +26,9 @@ namespace LogiEdge.WarehouseService.Dto
         public bool HasInboundPart { get; set; }
         public bool HasOutboundPart { get; set; }
         public bool HasRelocationPart { get; set; }
+        /// <summary>
+        /// True if the transaction has at least one audit entry for edits made while booked.
+        /// </summary>
+        public bool HasEditHistory { get; set; }
     }
 }

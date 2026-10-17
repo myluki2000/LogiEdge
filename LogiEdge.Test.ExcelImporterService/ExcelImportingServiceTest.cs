@@ -32,9 +32,7 @@ namespace LogiEdge.Test.ExcelImporterService
         [Fact]
         public void TestSingleFile()
         {
-            CustomerManagementService customerService = new(dbFixture.CustomerDbContextFactory);
-
-            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, customerService, new TestSystemUserProvider());
+            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, dbFixture.CustomerDbContextFactory, new TestSystemUserProvider());
 
             ExcelImporterConfig config = service.LoadConfigFromPath("./Resources/TestSingleFileConfig.json");
 
@@ -93,9 +91,7 @@ namespace LogiEdge.Test.ExcelImporterService
         [Fact]
         public void TestShippedAndArrived()
         {
-            CustomerManagementService customerService = new(dbFixture.CustomerDbContextFactory);
-
-            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, customerService, new TestSystemUserProvider());
+            ExcelImportingService service = new(null!, dbFixture.WarehouseDbContextFactory, dbFixture.CustomerDbContextFactory, new TestSystemUserProvider());
 
             ExcelImporterConfig config = service.LoadConfigFromPath("./Resources/TestShippedAndArrivedConfig.json");
 

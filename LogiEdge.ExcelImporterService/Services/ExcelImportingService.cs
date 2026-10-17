@@ -120,6 +120,8 @@ namespace LogiEdge.ExcelImporterService.Services
                             Name = customerName,
                             Abbreviation = customerName.Substring(0, 2).ToUpper()
                         }).Entity;
+
+                        customerDbContext.SaveChanges();
                     }
                     // add the item schema to the customer's schemas if it doesn't exist already
                     warehouseDbContext.Attach(customer);

@@ -75,18 +75,18 @@
         await TransactionService.SetTransactionTitle(_transaction.Id, _transaction.Title);
     }
 
-    private void OnEventDateChanged(DateTime? value)
+    private void OnEventDateChanged(DateTime value)
     {
-        if (_transaction == null || value == null)
+        if (_transaction == null)
             return;
 
-        _transaction.EventDate = value.Value;
+        _transaction.EventDate = value;
         _debouncer.Debounce(SaveEventDateToDatabaseAsync);
     }
 
     private async Task SaveEventDateToDatabaseAsync()
     {
-        await TransactionService.SetTransactionEventDate(_transaction.Id, _transaction.EventDate);
+        await TransactionService.SetTransactionEventDate(_transaction.Id, _transaction.EventDate.ToUniversalTime());
     }
 
     private async Task DocumentGeneratorComponentOnFileAttachmentSaveRequested(GeneratedDocumentDto doc)
@@ -114,7 +114,7 @@
     <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> by @(_creatorName ?? "unknown")</span>
     <div class="d-flex align-items-center gap-2">
         <span class="text-muted">Event date:</span>
-        <InputDate TValue="DateTime?"
+        <InputDate TValue="DateTime"
                    Type="InputDateType.DateTimeLocal"
                    Value="_transaction.EventDate"
                    ValueChanged="OnEventDateChanged"
@@ -184,6 +184,12 @@
                                 }
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <TransactionCommentsComponent TransactionId="TransactionId" />
                     </div>
                 </div>
 

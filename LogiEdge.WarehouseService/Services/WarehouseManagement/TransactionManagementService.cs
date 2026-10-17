@@ -45,6 +45,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
                 State = transaction.State,
+                HasEditHistory = await ctx.TransactionEditLogEntries.AnyAsync(e => e.TransactionId == transactionId),
                 HasInboundPart = await ctx.InboundTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
                 HasOutboundPart = await ctx.OutboundTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
                 HasRelocationPart = await ctx.RelocationTransactionParts.AnyAsync(t => t.TransactionId == transactionId),
@@ -88,6 +89,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
                 State = transaction.State,
+                HasEditHistory = await ctx.TransactionEditLogEntries.AnyAsync(e => e.TransactionId == transactionId),
                 InboundTransactionPart = ctx.InboundTransactionParts
                     .Where(t => t.TransactionId == transactionId)
                     .Include(t => t.DraftItems)
@@ -375,7 +377,10 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Inbound transaction with ID {transactionId} not found.");
             }
 
+            string oldTitle = transaction.Title;
             transaction.Title = title;
+
+            await WriteEditLogEntryAsync(ctx, transaction, $"Title changed from \"{TruncateForSummary(oldTitle)}\" to \"{TruncateForSummary(title)}\".", new { title = new { @old = oldTitle, @new = title } });
 
             await ctx.SaveChangesAsync();
         }
@@ -436,6 +441,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
 
             transaction.AttachmentIds.Add(attachmentId);
+            await WriteEditLogEntryAsync(ctx, transaction, $"Attachment {attachmentId} added.", new { attachmentAdded = attachmentId });
             await ctx.SaveChangesAsync();
         }
 
@@ -452,7 +458,138 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
 
             transaction.AttachmentIds.Remove(attachmentId);
+            await WriteEditLogEntryAsync(ctx, transaction, $"Attachment {attachmentId} removed.", new { attachmentRemoved = attachmentId });
             await ctx.SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Writes an audit entry for an edit made while the transaction is booked. No-op for DRAFT
+        /// transactions — only edits to booked data are audited (see .notes/edit-booked-transactions.md, 5.5).
+        /// </summary>
+        private async Task WriteEditLogEntryAsync(WarehouseDbContext ctx, InventoryTransaction transaction, string changeSummary, object changes)
+        {
+            if (transaction.State != TransactionState.BOOKED)
+            {
+                return;
+            }
+
+            Guid userId = await authenticationStateProvider.GetUserIdAsync();
+
+            ctx.TransactionEditLogEntries.Add(new TransactionEditLogEntry()
+            {
+                Id = Guid.NewGuid(),
+                TransactionId = transaction.Id,
+                Transaction = transaction,
+                PartType = TransactionEditPartType.METADATA,
+                EditedDate = DateTime.UtcNow,
+                EditedByUserId = userId,
+                ChangeSummary = changeSummary.Length > 255 ? changeSummary[..252] + "..." : changeSummary,
+                ChangesJson = JsonDocument.Parse(JsonSerializer.Serialize(changes)),
+            });
+        }
+
+        private static string TruncateForSummary(string value)
+        {
+            const int maxLength = 60;
+            return value.Length <= maxLength ? value : value[..maxLength] + "…";
+        }
+
+        /// <summary>
+        /// Adds a comment to the transaction (allowed in both DRAFT and BOOKED state) authored by the
+        /// currently signed-in user. Booked transactions get an audit entry.
+        /// </summary>
+        public async Task<CommentDto> AddTransactionComment(Guid transactionId, string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                throw new InvalidOperationException("Comment text must not be empty.");
+            }
+
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .Include(t => t.Comments)
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            Guid userId = await authenticationStateProvider.GetUserIdAsync();
+
+            Comment comment = new()
+            {
+                AuthorId = userId,
+                Date = DateTime.UtcNow,
+                Text = text.Trim(),
+                Retracted = false,
+            };
+
+            transaction.Comments.Add(comment);
+
+            await WriteEditLogEntryAsync(ctx, transaction, $"Comment added by user {userId}.", new { commentAdded = new { id = comment.Id, authorId = userId, date = comment.Date, text = comment.Text } });
+
+            await ctx.SaveChangesAsync();
+
+            return new CommentDto()
+            {
+                Id = comment.Id,
+                AuthorId = comment.AuthorId,
+                Date = comment.Date,
+                Text = comment.Text,
+                Retracted = comment.Retracted,
+            };
+        }
+
+        /// <summary>
+        /// Gets all comments of a transaction ordered by date.
+        /// </summary>
+        public async Task<List<CommentDto>> GetTransactionComments(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            if (!await ctx.InventoryTransactions.AnyAsync(t => t.Id == transactionId))
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            return await ctx.InventoryTransactions
+                .Where(t => t.Id == transactionId)
+                .SelectMany(t => t.Comments)
+                .OrderBy(c => c.Date)
+                .Select(c => new CommentDto()
+                {
+                    Id = c.Id,
+                    AuthorId = c.AuthorId,
+                    Date = c.Date,
+                    Text = c.Text,
+                    Retracted = c.Retracted,
+                })
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Gets the audit history of edits made to the transaction while booked, newest first.
+        /// </summary>
+        public async Task<List<TransactionEditLogEntryDto>> GetTransactionEditHistory(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            return ctx.TransactionEditLogEntries
+                .Where(e => e.TransactionId == transactionId)
+                .OrderByDescending(e => e.EditedDate)
+                .AsEnumerable()
+                .Select(e => new TransactionEditLogEntryDto()
+                {
+                    Id = e.Id,
+                    PartType = e.PartType,
+                    EditedDate = e.EditedDate,
+                    EditedByUserId = e.EditedByUserId,
+                    ChangeSummary = e.ChangeSummary,
+                    ChangesJson = e.ChangesJson.RootElement.GetRawText(),
+                })
+                .ToList();
         }
 
         public async Task<InventoryTransactionFullInfoDto> BookTransaction(Guid transactionId)
@@ -626,6 +763,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     HasInboundPart = ctx.InboundTransactionParts.Any(p => p.TransactionId == t.Id),
                     HasOutboundPart = ctx.OutboundTransactionParts.Any(p => p.TransactionId == t.Id),
                     HasRelocationPart = ctx.RelocationTransactionParts.Any(p => p.TransactionId == t.Id),
+                    HasEditHistory = ctx.TransactionEditLogEntries.Any(e => e.TransactionId == t.Id),
                 })
                 .ToListAsync();
         }

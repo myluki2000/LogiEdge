@@ -56,7 +56,7 @@ namespace LogiEdge.WarehouseService.Persistence
             modelBuilder.Entity<InventoryTransaction>()
                 .HasIndex(t => t.BookedDate)
                 .IsUnique()
-                .HasFilter("BookedDate IS NOT NULL");
+                .HasFilter("\"BookedDate\" IS NOT NULL");
 
             // Configure Table-Per-Type (TPT) inheritance for InventoryTransactionPart
             modelBuilder.Entity<InventoryTransactionPart>()

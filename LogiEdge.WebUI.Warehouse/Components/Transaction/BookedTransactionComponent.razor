@@ -5,8 +5,10 @@
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.Shared
 @using LogiEdge.WebUI.DocumentGenerator.Components
+@using LogiEdge.WebUI.Shared.Components
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Inbound
 @using LogiEdge.WebUI.Warehouse.Components.Transaction.Outbound
+@using Microsoft.AspNetCore.Components.Forms
 
 @inject TransactionManagementService TransactionService
 @inject IUserDirectory UserDirectory
@@ -19,6 +21,11 @@
     private string? _creatorName;
 
     private TransactionFileAttachmentManagerComponent _attachmentManager = null!;
+    private DebouncerComponent _debouncer = null!;
+    private HxModal _editHistoryModal = null!;
+
+    private List<TransactionEditLogEntryDto>? _editHistory;
+    private IReadOnlyDictionary<Guid, string> _editHistoryAuthorNames = new Dictionary<Guid, string>();
 
     protected override async Task OnParametersSetAsync()
     {
@@ -27,6 +34,22 @@
         _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
         if (_transaction != null)
             _creatorName = await UserDirectory.GetUserNameAsync(_transaction.CreatedByUserId);
+    }
+
+    private async Task SaveTitleToDatabaseAsync()
+    {
+        await TransactionService.SetTransactionTitle(_transaction.Id, _transaction.Title);
+    }
+
+    private async Task ShowEditHistoryModalAsync()
+    {
+        if (_editHistory == null)
+        {
+            _editHistory = await TransactionService.GetTransactionEditHistory(TransactionId);
+            _editHistoryAuthorNames = await UserDirectory.GetUserNamesAsync(_editHistory.Select(e => e.EditedByUserId));
+        }
+
+        await _editHistoryModal.ShowAsync();
     }
 
     private async Task DocumentGeneratorComponentOnSaveRequested(GeneratedDocumentDto doc)
@@ -51,15 +74,30 @@
 
 <div class="header">
     <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> by @(_creatorName ?? "unknown") · Event: <span class="text-dark">@_transaction.EventDate</span> · Booked: <span class="text-dark">@_transaction.BookedDate</span></span>
-    <h3 class="m-0">
-        @_transaction.Title
-    </h3>
+    <div class="d-flex align-items-center gap-2">
+        <h3 class="m-0">
+            <InputText class="form-control"
+                       @bind-Value="_transaction.Title"
+                       @oninput="e => _debouncer.Debounce(async Task () => { _transaction.Title = e.Value?.ToString() ?? string.Empty; await SaveTitleToDatabaseAsync(); })"/>
+        </h3>
+        <DebouncerComponent @ref="_debouncer" DelayMilliseconds="1000" class="ms-2"/>
+        @if (_transaction.HasEditHistory)
+        {
+            <span class="badge text-bg-warning">edited</span>
+            <HxButton Text="Edit history" Color="ThemeColor.Secondary" Outline="true" OnClick="ShowEditHistoryModalAsync" />
+        }
+    </div>
 </div>
 
 <div class="content">
     <HxTabPanel ActiveTabId="overview" Variant="TabPanelVariant.Card">
         <HxTab Id="overview" Title="Overview">
             <Content>
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <TransactionCommentsComponent TransactionId="TransactionId" />
+                    </div>
+                </div>
                 <div>
                     <h5>Documents & Attachments</h5>
                     <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
@@ -95,3 +133,36 @@
         }
     </HxTabPanel>
 </div>
+
+<HxModal @ref="_editHistoryModal" Title="Edit history">
+    <BodyTemplate>
+        @if (_editHistory == null)
+        {
+            <HxSpinner />
+        }
+        else if (_editHistory.Count == 0)
+        {
+            <p class="text-muted mb-0">No edit history entries.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled mb-0">
+                @foreach (TransactionEditLogEntryDto entry in _editHistory)
+                {
+                    <li class="mb-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="small text-muted">@entry.EditedDate.ToLocalTime().ToString("G")</span>
+                            <span class="small text-muted">@_editHistoryAuthorNames.GetValueOrDefault(entry.EditedByUserId, "unknown")</span>
+                            <span class="small text-muted">@(entry.PartType?.ToString() ?? "transaction")</span>
+                        </div>
+                        <div>@entry.ChangeSummary</div>
+                        <pre class="small text-muted mb-0">@entry.ChangesJson</pre>
+                    </li>
+                }
+            </ul>
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Close" Color="ThemeColor.Secondary" OnClick="() => _editHistoryModal.HideAsync()" />
+    </FooterTemplate>
+</HxModal>

@@ -11,6 +11,10 @@
     <Compile Include="..\LogiEdge.WebUI.Shared\GlobalUsings.cs" Link="GlobalUsings.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <SupportedPlatform Include="browser" />

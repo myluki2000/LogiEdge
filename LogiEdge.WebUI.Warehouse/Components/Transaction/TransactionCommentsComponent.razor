@@ -1,0 +1,86 @@
+﻿@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.Shared
+
+@inject TransactionManagementService TransactionService
+@inject IUserDirectory UserDirectory
+
+@code {
+    [Parameter]
+    public required Guid TransactionId { get; set; }
+
+    private List<CommentDto> _comments = [];
+    private IReadOnlyDictionary<Guid, string> _commentAuthorNames = new Dictionary<Guid, string>();
+    private string _newCommentText = string.Empty;
+    private string? _commentError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        await LoadCommentsAsync();
+    }
+
+    private async Task LoadCommentsAsync()
+    {
+        _comments = await TransactionService.GetTransactionComments(TransactionId);
+        _commentAuthorNames = await UserDirectory.GetUserNamesAsync(_comments.Select(c => c.AuthorId));
+    }
+
+    private async Task BtnAddCommentOnClick()
+    {
+        _commentError = null;
+
+        try
+        {
+            await TransactionService.AddTransactionComment(TransactionId, _newCommentText);
+            _newCommentText = string.Empty;
+            await LoadCommentsAsync();
+        }
+        catch (Exception ex)
+        {
+            _commentError = ex.Message;
+        }
+
+        StateHasChanged();
+    }
+}
+
+<div class="card h-100">
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <span>Comments</span>
+        <span class="badge text-bg-secondary">@_comments.Count</span>
+    </div>
+    <div class="card-body">
+        @if (_comments.Count == 0)
+        {
+            <p class="text-muted mb-0">This transaction has no comments.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled item-comments mb-0">
+                @foreach (CommentDto comment in _comments)
+                {
+                    <li class="@(comment.Retracted ? "retracted" : "")">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="small text-muted">@_commentAuthorNames.GetValueOrDefault(comment.AuthorId, "unknown")</span>
+                            <span class="small text-muted">@comment.Date.ToLocalTime().ToString("G")</span>
+                            @if (comment.Retracted)
+                            {
+                                <span class="badge text-bg-danger">retracted</span>
+                            }
+                        </div>
+                        <div>@comment.Text</div>
+                    </li>
+                }
+            </ul>
+        }
+
+        <hr />
+        @if (_commentError != null)
+        {
+            <div class="text-danger mb-2">@_commentError</div>
+        }
+        <HxInputTextArea @bind-Value="_newCommentText" InputCssClass="mb-2" />
+        <HxButton Text="Add Comment" OnClick="BtnAddCommentOnClick" Color="ThemeColor.Primary" Enabled="@(!string.IsNullOrWhiteSpace(_newCommentText))" />
+    </div>
+</div>
