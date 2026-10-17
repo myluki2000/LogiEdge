@@ -11,6 +11,11 @@ namespace LogiEdge.WarehouseService.Dto
         public string Title { get; set; } = string.Empty;
         public required DateTime CreatedDate { get; set; }
         /// <summary>
+        /// The date and time when the transaction's physical events actually happened. All item states
+        /// created at booking are stamped with this date. Defaults to the creation date for new transactions.
+        /// </summary>
+        public required DateTime EventDate { get; set; }
+        /// <summary>
         /// DateTime when the transaction is booked. Null if the transaction is still in DRAFT state.
         /// </summary>
         public DateTime? BookedDate { get; set; } = null;

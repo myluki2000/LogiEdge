@@ -40,6 +40,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 Id = transactionId,
                 Title = transaction.Title,
                 CreatedDate = transaction.CreatedDate,
+                EventDate = transaction.EventDate,
                 BookedDate = transaction.BookedDate,
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
@@ -82,6 +83,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 Id = transactionId,
                 Title = transaction.Title,
                 CreatedDate = transaction.CreatedDate,
+                EventDate = transaction.EventDate,
                 BookedDate = transaction.BookedDate,
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
@@ -378,6 +380,34 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Sets the event date of a DRAFT transaction — when the transaction's physical events actually
+        /// happened. All item states created at booking are stamped with this date.
+        /// </summary>
+        public async Task SetTransactionEventDate(Guid transactionId, DateTime eventDate)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.DRAFT)
+            {
+                throw new InvalidOperationException(
+                    $"Only DRAFT transactions can have their event date changed. " +
+                    $"Transaction with ID {transactionId} is in state {transaction.State}.");
+            }
+
+            transaction.EventDate = eventDate;
+
+            await ctx.SaveChangesAsync();
+        }
+
         public async Task<List<FileAttachmentDto>> GetAttachments(Guid transactionId, bool includeData = false)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
@@ -445,8 +475,8 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             transaction.State = TransactionState.BOOKED;
             transaction.BookedDate = await BookedDateHelper.GetNextBookedDate(ctx);
 
-            InboundTransactionPartDto? inboundPart = await TryBookInboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
-            OutboundTransactionPartDto? outboundPart = await TryBookOutboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
+            InboundTransactionPartDto? inboundPart = await TryBookInboundTransactionPart(ctx, transactionId, transaction.EventDate);
+            OutboundTransactionPartDto? outboundPart = await TryBookOutboundTransactionPart(ctx, transactionId, transaction.EventDate);
             RelocationTransactionPartDto? relocationPart = await TryBookRelocationTransactionPart(ctx, transactionId);
 
             await SaveWithBookedDateRetryAsync(ctx, transaction);
@@ -456,6 +486,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 Id = transaction.Id,
                 Title = transaction.Title,
                 CreatedDate = transaction.CreatedDate,
+                EventDate = transaction.EventDate,
                 BookedDate = transaction.BookedDate,
                 CreatedByUserId = transaction.CreatedByUserId,
                 HandledByWorker = transaction.HandledByWorker,
@@ -587,6 +618,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     Id = t.Id,
                     Title = t.Title,
                     CreatedDate = t.CreatedDate,
+                    EventDate = t.EventDate,
                     BookedDate = t.BookedDate,
                     CreatedByUserId = t.CreatedByUserId,
                     HandledByWorker = t.HandledByWorker,
@@ -631,7 +663,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             return transaction.Id;
         }
 
-        private async Task<InboundTransactionPartDto?> TryBookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
+        private async Task<InboundTransactionPartDto?> TryBookInboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime eventDate)
         {
             InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
                 .AsTracking()
@@ -652,7 +684,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             {
                 try
                 {
-                    Item item = CreateItemForDraftItem(transactionPart, draftItem, bookDate);
+                    Item item = CreateItemForDraftItem(transactionPart, draftItem, eventDate);
                     draftItem.CreatedItemId = item.Id;
                     await ctx.Items.AddAsync(item);
                     transactionPart.NewItemStates.AddRange(item.ItemStates);
@@ -671,7 +703,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             };
         }
 
-        private async Task<OutboundTransactionPartDto?> TryBookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime bookDate)
+        private async Task<OutboundTransactionPartDto?> TryBookOutboundTransactionPart(WarehouseDbContext ctx, Guid transactionId, DateTime eventDate)
         {
             OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
                 .AsTracking()
@@ -694,25 +726,32 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 
             transactionPart.NewItemStates ??= [];
 
+            List<string> violations = [];
+
             foreach (Item item in transactionPart.DraftSelectedItems)
             {
-                ItemState? currentState = item.ItemStates
-                    .OrderByDescending(s => s.Date)
-                    .FirstOrDefault();
-
-                if (currentState == null)
+                string? violation = BookingTimelineValidator.GetOutboundBookingViolation(item.ItemStates, eventDate);
+                if (violation != null)
                 {
-                    throw new InvalidOperationException("Item has no states.");
+                    violations.Add($"Item {item.ItemNumber}: {violation}");
                 }
+            }
 
-                if (currentState.IsShipped)
-                {
-                    throw new InvalidOperationException("Item is already shipped.");
-                }
+            if (violations.Count > 0)
+            {
+                throw new BookingException(
+                    $"Cannot book outbound transaction part with Transaction Id {transactionId}: " + string.Join(" ", violations));
+            }
+
+            foreach (Item item in transactionPart.DraftSelectedItems)
+            {
+                // The pre-pass above guarantees a state strictly before the event date exists and that no
+                // state is dated at or after it, so the latest state always exists here.
+                ItemState currentState = item.ItemStates.OrderByDescending(s => s.Date).First();
 
                 ItemState newItemState = new()
                 {
-                    Date = bookDate,
+                    Date = eventDate,
                     Location = SpecialLocations.SHIPPED,
                     WarehouseId = currentState.WarehouseId,
                     IsQuarantined = currentState.IsQuarantined,
@@ -748,7 +787,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             };
         }
 
-        private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem, DateTime bookDate)
+        private static Item CreateItemForDraftItem(InboundTransactionPart transactionPart, InboundDraftItem draftItem, DateTime eventDate)
         {
             Item item = new()
             {
@@ -763,14 +802,14 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     {
                         Text = c,
                         AuthorId = transactionPart.Transaction.CreatedByUserId,
-                        Date = bookDate,
+                        Date = eventDate,
                         Retracted = false,
                     })),
                 ItemStates = [],
             };
             item.ItemStates.Add(new ItemState()
             {
-                Date = bookDate,
+                Date = eventDate,
                 Location = draftItem.Location,
                 RelatedTransactionId = transactionPart.Transaction.Id,
                 WarehouseId = draftItem.WarehouseId,
