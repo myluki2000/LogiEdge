@@ -1,4 +1,4 @@
-﻿using LogiEdge.CustomerService.Data;
+using LogiEdge.CustomerService.Data;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
@@ -443,13 +443,13 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             }
 
             transaction.State = TransactionState.BOOKED;
-            transaction.BookedDate = DateTime.UtcNow;
-           
+            transaction.BookedDate = await BookedDateHelper.GetNextBookedDate(ctx);
+
             InboundTransactionPartDto? inboundPart = await TryBookInboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
             OutboundTransactionPartDto? outboundPart = await TryBookOutboundTransactionPart(ctx, transactionId, transaction.BookedDate.Value);
             RelocationTransactionPartDto? relocationPart = await TryBookRelocationTransactionPart(ctx, transactionId);
 
-            await ctx.SaveChangesAsync();
+            await SaveWithBookedDateRetryAsync(ctx, transaction);
 
             return new InventoryTransactionFullInfoDto()
             {
@@ -467,6 +467,41 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 OutboundTransactionPart = outboundPart,
                 RelocationTransactionPart = relocationPart,
             };
+        }
+
+        /// <summary>
+        /// Saves the booking, retrying with a fresh (higher) BookedDate if a concurrent booking claimed
+        /// the same value first — enforced by the unique index on InventoryTransactions.BookedDate.
+        /// </summary>
+        private static async Task SaveWithBookedDateRetryAsync(WarehouseDbContext ctx, InventoryTransaction transaction)
+        {
+            const int maxAttempts = 3;
+
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await ctx.SaveChangesAsync();
+                    return;
+                }
+                catch (DbUpdateException ex) when (attempt < maxAttempts && IsUniqueViolation(ex))
+                {
+                    transaction.BookedDate = await BookedDateHelper.GetNextBookedDate(ctx);
+                }
+            }
+        }
+
+        private static bool IsUniqueViolation(Exception ex)
+        {
+            for (Exception? inner = ex; inner != null; inner = inner.InnerException)
+            {
+                if (inner is Npgsql.PostgresException { SqlState: "23505" })
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public async Task AddInboundPartToTransaction(Guid transactionId)
@@ -579,9 +614,12 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
+            DateTime createdDate = DateTime.UtcNow;
+
             InventoryTransaction transaction = new()
             {
-                CreatedDate = DateTime.UtcNow,
+                CreatedDate = createdDate,
+                EventDate = createdDate,
                 CreatedByUserId = createdById,
                 HandledByWorker = handledByWorker,
                 AttachmentIds = []
@@ -678,6 +716,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     Location = SpecialLocations.SHIPPED,
                     WarehouseId = currentState.WarehouseId,
                     IsQuarantined = currentState.IsQuarantined,
+                    RelatedTransactionId = transactionId,
                     Item = item,
                 };
 

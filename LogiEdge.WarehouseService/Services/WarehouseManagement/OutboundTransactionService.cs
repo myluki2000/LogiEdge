@@ -1,4 +1,4 @@
-﻿using LogiEdge.WarehouseService.Data;
+using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
 using LogiEdge.WarehouseService.Dto;
 using LogiEdge.WarehouseService.Persistence;
@@ -85,20 +85,41 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         }
 
         /// <summary>
-        /// Gets the ids of the last states of the outbound items before they left the warehouse for a given transaction.
+        /// Gets the ids of each shipped item's last in-warehouse state (the state right before the
+        /// SHIPPED state this transaction created), so that a booked outbound transaction can be
+        /// rendered as "items just before shipment".
         /// </summary>
         public async Task<List<Guid>> GetLastInWarehouseStateIds(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
-            List<Guid> ids = ctx.OutboundTransactionParts
-                .Select(t => t.NewItemStates
-                    .OrderByDescending(st => st.Date)
-                    .FirstOrDefault(st => st.Location != SpecialLocations.SHIPPED))
-                .Select(st => st.Id)
-                .ToList();
+            OutboundTransactionPart? transactionPart = await ctx.OutboundTransactionParts
+                .AsNoTracking()
+                .Include(t => t.NewItemStates)
+                .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
 
-            return ids;
+            if (transactionPart?.NewItemStates == null || transactionPart.NewItemStates.Count == 0)
+            {
+                return [];
+            }
+
+            // For each shipped item: the date of its SHIPPED state created by this transaction.
+            Dictionary<Guid, DateTime> shippedDateByItemId = transactionPart.NewItemStates
+                .GroupBy(st => st.ItemId)
+                .ToDictionary(g => g.Key, g => g.Max(st => st.Date));
+
+            List<Guid> itemIds = shippedDateByItemId.Keys.ToList();
+
+            // The latest non-SHIPPED state of each shipped item that predates its shipment by this transaction.
+            List<ItemState> inWarehouseStates = await ctx.ItemsStates
+                .Where(st => itemIds.Contains(st.ItemId) && st.Location != SpecialLocations.SHIPPED)
+                .ToListAsync();
+
+            return inWarehouseStates
+                .Where(st => st.Date < shippedDateByItemId[st.ItemId])
+                .GroupBy(st => st.ItemId)
+                .Select(g => g.OrderByDescending(st => st.Date).First().Id)
+                .ToList();
         }
     }
 }
