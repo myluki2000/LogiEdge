@@ -94,8 +94,11 @@
         <DebouncerComponent @ref="_debouncer" DelayMilliseconds="1000" class="ms-2"/>
         @if (_transaction.HasEditHistory)
         {
-            <span class="badge text-bg-warning">edited</span>
-            <HxButton Text="Edit history" Color="ThemeColor.Secondary" Outline="true" OnClick="ShowEditHistoryModalAsync" />
+            <span class="badge rounded-pill lh-base text-bg-warning edit-history-badge"
+                  title="View edit history"
+                  @onclick="ShowEditHistoryModalAsync">
+                edited<span class="material-symbols-rounded ms-1">question_mark</span>
+            </span>
         }
     </div>
 </div>

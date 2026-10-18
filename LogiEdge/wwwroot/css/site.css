@@ -1,7 +1,7 @@
 @font-face {
     font-family: 'Material Symbols Rounded';
     font-style: normal;
-    src: url('/dist/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff');
+    src: url('/dist/fonts/MaterialSymbolsRounded[FILL,GRAD,opsz,wght].woff2') format('woff2');
 }
 
 .material-symbols-rounded {
@@ -91,4 +91,18 @@ a, .btn-link {
     margin: 1rem;
     height: calc(100% - 2rem);
     box-sizing: border-box;
+}
+
+.edit-history-badge {
+    cursor: pointer;
+}
+
+.edit-history-badge:hover,
+.edit-history-badge:focus-visible {
+    filter: brightness(0.9);
+}
+
+.edit-history-badge .material-symbols-rounded {
+    font-size: 1rem;
+    vertical-align: -0.125em;
 }
