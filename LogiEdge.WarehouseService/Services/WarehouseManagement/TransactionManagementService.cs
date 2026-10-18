@@ -365,6 +365,358 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Edits the inbound part of a BOOKED transaction by re-booking the diff between its current draft
+        /// lines and the desired state. Only items and states created by this transaction are rewritten; if
+        /// any line conflicts with later item history or a DRAFT outbound selection, nothing is persisted and
+        /// a TransactionEditConflictException carrying all violations is thrown instead.
+        /// </summary>
+        public async Task<InventoryTransactionFullInfoDto> UpdateBookedInboundPart(Guid transactionId, InboundTransactionPartEditRequest edit)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.BOOKED)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} is not in BOOKED state.");
+            }
+
+            InboundTransactionPart? part = await ctx.InboundTransactionParts
+                .AsTracking()
+                .Include(p => p.Transaction)
+                .Include(p => p.DraftItems)
+                    .ThenInclude(d => d.ItemSchema)
+                .Include(p => p.NewItemStates)
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
+
+            if (part == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} has no inbound transaction part.");
+            }
+
+            List<Guid> itemIds = part.DraftItems.Where(d => d.CreatedItemId != null).Select(d => d.CreatedItemId!.Value).ToList();
+            Dictionary<Guid, Item> itemById = itemIds.Count == 0 ? [] : await ctx.Items
+                .Where(i => itemIds.Contains(i.Id))
+                .Include(i => i.ItemStates)
+                    .ThenInclude(st => st.Warehouse)
+                .Include(i => i.Comments)
+                .Include(i => i.ItemSchema)
+                .Include(i => i.Customer)
+                .ToDictionaryAsync(i => i.Id);
+
+            // --- Input validation (read-only; the planner asserts on these with its own messages) ---
+
+            HashSet<Guid> seenDraftItemIds = [];
+            foreach (InboundTransactionPartEditRequest.InboundDraftItemEdit line in edit.DraftItems)
+            {
+                if (line.DraftItemId != null && !seenDraftItemIds.Add(line.DraftItemId.Value))
+                {
+                    throw new InvalidOperationException($"Duplicate draft item ID {line.DraftItemId} in the edit request.");
+                }
+
+                if (line.DraftItemId != null && part.DraftItems.All(d => d.Id != line.DraftItemId))
+                {
+                    throw new InvalidOperationException($"Inbound draft item with ID {line.DraftItemId} does not belong to transaction {transactionId}.");
+                }
+
+                if (string.IsNullOrWhiteSpace(line.ItemNumber))
+                {
+                    throw new InvalidOperationException("Item number must not be empty.");
+                }
+
+                if (string.IsNullOrWhiteSpace(line.Location))
+                {
+                    throw new InvalidOperationException("Location must not be empty.");
+                }
+            }
+
+            HashSet<Guid> customerIds = edit.DraftItems.Select(d => d.CustomerId).ToHashSet();
+            Dictionary<Guid, Customer> customersById = await ctx.Set<Customer>()
+                .Where(c => customerIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id);
+            if (customersById.Count != customerIds.Count)
+            {
+                throw new InvalidOperationException($"Customers not found: {string.Join(", ", customerIds.Except(customersById.Keys))}.");
+            }
+
+            HashSet<Guid> schemaIds = edit.DraftItems.Select(d => d.ItemSchemaId).ToHashSet();
+            Dictionary<Guid, ItemSchema> schemasById = await ctx.ItemSchemas
+                .Where(s => schemaIds.Contains(s.Id))
+                .Include(s => s.AdditionalProperties)
+                .ToDictionaryAsync(s => s.Id);
+            if (schemasById.Count != schemaIds.Count)
+            {
+                throw new InvalidOperationException($"Item schemas not found: {string.Join(", ", schemaIds.Except(schemasById.Keys))}.");
+            }
+
+            HashSet<Guid> warehouseIds = edit.DraftItems.Select(d => d.WarehouseId).ToHashSet();
+            Dictionary<Guid, Warehouse> warehousesById = await ctx.Warehouses
+                .Where(w => warehouseIds.Contains(w.Id))
+                .ToDictionaryAsync(w => w.Id);
+            if (warehousesById.Count != warehouseIds.Count)
+            {
+                throw new InvalidOperationException($"Warehouses not found: {string.Join(", ", warehouseIds.Except(warehousesById.Keys))}.");
+            }
+
+            foreach (InboundTransactionPartEditRequest.InboundDraftItemEdit line in edit.DraftItems)
+            {
+                ItemSchema schema = schemasById[line.ItemSchemaId];
+                foreach (ItemAdditionalPropertyDto property in line.AdditionalProperties)
+                {
+                    if (schema.AdditionalProperties.All(p => p.Name != property.Name))
+                    {
+                        string subject = line.DraftItemId == null
+                            ? $"New inbound draft line for item number '{line.ItemNumber}'"
+                            : $"Inbound draft item with ID {line.DraftItemId}";
+                        throw new InvalidOperationException($"{subject} has no property named '{property.Name}'.");
+                    }
+                }
+            }
+
+            // --- Plan (pure: nothing is mutated yet) ---
+
+            List<InboundPartEditPlanner.CurrentInboundLine> currentLines = part.DraftItems
+                .Select(di => new InboundPartEditPlanner.CurrentInboundLine(
+                    di.Id,
+                    di.CreatedItemId,
+                    di.ItemNumber,
+                    di.CustomerId,
+                    di.ItemSchemaId,
+                    di.WarehouseId,
+                    di.Location,
+                    di.Count,
+                    di.IsQuarantined,
+                    di.Comments,
+                    di.ItemSchema.AdditionalProperties.ToDictionary(p => p.Name, p => di.GetAdditionalProperty(p))))
+                .ToList();
+
+            InboundPartEditPlanner.InboundPartEditPlan plan = InboundPartEditPlanner.Plan(
+                currentLines,
+                edit.DraftItems,
+                transaction.EventDate,
+                itemId => itemById[itemId].ItemStates.Where(st => st.RelatedTransactionId != transaction.Id),
+                itemId => ctx.OutboundTransactionParts.Any(p => p.Transaction.State == TransactionState.DRAFT && p.DraftSelectedItems != null && p.DraftSelectedItems.Any(i => i.Id == itemId)));
+
+            if (plan.HasViolations)
+            {
+                throw new TransactionEditConflictException(plan.AllViolations);
+            }
+
+            // --- Apply the plan: rewrite only what this transaction created itself ---
+
+            List<InboundTransactionPartEditRequest.InboundDraftItemEdit> newLines = edit.DraftItems.Where(d => d.DraftItemId == null).ToList();
+            int newLineIndex = 0;
+
+            foreach (InboundPartEditPlanner.PlannedLine line in plan.Lines)
+            {
+                switch (line.Action)
+                {
+                    case InboundPartEditPlanner.LineAction.Update:
+                        ApplyInboundLineUpdate(part, transaction, itemById[line.CreatedItemId!.Value], line, customersById, schemasById, warehousesById);
+                        break;
+
+                    case InboundPartEditPlanner.LineAction.Add:
+                    {
+                        InboundTransactionPartEditRequest.InboundDraftItemEdit desired = newLines[newLineIndex++];
+                        InboundDraftItem draft = new()
+                        {
+                            Id = Guid.NewGuid(),
+                            CustomerId = desired.CustomerId,
+                            Customer = customersById[desired.CustomerId],
+                            ItemSchemaId = desired.ItemSchemaId,
+                            ItemSchema = schemasById[desired.ItemSchemaId],
+                            WarehouseId = desired.WarehouseId,
+                            Warehouse = warehousesById[desired.WarehouseId],
+                            ItemNumber = desired.ItemNumber,
+                            Location = desired.Location,
+                            Count = desired.Count,
+                            IsQuarantined = desired.IsQuarantined,
+                            Comments = desired.Comments.Trim(),
+                            AdditionalProperties = BuildAdditionalPropertiesDocument(desired.AdditionalProperties.Select(p => (p.Name, p.Value))),
+                        };
+                        part.DraftItems.Add(draft);
+
+                        Item item = CreateItemForDraftItem(part, draft, transaction.EventDate);
+                        draft.CreatedItemId = item.Id;
+                        await ctx.Items.AddAsync(item);
+                        part.NewItemStates ??= [];
+                        part.NewItemStates.AddRange(item.ItemStates);
+                        break;
+                    }
+
+                    case InboundPartEditPlanner.LineAction.Remove:
+                    {
+                        InboundDraftItem draft = part.DraftItems.First(d => d.Id == line.DraftItemId!.Value);
+                        part.DraftItems.Remove(draft);
+
+                        if (line.CreatedItemId != null)
+                        {
+                            Item item = itemById[line.CreatedItemId.Value];
+                            // Detach this transaction's own states from the part record; the rows are deleted by
+                            // the cascade on Item.ItemStates. NewItemStates may be null for legacy parts.
+                            part.NewItemStates?.RemoveAll(st => st.RelatedTransactionId == transaction.Id && st.ItemId == item.Id);
+
+                            // The Comment FK has no ON DELETE clause in the database, so mark comments deleted explicitly.
+                            foreach (Comment comment in item.Comments.ToList())
+                            {
+                                ctx.Entry(comment).State = EntityState.Deleted;
+                            }
+
+                            ctx.Items.Remove(item);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // This edit rewrites part data without changing any scalar of the transaction itself, so force the
+            // entry to Modified: the RowVersion concurrency token is then checked and bumped (G3).
+            ctx.Entry(transaction).State = EntityState.Modified;
+
+            int updatedCount = plan.Lines.Count(l => l.Action == InboundPartEditPlanner.LineAction.Update);
+            int addedCount = plan.Lines.Count(l => l.Action == InboundPartEditPlanner.LineAction.Add);
+            int removedCount = plan.Lines.Count(l => l.Action == InboundPartEditPlanner.LineAction.Remove);
+
+            object changes = new
+            {
+                updated = plan.Lines.Where(l => l.Action == InboundPartEditPlanner.LineAction.Update)
+                    .Select(l => new { draftItemId = l.DraftItemId, itemNumber = l.ItemNumber, createdItemId = l.CreatedItemId,
+                                       changes = l.ChangedFields.ToDictionary(kv => kv.Key, kv => new { @old = kv.Value.Old, @new = kv.Value.New }) }),
+                added = plan.Lines.Where(l => l.Action == InboundPartEditPlanner.LineAction.Add)
+                    .Select(l => new { draftItemId = l.DraftItemId, itemNumber = l.ItemNumber, createdItemId = l.CreatedItemId }),
+                removed = plan.Lines.Where(l => l.Action == InboundPartEditPlanner.LineAction.Remove)
+                    .Select(l => new { draftItemId = l.DraftItemId, itemNumber = l.ItemNumber, createdItemId = l.CreatedItemId }),
+            };
+
+            await WriteEditLogEntryAsync(ctx, transaction, $"Inbound part edited: {updatedCount} updated, {addedCount} added, {removedCount} removed.", changes, TransactionEditPartType.INBOUND);
+
+            await ctx.SaveChangesAsync();
+
+            return (await GetTransactionFullInfo(transactionId))!;
+        }
+
+        /// <summary>
+        /// Applies one planned update to both the draft line (the part's source of truth) and the created item
+        /// and its initial state, keeping the Item and ItemState GUIDs. Only this transaction's own state is
+        /// touched (G1); the initial state keeps its Date.
+        /// </summary>
+        private static void ApplyInboundLineUpdate(
+            InboundTransactionPart part,
+            InventoryTransaction transaction,
+            Item item,
+            InboundPartEditPlanner.PlannedLine line,
+            Dictionary<Guid, Customer> customersById,
+            Dictionary<Guid, ItemSchema> schemasById,
+            Dictionary<Guid, Warehouse> warehousesById)
+        {
+            InboundDraftItem draft = part.DraftItems.First(d => d.Id == line.DraftItemId!.Value);
+            ItemState initialState = item.ItemStates.First(st => st.RelatedTransactionId == transaction.Id);
+
+            if (line.ChangedFields.TryGetValue("ItemNumber", out var itemNumber))
+            {
+                string newValue = (string)itemNumber.New!;
+                draft.ItemNumber = newValue;
+                item.ItemNumber = newValue;
+            }
+
+            if (line.ChangedFields.TryGetValue("CustomerId", out var customerId))
+            {
+                Guid newId = (Guid)customerId.New!;
+                Customer customer = customersById[newId];
+                draft.CustomerId = newId;
+                draft.Customer = customer;
+                item.CustomerId = newId;
+                item.Customer = customer;
+            }
+
+            if (line.ChangedFields.TryGetValue("ItemSchemaId", out var schemaId))
+            {
+                Guid newId = (Guid)schemaId.New!;
+                ItemSchema schema = schemasById[newId];
+                draft.ItemSchemaId = newId;
+                draft.ItemSchema = schema;
+                item.ItemSchemaId = newId;
+                item.ItemSchema = schema;
+            }
+
+            if (line.ChangedFields.TryGetValue("WarehouseId", out var warehouseId))
+            {
+                Guid newId = (Guid)warehouseId.New!;
+                Warehouse warehouse = warehousesById[newId];
+                draft.WarehouseId = newId;
+                draft.Warehouse = warehouse;
+                initialState.WarehouseId = newId;
+                initialState.Warehouse = warehouse;
+            }
+
+            if (line.ChangedFields.TryGetValue("Location", out var location))
+            {
+                string newValue = (string)location.New!;
+                draft.Location = newValue;
+                initialState.Location = newValue;
+            }
+
+            if (line.ChangedFields.TryGetValue("IsQuarantined", out var isQuarantined))
+            {
+                bool newValue = (bool)isQuarantined.New!;
+                draft.IsQuarantined = newValue;
+                initialState.IsQuarantined = newValue;
+            }
+
+            if (line.ChangedFields.TryGetValue("Comments", out var comments))
+            {
+                string newComments = (string)comments.New!;
+                draft.Comments = newComments;
+
+                // Retract the booking-time comments this transaction authored, then add one for the new text.
+                foreach (Comment comment in item.Comments.Where(c => c.AuthorId == transaction.CreatedByUserId && c.Date == transaction.EventDate && !c.Retracted).ToList())
+                {
+                    comment.Retracted = true;
+                }
+
+                if (!string.IsNullOrEmpty(newComments))
+                {
+                    item.Comments.Add(new Comment()
+                    {
+                        AuthorId = transaction.CreatedByUserId,
+                        Date = transaction.EventDate,
+                        Text = newComments,
+                        Retracted = false,
+                    });
+                }
+            }
+
+            if (line.ChangedFields.TryGetValue("AdditionalProperties", out var additionalProperties))
+            {
+                Dictionary<string, object?> desiredProperties = (Dictionary<string, object?>)additionalProperties.New!;
+                JsonDocument document = BuildAdditionalPropertiesDocument(desiredProperties.Select(kv => (kv.Key, kv.Value)));
+                draft.AdditionalProperties = document;
+                item.AdditionalProperties = document;
+            }
+        }
+
+        /// <summary>
+        /// Serializes the given additional property values into the JsonDocument shape stored on draft lines and items.
+        /// </summary>
+        private static JsonDocument BuildAdditionalPropertiesDocument(IEnumerable<(string Name, object? Value)> properties)
+        {
+            JsonObject json = [];
+            foreach ((string name, object? value) in properties)
+            {
+                json[name] = JsonSerializer.SerializeToNode(value);
+            }
+
+            return json.Deserialize<JsonDocument>()!;
+        }
+
         public async Task SetTransactionTitle(Guid transactionId, string title)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
@@ -466,7 +818,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         /// Writes an audit entry for an edit made while the transaction is booked. No-op for DRAFT
         /// transactions — only edits to booked data are audited (see .notes/edit-booked-transactions.md, 5.5).
         /// </summary>
-        private async Task WriteEditLogEntryAsync(WarehouseDbContext ctx, InventoryTransaction transaction, string changeSummary, object changes)
+        private async Task WriteEditLogEntryAsync(WarehouseDbContext ctx, InventoryTransaction transaction, string changeSummary, object changes, TransactionEditPartType partType = TransactionEditPartType.METADATA)
         {
             if (transaction.State != TransactionState.BOOKED)
             {
@@ -480,7 +832,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 Id = Guid.NewGuid(),
                 TransactionId = transaction.Id,
                 Transaction = transaction,
-                PartType = TransactionEditPartType.METADATA,
+                PartType = partType,
                 EditedDate = DateTime.UtcNow,
                 EditedByUserId = userId,
                 ChangeSummary = changeSummary.Length > 255 ? changeSummary[..252] + "..." : changeSummary,
