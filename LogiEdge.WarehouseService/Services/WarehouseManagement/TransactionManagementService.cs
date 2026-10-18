@@ -1081,6 +1081,45 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         }
 
         /// <summary>
+        /// Retracts a comment of the transaction (allowed in both DRAFT and BOOKED state). Any signed-in user may retract
+        /// any comment — including their own. Booked transactions get an audit entry. Retracting an already retracted
+        /// comment is a no-op.
+        /// </summary>
+        public async Task RetractTransactionComment(Guid transactionId, Guid commentId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .Include(t => t.Comments)
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            Comment? comment = transaction.Comments.FirstOrDefault(c => c.Id == commentId);
+
+            if (comment == null)
+            {
+                throw new InvalidOperationException($"Comment with ID {commentId} not found on transaction with ID {transactionId}.");
+            }
+
+            if (comment.Retracted)
+            {
+                return;
+            }
+
+            comment.Retracted = true;
+
+            Guid userId = await authenticationStateProvider.GetUserIdAsync();
+
+            await WriteEditLogEntryAsync(ctx, transaction, $"Comment retracted by user {userId}.", new { commentRetracted = new { id = comment.Id, authorId = comment.AuthorId, date = comment.Date } });
+
+            await ctx.SaveChangesAsync();
+        }
+
+        /// <summary>
         /// Gets all comments of a transaction ordered by date.
         /// </summary>
         public async Task<List<CommentDto>> GetTransactionComments(Guid transactionId)

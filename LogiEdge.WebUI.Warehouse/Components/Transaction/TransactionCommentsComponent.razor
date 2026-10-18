@@ -43,6 +43,23 @@
 
         StateHasChanged();
     }
+
+    private async Task BtnRetractCommentOnClick(CommentDto comment)
+    {
+        _commentError = null;
+
+        try
+        {
+            await TransactionService.RetractTransactionComment(TransactionId, comment.Id);
+            await LoadCommentsAsync();
+        }
+        catch (Exception ex)
+        {
+            _commentError = ex.Message;
+        }
+
+        StateHasChanged();
+    }
 }
 
 <div class="card h-100">
@@ -68,8 +85,12 @@
                             {
                                 <span class="badge text-bg-danger">retracted</span>
                             }
+                            else
+                            {
+                                <HxButton Text="Retract" Color="ThemeColor.Danger" Outline Size="ButtonSize.Small" CssClass="ms-auto" OnClick="() => BtnRetractCommentOnClick(comment)" />
+                            }
                         </div>
-                        <div>@comment.Text</div>
+                        <div class="@(comment.Retracted ? "text-muted text-decoration-line-through" : "")">@comment.Text</div>
                     </li>
                 }
             </ul>
