@@ -1,0 +1,23 @@
+﻿@using LogiEdge.WebUI.Shared.Components
+
+@code {
+    /// <summary>
+    /// The per-item conflict messages carried by a TransactionEditConflictException.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<string>? Violations { get; set; }
+}
+
+@if (Violations is { Count: > 0 })
+{
+    <HxAlert Color="ThemeColor.Danger" class="mt-3">
+        <div>The edit could not be saved because it conflicts with newer item history:</div>
+        <ul class="mb-1">
+            @foreach (string violation in Violations)
+            {
+                <li>@violation</li>
+            }
+        </ul>
+        <div class="text-muted">Resolve the conflicts above — for example by editing or deleting the newer transaction first — and try again. No changes were saved.</div>
+    </HxAlert>
+}

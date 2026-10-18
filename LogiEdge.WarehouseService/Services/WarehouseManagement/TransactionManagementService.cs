@@ -1,4 +1,5 @@
 using LogiEdge.CustomerService.Data;
+using LogiEdge.Shared;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Data.Transactions;
@@ -142,6 +143,10 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// Works in both DRAFT and BOOKED state: the draft editor loads the part with it, and booked
+        /// edit mode preloads the existing draft lines from it.
+        /// </summary>
         public async Task<InboundTransactionPartDto> GetInboundTransactionPart(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
@@ -149,7 +154,6 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             InboundTransactionPart? transactionPart = await ctx.InboundTransactionParts
                 .AsNoTracking()
                 .Include(t => t.NewItemStates)
-                .Include(t => t.Transaction)
                 .Include(t => t.DraftItems)
                     .ThenInclude(di => di.Customer)
                 .Include(t => t.DraftItems)
@@ -161,11 +165,6 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             if (transactionPart == null)
             {
                 throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no inbound transaction part.");
-            }
-
-            if (transactionPart.Transaction.State != TransactionState.DRAFT)
-            {
-                throw new InvalidOperationException($"Transaction {transactionId} is not in DRAFT state.");
             }
 
             return new InboundTransactionPartDto()
@@ -373,6 +372,8 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         /// </summary>
         public async Task<InventoryTransactionFullInfoDto> UpdateBookedInboundPart(Guid transactionId, InboundTransactionPartEditRequest edit)
         {
+            await EnsureCanEditBookedTransactionPartsAsync();
+
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
 
             InventoryTransaction? transaction = await ctx.InventoryTransactions
@@ -404,6 +405,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
 
             List<Guid> itemIds = part.DraftItems.Where(d => d.CreatedItemId != null).Select(d => d.CreatedItemId!.Value).ToList();
             Dictionary<Guid, Item> itemById = itemIds.Count == 0 ? [] : await ctx.Items
+                .AsTracking() // must be tracked: line updates rewrite the created items/states in place
                 .Where(i => itemIds.Contains(i.Id))
                 .Include(i => i.ItemStates)
                     .ThenInclude(st => st.Warehouse)
@@ -510,6 +512,12 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new TransactionEditConflictException(plan.AllViolations);
             }
 
+            if (plan.Lines.Count == 0)
+            {
+                // Nothing changed — skip the audit entry and save entirely.
+                return await GetTransactionFullInfo(transactionId);
+            }
+
             // --- Apply the plan: rewrite only what this transaction created itself ---
 
             List<InboundTransactionPartEditRequest.InboundDraftItemEdit> newLines = edit.DraftItems.Where(d => d.DraftItemId == null).ToList();
@@ -612,6 +620,8 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         /// </summary>
         public async Task<InventoryTransactionFullInfoDto> UpdateBookedOutboundPart(Guid transactionId, IEnumerable<Guid> selectedItemIds)
         {
+            await EnsureCanEditBookedTransactionPartsAsync();
+
             ArgumentNullException.ThrowIfNull(selectedItemIds);
 
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
@@ -660,6 +670,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             // Items newly selected are not loaded yet; fetch them with their full state history.
             List<Guid> addedItemIds = desiredIds.Except(currentIds).ToList();
             Dictionary<Guid, Item> addedItemsById = addedItemIds.Count == 0 ? [] : await ctx.Items
+                .AsTracking() // must be tracked: the new SHIPPED state is appended to the item's states in place
                 .Where(i => addedItemIds.Contains(i.Id))
                 .Include(i => i.ItemStates)
                     .ThenInclude(st => st.Warehouse)
@@ -686,6 +697,12 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             if (plan.HasViolations)
             {
                 throw new TransactionEditConflictException(plan.AllViolations);
+            }
+
+            if (plan.Items.Count == 0)
+            {
+                // Nothing changed — skip the audit entry and save entirely.
+                return await GetTransactionFullInfo(transactionId);
             }
 
             // --- Apply the plan: rewrite only what this transaction created itself ---
@@ -756,6 +773,20 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
 
             return (await GetTransactionFullInfo(transactionId))!;
+        }
+
+        /// <summary>
+        /// Booked part editing is restricted to users with the Admin role (no finer-grained role model exists
+        /// yet; see .notes/edit-booked-transactions.md, section 8). The audit log records the user regardless.
+        /// </summary>
+        private async Task EnsureCanEditBookedTransactionPartsAsync()
+        {
+            AuthenticationState authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+
+            if (authState.User is null || !authState.User.IsInRole(AppRoles.Admin))
+            {
+                throw new UnauthorizedAccessException($"Only users with the {AppRoles.Admin} role can edit booked transaction parts.");
+            }
         }
 
         /// <summary>

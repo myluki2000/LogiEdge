@@ -1,0 +1,305 @@
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.CustomerService.Dto
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.WebUI.Warehouse.Components.PropertyValueInput
+@using LogiEdge.WebUI.Warehouse.Components.Transaction
+@using Microsoft.AspNetCore.Components.Forms
+
+@inject TransactionManagementService TransactionService
+@inject CustomerManagementService CustomerService
+@inject WarehouseManagementService WarehouseService
+
+@code {
+    [Parameter]
+    public required Guid TransactionId { get; set; }
+
+    /// <summary>
+    /// All current draft lines of the booked part. The service expects the full desired state, so
+    /// saving one line sends all other lines through unchanged.
+    /// </summary>
+    [Parameter]
+    public required IReadOnlyList<InboundTransactionPartDto.InboundDraftItemDto> CurrentDraftItems { get; set; }
+
+    [Parameter]
+    public EventCallback OnSaved { get; set; }
+
+    private HxModal _modal = null!;
+
+    private InboundTransactionPartDto.InboundDraftItemDto? _existingItem;
+    private bool _isSaving;
+    private bool _hasInvalidInput;
+    private string? _errorMessage;
+    private IReadOnlyList<string>? _violations;
+
+    // form state
+    private Guid? _customerId;
+    private Guid? _itemSchemaId;
+    private Guid? _warehouseId;
+    private string _itemNumber = string.Empty;
+    private string _location = string.Empty;
+    private bool _isQuarantined;
+    private string _comments = string.Empty;
+    private Dictionary<string, object?> _additionalPropertyValues = [];
+    private Dictionary<string, bool> _propertyInputValidity = [];
+
+    private List<CustomerDto> _customers = [];
+    private List<WarehouseBaseInfoDto> _warehouses = [];
+    private List<ItemSchemaDto> _itemSchemas = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customers = await CustomerService.GetCustomersAsync();
+        _warehouses = await WarehouseService.GetWarehouses();
+        _itemSchemas = await WarehouseService.GetItemSchemas();
+    }
+
+    public async Task ShowAsync(InboundTransactionPartDto.InboundDraftItemDto? existingItem)
+    {
+        _existingItem = existingItem;
+        _isSaving = false;
+        _hasInvalidInput = false;
+        _errorMessage = null;
+        _violations = null;
+
+        if (existingItem != null)
+        {
+            _customerId = existingItem.CustomerId;
+            _itemSchemaId = existingItem.ItemSchemaId;
+            _warehouseId = existingItem.WarehouseId;
+            _itemNumber = existingItem.ItemNumber;
+            _location = existingItem.Location;
+            _isQuarantined = existingItem.IsQuarantined;
+            _comments = existingItem.Comments.FirstOrDefault()?.Text ?? string.Empty;
+            _additionalPropertyValues = existingItem.AdditionalProperties.ToDictionary(p => p.Name, p => p.Value);
+        }
+        else
+        {
+            _customerId = null;
+            _itemSchemaId = null;
+            _warehouseId = _warehouses.FirstOrDefault()?.Id;
+            _itemNumber = string.Empty;
+            _location = string.Empty;
+            _isQuarantined = false;
+            _comments = string.Empty;
+            _additionalPropertyValues = [];
+        }
+
+        _propertyInputValidity = [];
+
+        await _modal.ShowAsync();
+    }
+
+    private ItemSchemaDto? SelectedSchema => _itemSchemas.FirstOrDefault(s => s.Id == _itemSchemaId);
+
+    private IEnumerable<ItemSchemaDto> SchemasForSelectedCustomer
+        => _itemSchemas.Where(s => _customerId == null || s.CustomerIds.Contains(_customerId.Value));
+
+    private bool CanSave
+        => !_isSaving
+           && !_hasInvalidInput
+           && _customerId.HasValue
+           && _itemSchemaId.HasValue
+           && _warehouseId.HasValue
+           && !string.IsNullOrWhiteSpace(_itemNumber)
+           && !string.IsNullOrWhiteSpace(_location);
+
+    private void OnCustomerSelected(Guid customerId)
+    {
+        Guid? newCustomerId = customerId == Guid.Empty ? null : customerId;
+        if (newCustomerId == _customerId)
+            return;
+
+        _customerId = newCustomerId;
+
+        ItemSchemaDto? selectedSchema = SelectedSchema;
+        if (selectedSchema != null && (_customerId == null || !selectedSchema.CustomerIds.Contains(_customerId.Value)))
+        {
+            OnItemSchemaSelected(null);
+        }
+    }
+
+    private void OnItemSchemaSelected(Guid? schemaId)
+    {
+        _itemSchemaId = schemaId;
+
+        // Additional properties are schema-specific: reset their values and validity when the schema changes.
+        _additionalPropertyValues = [];
+        _propertyInputValidity = [];
+        _hasInvalidInput = false;
+    }
+
+    private void AdditionalPropertyInputChanged(string propertyName, DraftPropertyValueInput.DraftPropertyValueInputEventArgs e)
+    {
+        if (e.IsValid)
+            _additionalPropertyValues[propertyName] = e.Value;
+
+        if (_propertyInputValidity.GetValueOrDefault(propertyName, true) != e.IsValid)
+        {
+            _propertyInputValidity[propertyName] = e.IsValid;
+            _hasInvalidInput = _propertyInputValidity.Values.Any(v => !v);
+        }
+    }
+
+    private async Task BtnSaveOnClick()
+    {
+        if (!CanSave)
+            return;
+
+        _isSaving = true;
+        _errorMessage = null;
+        _violations = null;
+
+        try
+        {
+            await TransactionService.UpdateBookedInboundPart(TransactionId, BuildEditRequest());
+
+            await OnSaved.InvokeAsync();
+            await _modal.HideAsync();
+        }
+        catch (TransactionEditConflictException ex)
+        {
+            _violations = ex.Violations;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private InboundTransactionPartEditRequest BuildEditRequest()
+    {
+        List<InboundTransactionPartEditRequest.InboundDraftItemEdit> lines = CurrentDraftItems
+            .Where(d => _existingItem == null || d.Id != _existingItem.Id)
+            .Select(BookedInboundItemEditMapping.ToEditLine)
+            .ToList();
+
+        lines.Add(BuildEditedLine());
+
+        return new InboundTransactionPartEditRequest()
+        {
+            DraftItems = lines,
+        };
+    }
+
+    private InboundTransactionPartEditRequest.InboundDraftItemEdit BuildEditedLine() => new()
+    {
+        DraftItemId = _existingItem?.Id,
+        ItemNumber = _itemNumber.Trim(),
+        CustomerId = _customerId!.Value,
+        ItemSchemaId = _itemSchemaId!.Value,
+        WarehouseId = _warehouseId!.Value,
+        Location = _location.Trim(),
+        Count = _existingItem?.Count ?? 1,
+        IsQuarantined = _isQuarantined,
+        Comments = _comments.Trim(),
+        AdditionalProperties = (SelectedSchema?.AdditionalProperties ?? [])
+            .Select(p => new ItemAdditionalPropertyDto()
+            {
+                Name = p.Name,
+                Value = _additionalPropertyValues.GetValueOrDefault(p.Name),
+                Type = ToSupportedType(p.Type),
+            })
+            .ToList(),
+    };
+
+    private static ItemSchemaProperty.SupportedTypes ToSupportedType(Type type) => type switch
+    {
+        _ when type == typeof(string) => ItemSchemaProperty.SupportedTypes.String,
+        _ when type == typeof(int) => ItemSchemaProperty.SupportedTypes.Int32,
+        _ when type == typeof(float) => ItemSchemaProperty.SupportedTypes.Single,
+        _ when type == typeof(bool) => ItemSchemaProperty.SupportedTypes.Boolean,
+        _ when type == typeof(DateTime) || type == typeof(DateTime?) => ItemSchemaProperty.SupportedTypes.DateTime,
+        _ => throw new NotSupportedException($"Unsupported additional property type '{type.FullName}'."),
+    };
+}
+
+<HxModal @ref="_modal" Title="@(_existingItem == null ? "Add Inbound Item" : "Edit Inbound Item")">
+    <BodyTemplate>
+        <div class="d-flex flex-column gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <label for="inbound-item-customer" class="col-form-label text-nowrap">Customer:</label>
+                <CustomerIdPropertyValueInput Value="@(_customerId ?? Guid.Empty)"
+                                              ValueChanged="OnCustomerSelected"
+                                              Class="flex-fill"
+                                              id="inbound-item-customer" />
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="inbound-item-schema" class="col-form-label text-nowrap">Item&nbsp;Schema:</label>
+                <InputSelect TValue="Guid?" @bind-Value:get="_itemSchemaId" @bind-Value:set="v => OnItemSchemaSelected(v)" Class="form-select flex-fill" id="inbound-item-schema">
+                    <option value="@((Guid?)null)"></option>
+                    @foreach (ItemSchemaDto schema in SchemasForSelectedCustomer)
+                    {
+                        <option value="@schema.Id">@schema.Name</option>
+                    }
+                </InputSelect>
+            </div>
+            <HxSelect TItem="WarehouseBaseInfoDto" TValue="Guid?"
+                      @bind-Value="_warehouseId"
+                      Data="_warehouses"
+                      ValueSelector="w => w.Id"
+                      TextSelector="w => w.Name"
+                      Label="Target Warehouse"
+                      Nullable="true" />
+            <div class="d-flex align-items-center gap-2">
+                <label for="inbound-item-number" class="col-form-label text-nowrap">Item&nbsp;Number:</label>
+                <input type="text" id="inbound-item-number" class="form-control flex-fill" value="@_itemNumber" @oninput="e => _itemNumber = e.Value?.ToString() ?? string.Empty" />
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="inbound-item-location" class="col-form-label text-nowrap">Location:</label>
+                <input type="text" id="inbound-item-location" class="form-control flex-fill" value="@_location" @oninput="e => _location = e.Value?.ToString() ?? string.Empty" />
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="inbound-item-quarantine" class="col-form-label text-nowrap">Quarantined:</label>
+                <input type="checkbox" id="inbound-item-quarantine" class="form-check-input" checked="@_isQuarantined" @onchange="e => _isQuarantined = (bool)(e.Value ?? false)" />
+            </div>
+            <div class="d-flex flex-column gap-1">
+                <label for="inbound-item-comments" class="col-form-label text-nowrap">Comments:</label>
+                <textarea id="inbound-item-comments" class="form-control" rows="2" value="@_comments" @oninput="e => _comments = e.Value?.ToString() ?? string.Empty"></textarea>
+            </div>
+
+            @if (SelectedSchema is { AdditionalProperties.Count: > 0 })
+            {
+                <hr />
+                <div class="d-flex flex-column gap-2">
+                    @foreach (ItemPropertyInfoDto property in SelectedSchema.AdditionalProperties)
+                    {
+                        Type inputType = property.Type == typeof(DateTime) ? typeof(DateTime?) : property.Type;
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="col-form-label text-nowrap">@property.Name:</label>
+                            <div class="flex-fill">
+                                <DraftPropertyValueInput Value="_additionalPropertyValues.GetValueOrDefault(property.Name)"
+                                                         ValueType="@inputType"
+                                                         Placeholder="@property.Name"
+                                                         OnInput="e => AdditionalPropertyInputChanged(property.Name, e)" />
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_violations is { Count: > 0 })
+            {
+                <TransactionEditConflictAlert Violations="_violations" />
+            }
+            else if (_errorMessage != null)
+            {
+                <HxAlert Color="ThemeColor.Danger">@_errorMessage</HxAlert>
+            }
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Save"
+                  Icon="@BootstrapIcon.CheckLg"
+                  Color="ThemeColor.Primary"
+                  Enabled="@CanSave"
+                  OnClick="BtnSaveOnClick" />
+        <HxButton Text="Cancel" Color="ThemeColor.Secondary" OnClick="() => _modal.HideAsync()" />
+    </FooterTemplate>
+</HxModal>

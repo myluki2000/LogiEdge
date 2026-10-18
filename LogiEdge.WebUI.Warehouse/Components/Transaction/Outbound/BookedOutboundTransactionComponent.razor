@@ -1,34 +1,197 @@
-﻿@using LogiEdge.WarehouseService.Data
+@using System.Net
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.Shared
+@using LogiEdge.WarehouseService.Data
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject OutboundTransactionService OutboundTransactionService
+@inject TransactionManagementService TransactionService
 @inject ItemsTableService ItemsTableService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
-@code {
+@code
+{
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private OutboundTransactionPartDto? _outboundTransactionPart = null;
+    /// <summary>
+    /// Bumped by the parent after a part edit so that the read view reloads.
+    /// </summary>
+    [Parameter]
+    public int Revision { get; set; }
+
+    [Parameter]
+    public EventCallback OnPartEdited { get; set; }
+
+    private bool _canEdit;
+
+    private HxModal _addItemModal = null!;
+
+    private InventoryTransactionBaseInfoDto? _transaction;
+    private OutboundTransactionPartDto? _outboundTransactionPart;
+
+    /// <summary>The ids of all items currently part of the booked shipment.</summary>
+    private List<Guid> _selectedItemIds = [];
 
     private ItemsTableResultDto? _items = null;
+    private ItemsTableResultDto? _selectableItems;
+
+    private bool _isSavingSelection;
+    private string? _errorMessage;
+    private IReadOnlyList<string>? _violations;
 
     private ItemsTableSortParameters _tableSortParams = ItemsTableSortParameters.FromQueryParameters([]);
     private ItemsTableColumnDisplayParameters _tableColumnParams = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
     private ItemsTableFilterParameters _tableFilterParams = ItemsTableFilterParameters.FromQueryParameters([]);
 
+    private ItemsTableColumnDisplayParameters _selectionModalColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
+    private ItemsTableFilterParameters _selectionModalFilterParameters = ItemsTableFilterParameters.FromQueryParameters([]);
+    private ItemsTableSortParameters _selectionModalSortParameters = ItemsTableSortParameters.FromQueryParameters([]);
+    /// <summary>
+    /// The selection modal lists the warehouse as it was at the transaction's event time, so that only
+    /// items which were actually in the warehouse then can be added to the booked shipment.
+    /// </summary>
+    private ItemsTableStateParameters _selectionModalStateParameters = ItemsTableStateParameters.FromQueryParameters([]);
+
+    private List<Guid> _modalSelectedItemIds = [];
+
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
+        AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _canEdit = authState.User is not null && authState.User.IsInRole(AppRoles.Admin);
+
+        await LoadReadViewAsync();
+    }
+
+    private async Task LoadReadViewAsync()
+    {
+        _errorMessage = null;
+        _violations = null;
+
+        _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+
         _outboundTransactionPart = await OutboundTransactionService.GetOutboundTransactionPart(TransactionId);
+        _selectedItemIds = _outboundTransactionPart.DraftSelectedItems?.Select(i => i.Id).ToList() ?? [];
 
         _items = await ItemsTableService.GetItemsAtStateAsync(
             await OutboundTransactionService.GetLastInWarehouseStateIds(TransactionId),
             _tableFilterParams);
     }
+
+    private async Task ShowAddItemModalAsync()
+    {
+        _modalSelectedItemIds = [];
+        _errorMessage = null;
+        _violations = null;
+
+        // Items as they were at the transaction's event time; items already shipped (including by this
+        // transaction itself) are excluded, and so are the items already part of the shipment.
+        _selectionModalStateParameters = ItemsTableStateParameters.FromQueryParameters([]) with
+        {
+            AtTime = _transaction?.EventDate,
+            ShowShipped = false,
+        };
+
+        _selectableItems = await ItemsTableService.GetAllItemsAsync(
+            _selectionModalFilterParameters,
+            _selectionModalStateParameters);
+
+        _selectableItems.Items.RemoveAll(it => _selectedItemIds.Contains(it.Id));
+
+        await _addItemModal.ShowAsync();
+    }
+
+    private bool CanSaveSelection
+        => !_isSavingSelection && _modalSelectedItemIds.Count > 0;
+
+    private async Task BtnAddItemsModalOkOnClick()
+    {
+        if (!CanSaveSelection)
+            return;
+
+        _isSavingSelection = true;
+        _errorMessage = null;
+        _violations = null;
+
+        try
+        {
+            List<Guid> newSelection = _selectedItemIds.Concat(_modalSelectedItemIds).Distinct().ToList();
+
+            await TransactionService.UpdateBookedOutboundPart(TransactionId, newSelection);
+
+            _modalSelectedItemIds = [];
+
+            await OnPartEdited.InvokeAsync();
+            await _addItemModal.HideAsync();
+        }
+        catch (TransactionEditConflictException ex)
+        {
+            _violations = ex.Violations;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSavingSelection = false;
+        }
+    }
+
+    private async Task BtnDeleteItemFromTransactionOnClick(Guid itemId)
+    {
+        _errorMessage = null;
+        _violations = null;
+
+        try
+        {
+            List<Guid> newSelection = _selectedItemIds.Where(id => id != itemId).ToList();
+
+            await TransactionService.UpdateBookedOutboundPart(TransactionId, newSelection);
+
+            await OnPartEdited.InvokeAsync();
+        }
+        catch (TransactionEditConflictException ex)
+        {
+            _violations = ex.Violations;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}
+
+@if (_transaction == null)
+{
+    <p>Transaction with ID @TransactionId could not be found.</p>
+    return;
+}
+
+@if (_canEdit)
+{
+    <div class="d-flex justify-content-end mb-3">
+        <HxButton Text="Add Item"
+                  Icon="@BootstrapIcon.Plus"
+                  Color="ThemeColor.Primary"
+                  Outline="true"
+                  OnClick="ShowAddItemModalAsync" />
+    </div>
+}
+
+@if (_violations is { Count: > 0 })
+{
+    <TransactionEditConflictAlert Violations="_violations" />
+}
+else if (_errorMessage != null)
+{
+    <HxAlert Color="ThemeColor.Danger">@_errorMessage</HxAlert>
 }
 
 @if (_outboundTransactionPart != null)
@@ -36,9 +199,108 @@
     <WarehouseItemAtStateTableComponent Items="_items"
                                         @bind-ColumnDisplayParameters="_tableColumnParams"
                                         @bind-FilterParameters="_tableFilterParams"
-                                        @bind-SortParameters="_tableSortParams" />
+                                        @bind-SortParameters="_tableSortParams">
+        <TableRowRenderFragment>
+            <tr>
+                @foreach ((string propertyName, object? propertyValue) in context.properties)
+                {
+                    <td>
+                        @if (propertyName == nameof(Item.Id))
+                        {
+                            @if (_canEdit && _selectedItemIds.Contains(context.item.Id))
+                            {
+                                <HxButton Color="ThemeColor.Danger"
+                                          Size="ButtonSize.Small"
+                                          Icon="BootstrapIcon.Trash"
+                                          Tooltip="Remove this item from the shipment."
+                                          CssClass="me-2"
+                                          OnClick="() => BtnDeleteItemFromTransactionOnClick(context.item.Id)" />
+                            }
+                            <a href="@(RouteTo<Pages.Warehouse.ItemPage>("ItemId", context.item.Id))">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                        else if (propertyName == nameof(Item.Customer))
+                        {
+                            Customer c = (Customer)propertyValue!;
+                            <a href="javascript:void(0);"
+                               @onclick="() => _tableFilterParams = _tableFilterParams.WithParameter(nameof(Item.Customer), c.Id)">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                        else if (propertyName == nameof(ItemState.Warehouse))
+                        {
+                            Warehouse w = (Warehouse)propertyValue!;
+                            <a href="javascript:void(0);"
+                               @onclick="() => _tableFilterParams = _tableFilterParams.WithParameter(nameof(ItemState.Warehouse), w.Id)">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                        else if (propertyName == nameof(Item.Comments))
+                        {
+                            SortedSet<Comment> comments = (SortedSet<Comment>)propertyValue!;
+
+                            string html = string.Join("<hr>",
+                                comments.Select(c => $"<b>{WebUtility.HtmlEncode(c.AuthorId.ToString())}, {c.Date}:</b> {WebUtility.HtmlEncode(c.Text)}"));
+
+                            <HxPopover Title="Item Comments" Html="true" Content="@html" Trigger="PopoverTrigger.Hover">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </HxPopover>
+                        }
+                        else
+                        {
+                            <a href="javascript:void(0);"
+                               @onclick="() => _tableFilterParams = _tableFilterParams.WithParameter(propertyName, propertyValue.ToString())">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                    </td>
+                }
+            </tr>
+        </TableRowRenderFragment>
+    </WarehouseItemAtStateTableComponent>
 }
 else
 {
     <HxSpinner />
 }
+
+<HxModal @ref="_addItemModal"
+         Size="ModalSize.ExtraLarge"
+         Scrollable="true"
+         Title="Select an Item to Add to the Shipment">
+    <BodyTemplate>
+        <div class="text-muted small mb-2">
+            Items are shown as they were at the event time of this transaction (@_transaction.EventDate.ToLocalTime().ToString("G")).
+        </div>
+        @if (_selectableItems != null)
+        {
+            <WarehouseItemSelectionTableComponent Items="@_selectableItems"
+                                                  @bind-SelectedItemIds="_modalSelectedItemIds"
+                                                  @bind-ColumnDisplayParameters="_selectionModalColumnDisplayParameters"
+                                                  @bind-FilterParameters="_selectionModalFilterParameters"
+                                                  @bind-SortParameters="_selectionModalSortParameters"
+                                                  @bind-ItemStateParameters="_selectionModalStateParameters" />
+        }
+        else
+        {
+            <HxSpinner />
+        }
+
+        @if (_violations is { Count: > 0 })
+        {
+            <TransactionEditConflictAlert Violations="_violations" />
+        }
+        else if (_errorMessage != null)
+        {
+            <HxAlert Color="ThemeColor.Danger">@_errorMessage</HxAlert>
+        }
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Add"
+                  Icon="@BootstrapIcon.CheckLg"
+                  Color="ThemeColor.Primary"
+                  OnClick="BtnAddItemsModalOkOnClick" />
+        <HxButton Text="Cancel" Color="ThemeColor.Secondary" OnClick="() => _addItemModal.HideAsync()" />
+    </FooterTemplate>
+</HxModal>

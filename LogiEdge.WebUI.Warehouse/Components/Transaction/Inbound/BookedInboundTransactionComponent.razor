@@ -1,38 +1,133 @@
-﻿@using LogiEdge.WarehouseService.Dto
+@using System.Net
+@using LogiEdge.CustomerService.Data
+@using LogiEdge.Shared
+@using LogiEdge.WarehouseService.Data
+@using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WarehouseService.Services.WarehouseManagement
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+@using Microsoft.AspNetCore.Components.Authorization
 
 @inject TransactionManagementService TransactionService
 @inject ItemsTableService ItemsTableService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 
 @code
 {
     [Parameter]
     public Guid TransactionId { get; set; }
 
-    private List<Guid> _inboundNewItemStateIds = [];
+    /// <summary>
+    /// Bumped by the parent after a part edit so that the read view reloads.
+    /// </summary>
+    [Parameter]
+    public int Revision { get; set; }
+
+    [Parameter]
+    public EventCallback OnPartEdited { get; set; }
+
+    private bool _canEdit;
+
+    private BookedInboundItemModal _itemModal = null!;
+
+    private InboundTransactionPartDto? _inboundPart;
+    private ItemsTableResultDto? _itemsOfTable;
+
+    private string? _errorMessage;
+    private IReadOnlyList<string>? _violations;
 
     private ItemsTableFilterParameters? _filterParams;
     private ItemsTableSortParameters? _sortParams;
     private ItemsTableColumnDisplayParameters? _columnDisplayParams;
 
-    private ItemsTableResultDto? _itemsOfTable = null;
-
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
 
-        _inboundNewItemStateIds = await TransactionService.GetInboundNewItemStateIds(TransactionId);
+        AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _canEdit = authState.User is not null && authState.User.IsInRole(AppRoles.Admin);
+
+        await LoadReadViewAsync();
+    }
+
+    private async Task LoadReadViewAsync()
+    {
+        _errorMessage = null;
+        _violations = null;
+
+        _inboundPart = await TransactionService.GetInboundTransactionPart(TransactionId);
+
+        List<Guid> inboundNewItemStateIds = await TransactionService.GetInboundNewItemStateIds(TransactionId);
 
         _filterParams ??= ItemsTableFilterParameters.FromQueryParameters([]);
         _sortParams ??= ItemsTableSortParameters.FromQueryParameters([]);
         _columnDisplayParams ??= ItemsTableColumnDisplayParameters.FromQueryParameters([]);
 
-        _itemsOfTable = await ItemsTableService.GetItemsAtStateAsync(
-            _inboundNewItemStateIds, 
-            _filterParams);
+        _itemsOfTable = await ItemsTableService.GetItemsAtStateAsync(inboundNewItemStateIds, _filterParams);
     }
+
+    /// <summary>
+    /// Maps a created item (one table row) to the draft line that created it when this transaction was booked.
+    /// Null for legacy parts whose lines were never linked to their created items.
+    /// </summary>
+    private InboundTransactionPartDto.InboundDraftItemDto? GetDraftLineForItem(WarehouseItemDto item)
+        => _inboundPart?.DraftItems.FirstOrDefault(d => d.CreatedItemId == item.Id);
+
+    private async Task ShowEditModalAsync(InboundTransactionPartDto.InboundDraftItemDto line)
+        => await _itemModal.ShowAsync(line);
+
+    private async Task ShowAddModalAsync()
+        => await _itemModal.ShowAsync(null);
+
+    private async Task BtnDeleteItemOnClick(InboundTransactionPartDto.InboundDraftItemDto line)
+    {
+        InboundTransactionPartDto? part = _inboundPart;
+        if (part == null)
+            return;
+
+        _errorMessage = null;
+        _violations = null;
+
+        try
+        {
+            List<InboundTransactionPartEditRequest.InboundDraftItemEdit> remainingLines = part.DraftItems
+                .Where(d => d.Id != line.Id)
+                .Select(BookedInboundItemEditMapping.ToEditLine)
+                .ToList();
+
+            await TransactionService.UpdateBookedInboundPart(TransactionId, new InboundTransactionPartEditRequest() { DraftItems = remainingLines });
+
+            await OnPartEdited.InvokeAsync();
+        }
+        catch (TransactionEditConflictException ex)
+        {
+            _violations = ex.Violations;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+    }
+}
+
+@if (_canEdit)
+{
+    <div class="d-flex justify-content-end mb-3">
+        <HxButton Text="Add Item"
+                  Icon="@BootstrapIcon.Plus"
+                  Color="ThemeColor.Primary"
+                  Outline="true"
+                  OnClick="ShowAddModalAsync" />
+    </div>
+}
+
+@if (_violations is { Count: > 0 })
+{
+    <TransactionEditConflictAlert Violations="_violations" />
+}
+else if (_errorMessage != null)
+{
+    <HxAlert Color="ThemeColor.Danger">@_errorMessage</HxAlert>
 }
 
 @if (_itemsOfTable != null)
@@ -40,9 +135,82 @@
     <WarehouseItemAtStateTableComponent Items="_itemsOfTable"
                                         @bind-FilterParameters="_filterParams"
                                         @bind-ColumnDisplayParameters="_columnDisplayParams"
-                                        @bind-SortParameters="_sortParams"/>
+                                        @bind-SortParameters="_sortParams">
+        <TableRowRenderFragment>
+            <tr>
+                @{
+                    InboundTransactionPartDto.InboundDraftItemDto? draftLine = GetDraftLineForItem(context.item);
+                }
+                @foreach ((string propertyName, object? propertyValue) in context.properties)
+                {
+                    <td>
+                        @if (propertyName == nameof(Item.Id))
+                        {
+                            @if (_canEdit && draftLine != null)
+                            {
+                                <HxButton Color="ThemeColor.Secondary"
+                                          Size="ButtonSize.Small"
+                                          Icon="BootstrapIcon.Pencil"
+                                          Tooltip="Edit this inbound item."
+                                          CssClass="me-2"
+                                          OnClick="() => ShowEditModalAsync(draftLine)" />
+                                <HxButton Color="ThemeColor.Danger"
+                                          Size="ButtonSize.Small"
+                                          Icon="BootstrapIcon.Trash"
+                                          Tooltip="Remove this inbound item from the transaction."
+                                          CssClass="me-2"
+                                          OnClick="() => BtnDeleteItemOnClick(draftLine)" />
+                            }
+                            <a href="@(RouteTo<Pages.Warehouse.ItemPage>("ItemId", context.item.Id))">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                        else if (propertyName == nameof(Item.Customer))
+                        {
+                            Customer c = (Customer)propertyValue!;
+                            <a href="javascript:void(0);"
+                               @onclick="() => _filterParams = _filterParams!.WithParameter(nameof(Item.Customer), c.Id)">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                        else if (propertyName == nameof(ItemState.Warehouse))
+                        {
+                            Warehouse w = (Warehouse)propertyValue!;
+                            <a href="javascript:void(0);"
+                               @onclick="() => _filterParams = _filterParams!.WithParameter(nameof(ItemState.Warehouse), w.Id)">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                        else if (propertyName == nameof(Item.Comments))
+                        {
+                            SortedSet<Comment> comments = (SortedSet<Comment>)propertyValue!;
+
+                            string html = string.Join("<hr>",
+                                comments.Select(c => $"<b>{WebUtility.HtmlEncode(c.AuthorId.ToString())}, {c.Date}:</b> {WebUtility.HtmlEncode(c.Text)}"));
+
+                            <HxPopover Title="Item Comments" Html="true" Content="@html" Trigger="PopoverTrigger.Hover">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </HxPopover>
+                        }
+                        else
+                        {
+                            <a href="javascript:void(0);"
+                               @onclick="() => _filterParams = _filterParams!.WithParameter(propertyName, propertyValue.ToString())">
+                                <PropertyValueComponent PropertyValue="@propertyValue" />
+                            </a>
+                        }
+                    </td>
+                }
+            </tr>
+        </TableRowRenderFragment>
+    </WarehouseItemAtStateTableComponent>
 }
 else
 {
     <HxSpinner />
 }
+
+<BookedInboundItemModal @ref="_itemModal"
+                        TransactionId="TransactionId"
+                        CurrentDraftItems="@(_inboundPart?.DraftItems ?? [])"
+                        OnSaved="() => OnPartEdited.InvokeAsync()" />

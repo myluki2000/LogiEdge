@@ -27,6 +27,9 @@
     private List<TransactionEditLogEntryDto>? _editHistory;
     private IReadOnlyDictionary<Guid, string> _editHistoryAuthorNames = new Dictionary<Guid, string>();
 
+    /// <summary>Bumped after a part edit so that the part components reload their read views.</summary>
+    private int _revision = 0;
+
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
@@ -50,6 +53,14 @@
         }
 
         await _editHistoryModal.ShowAsync();
+    }
+
+    private async Task HandlePartEditedAsync()
+    {
+        // Re-fetch the base info (the "edited" badge may have just appeared) and force the part
+        // components to reload their read views.
+        _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+        _revision++;
     }
 
     private async Task DocumentGeneratorComponentOnSaveRequested(GeneratedDocumentDto doc)
@@ -100,6 +111,12 @@
                 </div>
                 <div>
                     <h5>Documents & Attachments</h5>
+                    @if (_transaction.HasEditHistory)
+                    {
+                        <HxAlert Color="ThemeColor.Warning" class="mb-2">
+                            This transaction was edited after booking — previously generated documents may be out of date.
+                        </HxAlert>
+                    }
                     <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
                                                 OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
                     <hr />
@@ -111,7 +128,9 @@
         {
             <HxTab Id="inbound" Title="Inbound">
                 <Content>
-                    <BookedInboundTransactionComponent TransactionId="TransactionId" />
+                    <BookedInboundTransactionComponent TransactionId="TransactionId"
+                                                      Revision="_revision"
+                                                      OnPartEdited="HandlePartEditedAsync" />
                 </Content>
             </HxTab>
         }
@@ -119,7 +138,9 @@
         {
             <HxTab Id="outbound" Title="Outbound">
                 <Content>
-                    <BookedOutboundTransactionComponent TransactionId="TransactionId" />
+                    <BookedOutboundTransactionComponent TransactionId="TransactionId"
+                                                       Revision="_revision"
+                                                       OnPartEdited="HandlePartEditedAsync" />
                 </Content>
             </HxTab>
         }
