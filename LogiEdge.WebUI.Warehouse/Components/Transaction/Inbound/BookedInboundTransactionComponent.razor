@@ -28,6 +28,11 @@
 
     private bool _canEdit;
 
+    /// <summary>
+    /// When true, the edit controls (row buttons, Add Item) are visible.
+    /// </summary>
+    private bool _isEditing;
+
     private BookedInboundItemModal _itemModal = null!;
 
     private InboundTransactionPartDto? _inboundPart;
@@ -113,11 +118,28 @@
 @if (_canEdit)
 {
     <div class="d-flex justify-content-end mb-3">
-        <HxButton Text="Add Item"
-                  Icon="@BootstrapIcon.Plus"
-                  Color="ThemeColor.Primary"
-                  Outline="true"
-                  OnClick="ShowAddModalAsync" />
+        @if (_isEditing)
+        {
+            <HxButton Text="Add Item"
+                      Icon="@BootstrapIcon.Plus"
+                      Color="ThemeColor.Primary"
+                      Outline="true"
+                      CssClass="me-2"
+                      OnClick="ShowAddModalAsync" />
+            <HxButton Text="End editing"
+                      Icon="@BootstrapIcon.CheckLg"
+                      Color="ThemeColor.Secondary"
+                      Outline="true"
+                      OnClick="() => _isEditing = false" />
+        }
+        else
+        {
+            <HxButton Text="Edit"
+                      Icon="@BootstrapIcon.Pencil"
+                      Color="ThemeColor.Primary"
+                      Outline="true"
+                      OnClick="() => _isEditing = true" />
+        }
     </div>
 }
 
@@ -146,7 +168,7 @@ else if (_errorMessage != null)
                     <td>
                         @if (propertyName == nameof(Item.Id))
                         {
-                            @if (_canEdit && draftLine != null)
+                            @if (_canEdit && _isEditing && draftLine != null)
                             {
                                 <HxButton Color="ThemeColor.Secondary"
                                           Size="ButtonSize.Small"

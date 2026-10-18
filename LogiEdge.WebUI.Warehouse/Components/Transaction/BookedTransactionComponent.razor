@@ -94,10 +94,10 @@
         <DebouncerComponent @ref="_debouncer" DelayMilliseconds="1000" class="ms-2"/>
         @if (_transaction.HasEditHistory)
         {
-            <span class="badge rounded-pill lh-base text-bg-warning edit-history-badge"
+            <span class="badge rounded-pill text-bg-warning edit-history-badge"
                   title="View edit history"
                   @onclick="ShowEditHistoryModalAsync">
-                edited<span class="material-symbols-rounded ms-1">question_mark</span>
+                edited<HxIcon Icon="BootstrapIcon.Question" CssClass="ms-1"/>
             </span>
         }
     </div>
