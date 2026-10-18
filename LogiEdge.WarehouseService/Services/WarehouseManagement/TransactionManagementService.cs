@@ -604,6 +604,161 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         }
 
         /// <summary>
+        /// Edits the outbound part of a booked transaction: the desired selection is the FULL list of item ids
+        /// to ship. Items missing from it are unshipped (this transaction's own SHIPPED state is deleted); items
+        /// not selected before get a new SHIPPED state at the transaction's EventDate. All conflict checks run
+        /// before anything is mutated; on any violation nothing is saved (see .notes/edit-booked-transactions.md,
+        /// sections 5.3 and 5.4).
+        /// </summary>
+        public async Task<InventoryTransactionFullInfoDto> UpdateBookedOutboundPart(Guid transactionId, IEnumerable<Guid> selectedItemIds)
+        {
+            ArgumentNullException.ThrowIfNull(selectedItemIds);
+
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.BOOKED)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} is not in BOOKED state.");
+            }
+
+            OutboundTransactionPart? part = await ctx.OutboundTransactionParts
+                .AsTracking()
+                .Include(p => p.DraftSelectedItems!)
+                    .ThenInclude(i => i.ItemStates)
+                        .ThenInclude(st => st.Warehouse)
+                .Include(p => p.NewItemStates)
+                .FirstOrDefaultAsync(p => p.TransactionId == transactionId);
+
+            if (part == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} has no outbound transaction part.");
+            }
+
+            List<Guid> desiredIds = selectedItemIds.ToList();
+
+            HashSet<Guid> seenItemIds = [];
+            foreach (Guid itemId in desiredIds)
+            {
+                if (!seenItemIds.Add(itemId))
+                {
+                    throw new InvalidOperationException($"Duplicate item ID {itemId} in the edit request.");
+                }
+            }
+
+            part.DraftSelectedItems ??= [];
+            List<Guid> currentIds = part.DraftSelectedItems.Select(i => i.Id).ToList();
+
+            // Items newly selected are not loaded yet; fetch them with their full state history.
+            List<Guid> addedItemIds = desiredIds.Except(currentIds).ToList();
+            Dictionary<Guid, Item> addedItemsById = addedItemIds.Count == 0 ? [] : await ctx.Items
+                .Where(i => addedItemIds.Contains(i.Id))
+                .Include(i => i.ItemStates)
+                    .ThenInclude(st => st.Warehouse)
+                .ToDictionaryAsync(i => i.Id);
+
+            if (addedItemsById.Count != addedItemIds.Count)
+            {
+                throw new InvalidOperationException($"Items not found: {string.Join(", ", addedItemIds.Except(addedItemsById.Keys))}.");
+            }
+
+            Dictionary<Guid, Item> itemById = part.DraftSelectedItems.ToDictionary(i => i.Id);
+            foreach (KeyValuePair<Guid, Item> entry in addedItemsById)
+            {
+                itemById[entry.Key] = entry.Value;
+            }
+
+            OutboundPartEditPlanner.OutboundPartEditPlan plan = OutboundPartEditPlanner.Plan(
+                currentIds,
+                desiredIds,
+                transaction.EventDate,
+                itemId => itemById[itemId].ItemStates.Where(st => st.RelatedTransactionId != transaction.Id),
+                itemId => itemById[itemId].ItemNumber);
+
+            if (plan.HasViolations)
+            {
+                throw new TransactionEditConflictException(plan.AllViolations);
+            }
+
+            // --- Apply the plan: rewrite only what this transaction created itself ---
+
+            foreach (OutboundPartEditPlanner.PlannedItem planned in plan.Items)
+            {
+                switch (planned.Action)
+                {
+                    case OutboundPartEditPlanner.ItemAction.Remove:
+                    {
+                        Item item = itemById[planned.ItemId];
+                        // Booking recorded exactly one SHIPPED state per selected item in NewItemStates.
+                        ItemState? shippedState = (part.NewItemStates ?? []).FirstOrDefault(st => st.ItemId == item.Id && st.Location == SpecialLocations.SHIPPED);
+                        if (shippedState == null)
+                        {
+                            throw new InvalidOperationException($"No SHIPPED state created by transaction {transaction.Id} was found for item {item.ItemNumber}.");
+                        }
+
+                        ctx.Remove(shippedState);
+                        part.NewItemStates!.Remove(shippedState);
+                        part.DraftSelectedItems.Remove(item);
+                        break;
+                    }
+
+                    case OutboundPartEditPlanner.ItemAction.Add:
+                    {
+                        Item item = itemById[planned.ItemId];
+                        // The planner's booking-consistent check guarantees an in-warehouse state strictly before the
+                        // event date exists, so the latest state always exists here.
+                        ItemState currentState = item.ItemStates.OrderByDescending(s => s.Date).First();
+
+                        ItemState newItemState = new()
+                        {
+                            Date = transaction.EventDate,
+                            Location = SpecialLocations.SHIPPED,
+                            WarehouseId = currentState.WarehouseId,
+                            IsQuarantined = currentState.IsQuarantined,
+                            RelatedTransactionId = transaction.Id,
+                            Item = item,
+                        };
+
+                        item.ItemStates.Add(newItemState);
+                        part.NewItemStates ??= [];
+                        part.NewItemStates.Add(newItemState);
+                        part.DraftSelectedItems.Add(item);
+                        break;
+                    }
+                }
+            }
+
+            // This edit rewrites part data without changing any scalar of the transaction itself, so force the
+            // entry to Modified: the RowVersion concurrency token is then checked and bumped (G3).
+            ctx.Entry(transaction).State = EntityState.Modified;
+
+            int addedCount = plan.Items.Count(i => i.Action == OutboundPartEditPlanner.ItemAction.Add);
+            int removedCount = plan.Items.Count(i => i.Action == OutboundPartEditPlanner.ItemAction.Remove);
+
+            object changes = new
+            {
+                added = plan.Items.Where(i => i.Action == OutboundPartEditPlanner.ItemAction.Add)
+                    .Select(i => new { itemId = i.ItemId, itemNumber = i.ItemNumber }),
+                removed = plan.Items.Where(i => i.Action == OutboundPartEditPlanner.ItemAction.Remove)
+                    .Select(i => new { itemId = i.ItemId, itemNumber = i.ItemNumber }),
+            };
+
+            await WriteEditLogEntryAsync(ctx, transaction, $"Outbound part edited: {addedCount} added, {removedCount} removed.", changes, TransactionEditPartType.OUTBOUND);
+
+            await ctx.SaveChangesAsync();
+
+            return (await GetTransactionFullInfo(transactionId))!;
+        }
+
+        /// <summary>
         /// Applies one planned update to both the draft line (the part's source of truth) and the created item
         /// and its initial state, keeping the Item and ItemState GUIDs. Only this transaction's own state is
         /// touched (G1); the initial state keeps its Date.
