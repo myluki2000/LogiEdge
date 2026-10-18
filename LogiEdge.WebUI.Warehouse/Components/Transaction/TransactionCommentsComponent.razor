@@ -80,7 +80,7 @@
         {
             <div class="text-danger mb-2">@_commentError</div>
         }
-        <HxInputTextArea @bind-Value="_newCommentText" InputCssClass="mb-2" />
+        <HxInputTextArea @bind-Value="_newCommentText" BindEvent="BindEvent.OnInput" InputCssClass="mb-2" />
         <HxButton Text="Add Comment" OnClick="BtnAddCommentOnClick" Color="ThemeColor.Primary" Enabled="@(!string.IsNullOrWhiteSpace(_newCommentText))" />
     </div>
 </div>
