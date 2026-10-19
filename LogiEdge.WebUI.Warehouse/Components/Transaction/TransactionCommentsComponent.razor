@@ -87,7 +87,9 @@
                             }
                             else
                             {
-                                <HxButton Text="Retract" Color="ThemeColor.Danger" Outline Size="ButtonSize.Small" CssClass="ms-auto" OnClick="() => BtnRetractCommentOnClick(comment)" />
+                                <button type="button" class="btn retract-icon-btn" title="Retract comment" aria-label="Retract comment" @onclick="() => BtnRetractCommentOnClick(comment)">
+                                    <span class="material-symbols-rounded retract-icon-glyph">remove_circle_outline</span>
+                                </button>
                             }
                         </div>
                         <div class="@(comment.Retracted ? "text-muted text-decoration-line-through" : "")">@comment.Text</div>

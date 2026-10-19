@@ -1,0 +1,27 @@
+/* Ghost-style retraction control in comment titles — implemented identically to the .table-button header buttons of
+   WarehouseItemAtStateTableComponent */
+
+.retract-icon-btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin-left: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: transparent;
+    border: none;
+    color: var(--bs-danger);
+    cursor: pointer;
+}
+
+.retract-icon-btn:hover {
+    background-color: rgba(0, 0, 0, 0.07);
+    color: #b02a37;
+}
+
+/* Same glyph rule as .table-button .material-symbols-rounded */
+::deep .retract-icon-btn .retract-icon-glyph {
+    font-size: 14px;
+    line-height: 1;
+}
