@@ -1301,6 +1301,31 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             await ctx.SaveChangesAsync();
         }
 
+        public async Task AddRelocationPartToTransaction(Guid transactionId)
+        {
+            await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();
+            InventoryTransaction? transaction = await ctx.InventoryTransactions
+                .AsTracking()
+                .FirstOrDefaultAsync(t => t.Id == transactionId);
+
+            if (transaction == null)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} not found.");
+            }
+
+            if (transaction.State != TransactionState.DRAFT)
+            {
+                throw new InvalidOperationException($"Transaction with ID {transactionId} is not in DRAFT state.");
+            }
+
+            transaction.RelocationTransactionPart = new RelocationTransactionPart()
+            {
+                Transaction = transaction,
+            };
+
+            await ctx.SaveChangesAsync();
+        }
+
         public async Task DeleteTransactionAsync(Guid transactionId)
         {
             await using WarehouseDbContext ctx = await warehouseDbContextFactory.CreateDbContextAsync();

@@ -41,14 +41,27 @@
             _creatorName = await UserDirectory.GetUserNameAsync(_transaction.CreatedByUserId);
     }
 
+    private async Task RefreshTransactionAsync()
+    {
+        _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+    }
+
     private async Task BtnAddInboundItemsOnClick()
     {
         await TransactionService.AddInboundPartToTransaction(TransactionId);
+        await RefreshTransactionAsync();
     }
 
     private async Task BtnAddOutboundItemsOnClick()
     {
         await TransactionService.AddOutboundPartToTransaction(TransactionId);
+        await RefreshTransactionAsync();
+    }
+
+    private async Task BtnAddRelocationItemsOnClick()
+    {
+        await TransactionService.AddRelocationPartToTransaction(TransactionId);
+        await RefreshTransactionAsync();
     }
 
     private async Task BookTransaction()
@@ -179,6 +192,7 @@
                                 {
                                     <HxButton Text="Add Relocation Items"
                                               CssClass="me-2 mb-2"
+                                              OnClick="BtnAddRelocationItemsOnClick"
                                               Color="ThemeColor.Primary"
                                               Outline="true" />
                                 }
