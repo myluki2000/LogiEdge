@@ -1,0 +1,28 @@
+.tx-meta-label {
+    font-weight: 600;
+}
+
+.tx-event-date {
+    width: auto;
+    min-width: 15rem;
+}
+
+.tx-invalid {
+    font-size: 0.78rem;
+    color: var(--bs-danger);
+    white-space: nowrap;
+}
+
+.tx-invalid-glyph {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.tx-delete-btn:hover {
+    color: var(--bs-danger);
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.tx-part-actions {
+    margin-top: 0.4rem;
+}

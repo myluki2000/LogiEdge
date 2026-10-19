@@ -48,18 +48,19 @@
         return;
     }
 
-    if (_transaction.State == TransactionState.DRAFT)
-    {
-        // TODO: If we pass Transaction instead of TransactionId, we don't have to reload the transaction after booking
-        <DraftTransactionComponent TransactionId="TransactionId" OnTransactionBooked="ReloadTransactionAsync" />
-    }
-    else if (_transaction.State == TransactionState.BOOKED)
-    {
-        <BookedTransactionComponent TransactionId="TransactionId" />
-    }
-    else
-    {
-        <p>Unknown transaction state encountered: @_transaction.State</p>
-        return;
-    }
+    <div class="tx-page">
+        @if (_transaction.State == TransactionState.DRAFT)
+        {
+            // TODO: If we pass Transaction instead of TransactionId, we don't have to reload the transaction after booking
+            <DraftTransactionComponent TransactionId="TransactionId" OnTransactionBooked="ReloadTransactionAsync" />
+        }
+        else if (_transaction.State == TransactionState.BOOKED)
+        {
+            <BookedTransactionComponent TransactionId="TransactionId" />
+        }
+        else
+        {
+            <p>Unknown transaction state encountered: @_transaction.State</p>
+        }
+    </div>
 }

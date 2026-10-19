@@ -12,6 +12,7 @@
 
 @inject TransactionManagementService TransactionService
 @inject IUserDirectory UserDirectory
+@inject NavigationManager NavigationManager
 
 @code {
     [Parameter]
@@ -30,6 +31,8 @@
     /// <summary>Bumped after a part edit so that the part components reload their read views.</summary>
     private int _revision = 0;
 
+    private string _selectedTab = "overview";
+
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
@@ -42,6 +45,16 @@
     private async Task SaveTitleToDatabaseAsync()
     {
         await TransactionService.SetTransactionTitle(_transaction.Id, _transaction.Title);
+    }
+
+    private void SelectTab(string tab)
+    {
+        _selectedTab = tab;
+    }
+
+    private void GoToTransactionsIndex()
+    {
+        NavigationManager.NavigateTo(RouteTo<Pages.Warehouse.Transactions.Index>());
     }
 
     private async Task ShowEditHistoryModalAsync()
@@ -83,80 +96,112 @@
     <p>Unexpected transaction state: @_transaction.State</p>
 }
 
-<div class="header">
-    <span class="text-muted">Transaction · Created: <span class="text-dark">@_transaction.CreatedDate</span> by @(_creatorName ?? "unknown") · Event: <span class="text-dark">@_transaction.EventDate</span> · Booked: <span class="text-dark">@_transaction.BookedDate</span></span>
-    <div class="d-flex align-items-center gap-2">
-        <h3 class="m-0">
-            <InputText class="form-control"
-                       @bind-Value="_transaction.Title"
-                       @oninput="e => _debouncer.Debounce(async Task () => { _transaction.Title = e.Value?.ToString() ?? string.Empty; await SaveTitleToDatabaseAsync(); })"/>
-        </h3>
-        <DebouncerComponent @ref="_debouncer" DelayMilliseconds="1000" class="ms-2"/>
-        @if (_transaction.HasEditHistory)
-        {
-            <span class="badge rounded-pill text-bg-warning edit-history-badge"
-                  title="View edit history"
-                  @onclick="ShowEditHistoryModalAsync">
-                edited<HxIcon Icon="BootstrapIcon.Question" CssClass="ms-1"/>
-            </span>
-        }
-    </div>
-</div>
+<div class="tx-header">
+        <div class="tx-meta d-flex align-items-center gap-2 flex-wrap">
+            <button type="button" class="tx-icon-btn tx-back-btn" title="Back to transactions" aria-label="Back to transactions" @onclick="GoToTransactionsIndex">
+                <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+            <span class="badge tx-state-badge booked">Booked</span>
+            @if (_transaction.HasEditHistory)
+            {
+                <span class="badge rounded-pill text-bg-warning edit-history-badge"
+                      title="View edit history"
+                      @onclick="ShowEditHistoryModalAsync">edited<HxIcon Icon="BootstrapIcon.Question" CssClass="ms-1"/></span>
+            }
+            <span>Created @_transaction.CreatedDate.ToLocalTime().ToString("G") by @(_creatorName ?? "unknown")</span>
+            <span class="tx-meta-sep" aria-hidden="true"></span>
+            <span>Event @_transaction.EventDate.ToLocalTime().ToString("G")</span>
+            <span class="tx-meta-sep" aria-hidden="true"></span>
+            <span>Booked @(_transaction.BookedDate?.ToLocalTime().ToString("G") ?? "—")</span>
 
-<div class="content">
-    <HxTabPanel ActiveTabId="overview" Variant="TabPanelVariant.Card">
-        <HxTab Id="overview" Title="Overview">
-            <Content>
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <TransactionCommentsComponent TransactionId="TransactionId" />
+            <div class="d-flex align-items-center gap-2 flex-wrap tx-actions">
+                <DebouncerComponent @ref="_debouncer" DelayMilliseconds="1000" class="tx-save-status" />
+                <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
+                                            OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
+            </div>
+        </div>
+
+        <div class="tx-title-row">
+            <InputText class="form-control tx-title-input"
+                       placeholder="Untitled transaction"
+                       @bind-Value="_transaction.Title"
+                       @oninput="e => _debouncer.Debounce(async Task () => { _transaction.Title = e.Value?.ToString() ?? string.Empty; await SaveTitleToDatabaseAsync(); })" />
+        </div>
+
+        <ul class="nav nav-tabs tx-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button type="button" class="nav-link @(_selectedTab == "overview" ? "active" : "")"
+                        role="tab" aria-selected="@(_selectedTab == "overview" ? "true" : "false")" @onclick='() => SelectTab("overview")'>Overview</button>
+            </li>
+            @if (_transaction.HasInboundPart)
+            {
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link @(_selectedTab == "inbound" ? "active" : "")"
+                            role="tab" aria-selected="@(_selectedTab == "inbound" ? "true" : "false")" @onclick='() => SelectTab("inbound")'>Inbound</button>
+                </li>
+            }
+            @if (_transaction.HasOutboundPart)
+            {
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link @(_selectedTab == "outbound" ? "active" : "")"
+                            role="tab" aria-selected="@(_selectedTab == "outbound" ? "true" : "false")" @onclick='() => SelectTab("outbound")'>Outbound</button>
+                </li>
+            }
+            @if (_transaction.HasRelocationPart)
+            {
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link @(_selectedTab == "relocation" ? "active" : "")"
+                            role="tab" aria-selected="@(_selectedTab == "relocation" ? "true" : "false")" @onclick='() => SelectTab("relocation")'>Relocation</button>
+                </li>
+            }
+        </ul>
+    </div>
+
+    <div class="tx-content">
+        @if (_selectedTab == "overview")
+        {
+            <div class="tx-overview" role="tabpanel">
+                <div class="tx-overview-main">
+                    <div class="tx-section">
+                        <div class="tx-section-label">Documents &amp; attachments</div>
+                        @if (_transaction.HasEditHistory)
+                        {
+                            <HxAlert Color="ThemeColor.Warning" class="tx-edit-warning">
+                                This transaction was edited after booking — previously generated documents may be out of date.
+                            </HxAlert>
+                        }
+                        <div class="tx-attachments">
+                            <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" @ref="_attachmentManager" />
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <h5>Documents & Attachments</h5>
-                    @if (_transaction.HasEditHistory)
-                    {
-                        <HxAlert Color="ThemeColor.Warning" class="mb-2">
-                            This transaction was edited after booking — previously generated documents may be out of date.
-                        </HxAlert>
-                    }
-                    <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
-                                                OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
-                    <hr />
-                    <TransactionFileAttachmentManagerComponent TransactionId="TransactionId" @ref="_attachmentManager" />
+
+                <div class="tx-overview-side">
+                    <TransactionCommentsComponent TransactionId="TransactionId" />
                 </div>
-            </Content>
-        </HxTab>
-        @if (_transaction.HasInboundPart)
-        {
-            <HxTab Id="inbound" Title="Inbound">
-                <Content>
-                    <BookedInboundTransactionComponent TransactionId="TransactionId"
-                                                      Revision="_revision"
-                                                      OnPartEdited="HandlePartEditedAsync" />
-                </Content>
-            </HxTab>
+            </div>
         }
-        @if (_transaction.HasOutboundPart)
+        else if (_selectedTab == "inbound")
         {
-            <HxTab Id="outbound" Title="Outbound">
-                <Content>
-                    <BookedOutboundTransactionComponent TransactionId="TransactionId"
-                                                       Revision="_revision"
-                                                       OnPartEdited="HandlePartEditedAsync" />
-                </Content>
-            </HxTab>
+            <div role="tabpanel">
+                <BookedInboundTransactionComponent TransactionId="TransactionId"
+                                                  Revision="_revision"
+                                                  OnPartEdited="HandlePartEditedAsync" />
+            </div>
         }
-        @if (_transaction.HasRelocationPart)
+        else if (_selectedTab == "outbound")
         {
-            <HxTab Id="relocation" Title="Relocation">
-                <Content>
-                    TODO: Relocation transaction details component
-                </Content>
-            </HxTab>
+            <div role="tabpanel">
+                <BookedOutboundTransactionComponent TransactionId="TransactionId"
+                                                   Revision="_revision"
+                                                   OnPartEdited="HandlePartEditedAsync" />
+            </div>
         }
-    </HxTabPanel>
-</div>
+        else if (_selectedTab == "relocation")
+        {
+            <div class="text-muted" role="tabpanel">TODO: Relocation transaction details component</div>
+        }
+    </div>
 
 <HxModal @ref="_editHistoryModal" Title="Edit history">
     <BodyTemplate>

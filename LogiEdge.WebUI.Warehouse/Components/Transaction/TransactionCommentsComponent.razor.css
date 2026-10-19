@@ -5,7 +5,6 @@
     width: 20px;
     height: 20px;
     padding: 0;
-    margin-left: 2px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -24,4 +23,19 @@
 ::deep .retract-icon-btn .retract-icon-glyph {
     font-size: 14px;
     line-height: 1;
+}
+
+/* Compact card chrome */
+.tx-comments-header {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.45rem 0.75rem;
+}
+
+.card-body {
+    padding: 0.75rem;
+}
+
+.item-comments li + li {
+    margin-top: 0.6rem;
 }

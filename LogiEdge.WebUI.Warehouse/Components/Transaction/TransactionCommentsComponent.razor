@@ -63,7 +63,7 @@
 }
 
 <div class="card h-100">
-    <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="card-header tx-comments-header d-flex align-items-center justify-content-between">
         <span>Comments</span>
         <span class="badge text-bg-secondary">@_comments.Count</span>
     </div>
@@ -79,15 +79,15 @@
                 {
                     <li class="@(comment.Retracted ? "retracted" : "")">
                         <div class="d-flex align-items-center gap-2">
-                            <span class="small text-muted">@_commentAuthorNames.GetValueOrDefault(comment.AuthorId, "unknown")</span>
-                            <span class="small text-muted">@comment.Date.ToLocalTime().ToString("G")</span>
+                            <span class="small text-muted tx-comment-author" title="@_commentAuthorNames.GetValueOrDefault(comment.AuthorId, "unknown")">@_commentAuthorNames.GetValueOrDefault(comment.AuthorId, "unknown")</span>
+                            <span class="small text-muted tx-comment-date">@comment.Date.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
                             @if (comment.Retracted)
                             {
-                                <span class="badge text-bg-danger">retracted</span>
+                                <span class="badge text-bg-danger ms-auto">retracted</span>
                             }
                             else
                             {
-                                <button type="button" class="btn retract-icon-btn" title="Retract comment" aria-label="Retract comment" @onclick="() => BtnRetractCommentOnClick(comment)">
+                                <button type="button" class="btn retract-icon-btn ms-auto" title="Retract comment" aria-label="Retract comment" @onclick="() => BtnRetractCommentOnClick(comment)">
                                     <span class="material-symbols-rounded retract-icon-glyph">remove_circle_outline</span>
                                 </button>
                             }
@@ -104,6 +104,6 @@
             <div class="text-danger mb-2">@_commentError</div>
         }
         <HxInputTextArea @bind-Value="_newCommentText" BindEvent="BindEvent.OnInput" InputCssClass="mb-2" />
-        <HxButton Text="Add Comment" OnClick="BtnAddCommentOnClick" Color="ThemeColor.Primary" Enabled="@(!string.IsNullOrWhiteSpace(_newCommentText))" />
+        <HxButton Text="Add Comment" OnClick="BtnAddCommentOnClick" Color="ThemeColor.Primary" Enabled="@(!string.IsNullOrWhiteSpace(_newCommentText))" Size="ButtonSize.Small" />
     </div>
 </div>
