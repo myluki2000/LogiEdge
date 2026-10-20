@@ -10,6 +10,8 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 {
     internal class HtmlPdfDocumentGenerator<T>(IServiceProvider serviceProvider, HtmlDocumentGenerationTemplateDto template) : IDocumentGenerator<T>
     {
+        private readonly string EMPTY_HTML = "<html></html>";
+
         private GotenbergSharpClient _gotenbergClient = serviceProvider.GetRequiredService<GotenbergSharpClient>();
 
         public async Task<byte[]> GenerateDocumentAsync(T input)
@@ -23,9 +25,9 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 
             HtmlRequestBuilder builder = new HtmlRequestBuilder()
                 .AddDocument(doc => doc
-                    .SetBody(htmlContent)
-                    .SetFooter(template.FooterHtml)
-                    .SetHeader(template.HeaderHtml))
+                    .SetBody(string.IsNullOrEmpty(htmlContent) ? EMPTY_HTML : htmlContent)
+                    .SetFooter(string.IsNullOrEmpty(template.FooterHtml) ? EMPTY_HTML : template.FooterHtml)
+                    .SetHeader(string.IsNullOrEmpty(template.HeaderHtml) ? EMPTY_HTML : template.HeaderHtml))
                 .WithPageProperties(pp => pp.SetPaperSize(PaperSizes.A4));
 
             Stream result = await _gotenbergClient.HtmlToPdfAsync(builder);
