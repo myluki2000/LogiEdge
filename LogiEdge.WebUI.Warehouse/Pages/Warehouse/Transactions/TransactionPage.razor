@@ -24,6 +24,7 @@
     public required MainLayout Layout { get; set; }
 
     private InventoryTransactionBaseInfoDto? _transaction { get; set; }
+    private bool _initialLoadComplete = false;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -33,7 +34,9 @@
 
     private async Task ReloadTransactionAsync()
     {
+        _initialLoadComplete = false;
         _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+        _initialLoadComplete = true;
 
         StateHasChanged();
     }
@@ -42,6 +45,11 @@
 @{
     Layout?.SetPadding(false);
 
+    if (!_initialLoadComplete)
+    {
+        <HxSpinner />
+        return;
+    }
     if (_transaction == null)
     {
         <p>Transaction with ID @TransactionId could not be found.</p>

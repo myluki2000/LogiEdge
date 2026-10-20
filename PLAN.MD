@@ -376,6 +376,50 @@ dotnet run --project LogiEdge
 dotnet test LogiEdge.Test.ExcelImporterService   # needs Docker (Testcontainers postgres:17-alpine)
 ```
 
+**Building from the Codex sandbox (WSL + Windows interop)**:
+
+- **No .NET SDK inside WSL.** Use the Windows install:
+  `/mnt/c/Program Files/dotnet/dotnet.exe` (SDK 10.0.401). The
+  `WSL ... UtilBindVsockAnyPort ... socket failed` lines on stderr are
+  harmless noise.
+- **The Windows dotnet host cannot read Linux paths.** File arguments must be
+  Windows-style (`C:\...`); relative project names + WSL cwd work fine.
+  (Running an app with a `/mnt/c/...` path fails — inside the sandbox even
+  silently, exit 1 with no message.)
+- **`dotnet-ef` is installed** as a global tool in the Windows user profile:
+  `C:\Users\lukas\.dotnet\tools\dotnet-ef.exe` (v10.0.1, from the local
+  NuGet cache). Invocation that works:
+  `dotnet-ef.exe migrations add <Name> --project LogiEdge.WarehouseService --startup-project LogiEdge --context WarehouseDbContext`
+  (`--context` is mandatory — the host references multiple DbContexts).
+- **Write path quirk**: the repo is only writable via the lowercase mount
+  `/mnt/c/users/lukas/source/repos/logiedge`; mixed-case paths resolve to a
+  read-only parent mount.
+- **A running app locks `LogiEdge/bin/**`** → solution builds fail with
+  MSB3021/MSB3027 copy errors naming the locking process ("LogiEdge (PID)",
+  "Microsoft Visual Studio"). Stop the app before building, or build only
+  library projects.
+- **`LogiEdge.Test.ExcelImporterService` does not compile** (2× CS1503 — the
+  known broken fixture, §10). A full-solution build reports exactly these two
+  errors even when everything else is fine; don't mistake them for
+  regressions.
+- **Pre-existing NuGet audit warnings**: transitive
+  `System.Security.Cryptography.Pkcs` 8.0.1/9.0.0 has known moderate/high
+  vulnerabilities (NU1902/NU1903). Worth a separate cleanup task.
+- **`dotnet test` needs direct package references**: NuGet does not flow the
+  *build assets* of `Microsoft.NET.Test.Sdk` transitively through a
+  ProjectReference, so a test project that only references
+  `LogiEdge.Test.Shared` compiles but has no entry point / runtimeconfig.json —
+  vstest then fails with "hostpolicy.dll ... not found". Declare the test
+  packages (Test.Sdk, xunit, runner, coverlet) directly in each test project
+  (`LogiEdge.Test.WarehouseService` does; `LogiEdge.Test.ExcelImporterService`
+  still doesn't — it cannot launch its tests at all, independent of the broken
+  fixture).
+- **The Windows dotnet host fails silently inside the Codex sandbox** (exit 1,
+  no output, even for `--version`); run build/test commands with escalated
+  permissions. Also: `dotnet-ef migrations add --output-dir <elsewhere>` still
+  rewrites `Migrations/WarehouseDbContextModelSnapshot.cs` in the project —
+  remove it again if the repo is supposed to be migration-free.
+
 Notes:
 
 - The Excel importer expects the JSON config path stored in setting `ExcelImporterConfig`

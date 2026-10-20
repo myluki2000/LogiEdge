@@ -36,6 +36,8 @@
 
     private HxModal _addItemModal = null!;
 
+    private bool _initialLoadComplete = false;
+
     private InventoryTransactionBaseInfoDto? _transaction;
     private OutboundTransactionPartDto? _outboundTransactionPart;
 
@@ -71,7 +73,9 @@
         AuthenticationState authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         _canEdit = authState.User is not null && authState.User.IsInRole(AppRoles.Admin);
 
+        _initialLoadComplete = false;
         await LoadReadViewAsync();
+        _initialLoadComplete = true;
     }
 
     private async Task LoadReadViewAsync()
@@ -171,6 +175,12 @@
             _errorMessage = ex.Message;
         }
     }
+}
+
+@if (!_initialLoadComplete)
+{
+    <HxSpinner />
+    return;
 }
 
 @if (_transaction == null)

@@ -24,6 +24,7 @@
     public EventCallback OnTransactionBooked { get; set; }
 
     private InventoryTransactionBaseInfoDto? _transaction = null;
+    private bool _initialLoadComplete = false;
     private string? _creatorName;
 
     private TransactionFileAttachmentManagerComponent _attachmentManager = null!;
@@ -37,15 +38,16 @@
     protected override async Task OnParametersSetAsync()
     {
         await base.OnParametersSetAsync();
-
-        _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
-        if (_transaction != null)
-            _creatorName = await UserDirectory.GetUserNameAsync(_transaction.CreatedByUserId);
+        await RefreshTransactionAsync();
     }
 
     private async Task RefreshTransactionAsync()
     {
+        _initialLoadComplete = false;
         _transaction = await TransactionService.GetTransactionBaseInfo(TransactionId);
+        if (_transaction != null)
+            _creatorName = await UserDirectory.GetUserNameAsync(_transaction.CreatedByUserId);
+        _initialLoadComplete = true;
     }
 
     private void SelectTab(string tab)
@@ -124,6 +126,12 @@
 
         await _attachmentManager.SaveGeneratedDocument(doc);
     }
+}
+
+@if (!_initialLoadComplete)
+{
+    <HxSpinner />
+    return;
 }
 
 @if (_transaction == null)
