@@ -185,7 +185,7 @@ namespace LogiEdge.WarehouseService.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    CreatedItemId = table.Column<Guid>(type: "uuid", nullable: true),
+                    CreatedItemIds = table.Column<Guid[]>(type: "uuid[]", nullable: false),
                     ItemSchemaId = table.Column<Guid>(type: "uuid", nullable: false),
                     CustomerId = table.Column<Guid>(type: "uuid", nullable: false),
                     WarehouseId = table.Column<Guid>(type: "uuid", nullable: false),

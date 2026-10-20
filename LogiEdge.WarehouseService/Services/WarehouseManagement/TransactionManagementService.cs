@@ -1,4 +1,4 @@
-using LogiEdge.CustomerService.Data;
+﻿using LogiEdge.CustomerService.Data;
 using LogiEdge.Shared;
 using LogiEdge.Shared.Utility;
 using LogiEdge.WarehouseService.Data;
@@ -180,7 +180,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             return new InboundTransactionPartDto.InboundDraftItemDto()
             {
                 Id = di.Id,
-                CreatedItemId = di.CreatedItemId,
+                CreatedItemIds = di.CreatedItemIds.ToList(),
                 Location = di.Location,
                 Count = di.Count,
                 AdditionalProperties = di.ItemSchema.AdditionalProperties.Select(p =>
@@ -392,7 +392,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Transaction with ID {transactionId} has no inbound transaction part.");
             }
 
-            List<Guid> itemIds = part.DraftItems.Where(d => d.CreatedItemId != null).Select(d => d.CreatedItemId!.Value).ToList();
+            List<Guid> itemIds = part.DraftItems.SelectMany(d => d.CreatedItemIds).ToList();
             Dictionary<Guid, Item> itemById = itemIds.Count == 0 ? [] : await ctx.Items
                 .AsTracking() // must be tracked: line updates rewrite the created items/states in place
                 .Where(i => itemIds.Contains(i.Id))
@@ -426,6 +426,11 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 if (string.IsNullOrWhiteSpace(line.Location))
                 {
                     throw new InvalidOperationException("Location must not be empty.");
+                }
+
+                if (line.Count < 1)
+                {
+                    throw new InvalidOperationException($"Count of draft line '{line.ItemNumber}' must be at least 1.");
                 }
             }
 
@@ -477,7 +482,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             List<InboundPartEditPlanner.CurrentInboundLine> currentLines = part.DraftItems
                 .Select(di => new InboundPartEditPlanner.CurrentInboundLine(
                     di.Id,
-                    di.CreatedItemId,
+                    di.CreatedItemIds,
                     di.ItemNumber,
                     di.CustomerId,
                     di.ItemSchemaId,
@@ -512,13 +517,40 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             List<InboundTransactionPartEditRequest.InboundDraftItemEdit> newLines = edit.DraftItems.Where(d => d.DraftItemId == null).ToList();
             int newLineIndex = 0;
 
-            foreach (InboundPartEditPlanner.PlannedLine line in plan.Lines)
+            // Tracks the ids of items created while applying, so the audit entry can record them per line.
+            List<List<Guid>> addedItemIdsPerLine = plan.Lines.Select(_ => new List<Guid>()).ToList();
+
+            for (int lineIndex = 0; lineIndex < plan.Lines.Count; lineIndex++)
             {
+                InboundPartEditPlanner.PlannedLine line = plan.Lines[lineIndex];
                 switch (line.Action)
                 {
                     case InboundPartEditPlanner.LineAction.Update:
-                        ApplyInboundLineUpdate(part, transaction, itemById[line.CreatedItemId!.Value], line, customersById, schemasById, warehousesById);
+                    {
+                        InboundDraftItem draft = part.DraftItems.First(d => d.Id == line.DraftItemId!.Value);
+
+                        // Field rewrites apply to every created item of the line; the line is the unit of editing.
+                        foreach (Guid itemId in line.CreatedItemIds)
+                            ApplyInboundLineUpdate(part, transaction, itemById[itemId], line, customersById, schemasById, warehousesById);
+
+                        // Count increase: create fresh items at the event date and link them to the line.
+                        for (int i = 0; i < line.ItemsToAdd; i++)
+                        {
+                            Item item = CreateItemForDraftItem(part, draft, transaction.EventDate);
+                            await ctx.Items.AddAsync(item);
+                            part.NewItemStates ??= [];
+                            part.NewItemStates.AddRange(item.ItemStates);
+                            addedItemIdsPerLine[lineIndex].Add(item.Id);
+                        }
+
+                        if (addedItemIdsPerLine[lineIndex].Count > 0)
+                            draft.CreatedItemIds = [.. draft.CreatedItemIds, .. addedItemIdsPerLine[lineIndex]];
+
+                        // Count decrease: delete the created items selected by the planner.
+                        foreach (Guid itemId in line.ItemIdsToRemove)
+                            RemoveCreatedItem(part, transaction, ctx, itemById[itemId]);
                         break;
+                    }
 
                     case InboundPartEditPlanner.LineAction.Add:
                     {
@@ -541,11 +573,18 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                         };
                         part.DraftItems.Add(draft);
 
-                        Item item = CreateItemForDraftItem(part, draft, transaction.EventDate);
-                        draft.CreatedItemId = item.Id;
-                        await ctx.Items.AddAsync(item);
-                        part.NewItemStates ??= [];
-                        part.NewItemStates.AddRange(item.ItemStates);
+                        // One physical item per count unit.
+                        List<Guid> createdIds = [];
+                        for (int i = 0; i < desired.Count; i++)
+                        {
+                            Item item = CreateItemForDraftItem(part, draft, transaction.EventDate);
+                            await ctx.Items.AddAsync(item);
+                            part.NewItemStates ??= [];
+                            part.NewItemStates.AddRange(item.ItemStates);
+                            createdIds.Add(item.Id);
+                        }
+                        draft.CreatedItemIds = [.. createdIds];
+                        addedItemIdsPerLine[lineIndex] = createdIds;
                         break;
                     }
 
@@ -554,21 +593,9 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                         InboundDraftItem draft = part.DraftItems.First(d => d.Id == line.DraftItemId!.Value);
                         part.DraftItems.Remove(draft);
 
-                        if (line.CreatedItemId != null)
-                        {
-                            Item item = itemById[line.CreatedItemId.Value];
-                            // Detach this transaction's own states from the part record; the rows are deleted by
-                            // the cascade on Item.ItemStates. NewItemStates may be null for legacy parts.
-                            part.NewItemStates?.RemoveAll(st => st.RelatedTransactionId == transaction.Id && st.ItemId == item.Id);
-
-                            // The Comment FK has no ON DELETE clause in the database, so mark comments deleted explicitly.
-                            foreach (Comment comment in item.Comments.ToList())
-                            {
-                                ctx.Entry(comment).State = EntityState.Deleted;
-                            }
-
-                            ctx.Items.Remove(item);
-                        }
+                        // Removing the line removes all of its created items (the planner verified each is removable).
+                        foreach (Guid itemId in line.CreatedItemIds)
+                            RemoveCreatedItem(part, transaction, ctx, itemById[itemId]);
                         break;
                     }
                 }
@@ -582,15 +609,20 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             int addedCount = plan.Lines.Count(l => l.Action == InboundPartEditPlanner.LineAction.Add);
             int removedCount = plan.Lines.Count(l => l.Action == InboundPartEditPlanner.LineAction.Remove);
 
+            List<(InboundPartEditPlanner.PlannedLine Line, int Index)> planLinesIndexed = plan.Lines.Select((l, i) => (l, i)).ToList();
             object changes = new
             {
-                updated = plan.Lines.Where(l => l.Action == InboundPartEditPlanner.LineAction.Update)
-                    .Select(l => new { draftItemId = l.DraftItemId, itemNumber = l.ItemNumber, createdItemId = l.CreatedItemId,
-                                       changes = l.ChangedFields.ToDictionary(kv => kv.Key, kv => new { @old = kv.Value.Old, @new = kv.Value.New }) }),
-                added = plan.Lines.Where(l => l.Action == InboundPartEditPlanner.LineAction.Add)
-                    .Select(l => new { draftItemId = l.DraftItemId, itemNumber = l.ItemNumber, createdItemId = l.CreatedItemId }),
-                removed = plan.Lines.Where(l => l.Action == InboundPartEditPlanner.LineAction.Remove)
-                    .Select(l => new { draftItemId = l.DraftItemId, itemNumber = l.ItemNumber, createdItemId = l.CreatedItemId }),
+                updated = planLinesIndexed.Where(t => t.Line.Action == InboundPartEditPlanner.LineAction.Update)
+                    .Select(t => new { draftItemId = t.Line.DraftItemId, itemNumber = t.Line.ItemNumber, createdItemIds = t.Line.CreatedItemIds,
+                                       changes = t.Line.ChangedFields.ToDictionary(kv => kv.Key, kv => new { @old = kv.Value.Old, @new = kv.Value.New }),
+                                       itemIdsAdded = addedItemIdsPerLine[t.Index],
+                                       itemIdsRemoved = t.Line.ItemIdsToRemove }),
+                added = planLinesIndexed.Where(t => t.Line.Action == InboundPartEditPlanner.LineAction.Add)
+                    .Select(t => new { draftItemId = t.Line.DraftItemId, itemNumber = t.Line.ItemNumber, createdItemIds = addedItemIdsPerLine[t.Index],
+                                       itemIdsAdded = addedItemIdsPerLine[t.Index] }),
+                removed = planLinesIndexed.Where(t => t.Line.Action == InboundPartEditPlanner.LineAction.Remove)
+                    .Select(t => new { draftItemId = t.Line.DraftItemId, itemNumber = t.Line.ItemNumber, createdItemIds = t.Line.CreatedItemIds,
+                                       itemIdsRemoved = t.Line.CreatedItemIds }),
             };
 
             await WriteEditLogEntryAsync(ctx, transaction, $"Inbound part edited: {updatedCount} updated, {addedCount} added, {removedCount} removed.", changes, TransactionEditPartType.INBOUND);
@@ -779,9 +811,32 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         }
 
         /// <summary>
-        /// Applies one planned update to both the draft line (the part's source of truth) and the created item
-        /// and its initial state, keeping the Item and ItemState GUIDs. Only this transaction's own state is
-        /// touched (G1); the initial state keeps its Date.
+        /// Deletes one created item of a booked inbound line: detaches this transaction's own states from the
+        /// part record, marks the item's comments deleted explicitly (the Comment FK has no ON DELETE clause),
+        /// and removes the item — its state rows are removed by the cascade on Item.ItemStates.
+        /// </summary>
+        private static void RemoveCreatedItem(
+            InboundTransactionPart part,
+            InventoryTransaction transaction,
+            WarehouseDbContext ctx,
+            Item item)
+        {
+            // NewItemStates may be null for legacy parts.
+            part.NewItemStates?.RemoveAll(st => st.RelatedTransactionId == transaction.Id && st.ItemId == item.Id);
+
+            foreach (Comment comment in item.Comments.ToList())
+            {
+                ctx.Entry(comment).State = EntityState.Deleted;
+            }
+
+            ctx.Items.Remove(item);
+        }
+
+        /// <summary>
+        /// Applies one planned field update to both the draft line (the part's source of truth) and one created
+        /// item of the line and its initial state, keeping the Item and ItemState GUIDs. Only this
+        /// transaction's own state is touched (G1); the initial state keeps its Date. The caller invokes this
+        /// once per created item; count changes are handled separately by adding/removing items.
         /// </summary>
         private static void ApplyInboundLineUpdate(
             InboundTransactionPart part,
@@ -1413,10 +1468,16 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             {
                 try
                 {
-                    Item item = CreateItemForDraftItem(transactionPart, draftItem, eventDate);
-                    draftItem.CreatedItemId = item.Id;
-                    await ctx.Items.AddAsync(item);
-                    transactionPart.NewItemStates.AddRange(item.ItemStates);
+                    // One physical item per count unit: each gets its own history from the event date on.
+                    List<Guid> createdItemIds = [];
+                    for (int i = 0; i < draftItem.Count; i++)
+                    {
+                        Item item = CreateItemForDraftItem(transactionPart, draftItem, eventDate);
+                        createdItemIds.Add(item.Id);
+                        await ctx.Items.AddAsync(item);
+                        transactionPart.NewItemStates.AddRange(item.ItemStates);
+                    }
+                    draftItem.CreatedItemIds = [.. createdItemIds];
                 }
                 catch (Exception ex)
                 {
@@ -1524,7 +1585,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 ItemSchemaId = draftItem.ItemSchemaId,
                 CustomerId = draftItem.CustomerId,
                 ItemNumber = draftItem.ItemNumber,
-                AdditionalProperties = draftItem.AdditionalProperties,
+                AdditionalProperties = draftItem.AdditionalProperties.DeepClone(),
                 Comments = new SortedSet<Comment>(IEnumerable<string>.Of(draftItem.Comments)
                     .Where(c => !string.IsNullOrWhiteSpace(c))
                     .Select(c => new Comment()

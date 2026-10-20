@@ -211,8 +211,9 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<int>("Count")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("CreatedItemId")
-                        .HasColumnType("uuid");
+                    b.PrimitiveCollection<Guid[]>("CreatedItemIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");

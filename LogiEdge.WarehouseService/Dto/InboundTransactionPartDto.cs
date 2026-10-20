@@ -18,10 +18,10 @@ namespace LogiEdge.WarehouseService.Dto
         {
             public required Guid Id { get; set; }
             /// <summary>
-            /// The item created for this draft line when the parent transaction was booked.
-            /// Null while the parent transaction is still in DRAFT state.
+            /// The items created for this draft line when the parent transaction was booked — one item per
+            /// count unit, in creation order. Empty while the parent transaction is still in DRAFT state.
             /// </summary>
-            public required Guid? CreatedItemId { get; set; }
+            public required List<Guid> CreatedItemIds { get; set; } = [];
             public required Guid ItemSchemaId { get; set; }
             public required Guid CustomerId { get; set; }
             public required Guid WarehouseId { get; set; }

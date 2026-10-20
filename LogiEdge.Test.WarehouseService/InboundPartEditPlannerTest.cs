@@ -1,4 +1,4 @@
-using LogiEdge.WarehouseService.Data;
+﻿using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Dto;
 using LogiEdge.WarehouseService.Services.WarehouseManagement;
 using static LogiEdge.WarehouseService.Services.WarehouseManagement.InboundPartEditPlanner;
@@ -19,8 +19,7 @@ namespace LogiEdge.Test.WarehouseService
 
         private static CurrentInboundLine Line(
             string itemNumber = "ABC-1",
-            bool createdItemUnlinked = false,
-            Guid? createdItemId = null,
+            IReadOnlyList<Guid>? createdItemIds = null,
             Guid customerId = default,
             Guid itemSchemaId = default,
             Guid warehouseId = default,
@@ -31,7 +30,7 @@ namespace LogiEdge.Test.WarehouseService
             IReadOnlyDictionary<string, object?>? additionalProperties = null)
             => new(
                 Guid.NewGuid(),
-                createdItemUnlinked ? null : (createdItemId ?? Guid.NewGuid()),
+                createdItemIds ?? [Guid.NewGuid()],
                 itemNumber,
                 customerId,
                 itemSchemaId,
@@ -112,7 +111,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsCommentsChange_WhenItemHasLaterHistory()
         {
             CurrentInboundLine current = Line(comments: "old note");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(1), "B2")] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(1), "B2")] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, comments: "new note")], otherStates);
 
@@ -126,7 +125,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsIsQuarantinedChange_WhenItemHasLaterHistory()
         {
             CurrentInboundLine current = Line();
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(1), "B2")] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(1), "B2")] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, isQuarantined: true)], otherStates);
 
@@ -140,7 +139,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsAdditionalPropertiesChange_WhenItemHasLaterHistory()
         {
             CurrentInboundLine current = Line(additionalProperties: new Dictionary<string, object?> { ["Color"] = "red" });
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(1), "B2")] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(1), "B2")] };
 
             InboundPartEditPlan plan = Plan(
                 [current],
@@ -160,7 +159,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsLocationChange_WhenNoLaterStates()
         {
             CurrentInboundLine current = Line();
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(-1))] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(-1))] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, location: "B2")], otherStates);
 
@@ -174,7 +173,7 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState later = State(EventDate.AddDays(1), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [later] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [later] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, location: "C3")], otherStates);
 
@@ -189,7 +188,7 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState tied = State(EventDate, "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [tied] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [tied] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, location: "C3")], otherStates);
 
@@ -203,7 +202,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsWarehouseIdChange_WhenNoLaterStates()
         {
             CurrentInboundLine current = Line();
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(-1))] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(-1))] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, warehouseId: Guid.NewGuid())], otherStates);
 
@@ -217,7 +216,7 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState later = State(EventDate.AddMinutes(45), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [later] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [later] };
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, warehouseId: Guid.NewGuid())], otherStates);
 
@@ -233,7 +232,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsIdentityChanges_WhenNoLaterHistory()
         {
             CurrentInboundLine current = Line();
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(-1))] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(-1))] };
 
             InboundPartEditPlan itemNumberPlan = Plan([current], [Edit(draftItemId: current.DraftItemId, itemNumber: "XYZ-9")], otherStates);
             Assert.Empty(Assert.Single(itemNumberPlan.Lines).Violations);
@@ -250,7 +249,7 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState later = State(EventDate.AddMinutes(30), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [later] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [later] };
 
             InboundPartEditPlan itemNumberPlan = Plan([current], [Edit(draftItemId: current.DraftItemId, itemNumber: "XYZ-9")], otherStates);
             Assert.Contains("ABC-1", Assert.Single(Assert.Single(itemNumberPlan.Lines).Violations));
@@ -267,7 +266,7 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState later = State(EventDate.AddDays(2), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [later] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [later] };
 
             InboundPartEditPlan plan = Plan(
                 [current],
@@ -283,9 +282,9 @@ namespace LogiEdge.Test.WarehouseService
         }
 
         [Fact]
-        public void Plan_AddsNoLinkViolation_WhenDraftLineHasNoCreatedItem()
+        public void Plan_AddsNoLinkViolation_WhenDraftLineHasNoCreatedItems()
         {
-            CurrentInboundLine current = Line(createdItemUnlinked: true);
+            CurrentInboundLine current = Line(createdItemIds: []);
 
             InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, location: "B2")]);
 
@@ -301,7 +300,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_AllowsRemoval_WhenNoLaterStatesAndNotReferencedByDraftOutbound()
         {
             CurrentInboundLine current = Line();
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [State(EventDate.AddDays(-1))] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [State(EventDate.AddDays(-1))] };
 
             InboundPartEditPlan plan = Plan([current], [], otherStates);
 
@@ -316,7 +315,7 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState later = State(EventDate.AddHours(2), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [later] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [later] };
 
             InboundPartEditPlan plan = Plan([current], [], otherStates);
 
@@ -331,7 +330,7 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_BlocksRemoval_WhenReferencedByDraftOutbound()
         {
             CurrentInboundLine current = Line();
-            HashSet<Guid> referenced = [current.CreatedItemId!.Value];
+            HashSet<Guid> referenced = [current.CreatedItemIds[0]];
 
             InboundPartEditPlan plan = Plan([current], [], null, referenced);
 
@@ -346,8 +345,8 @@ namespace LogiEdge.Test.WarehouseService
         {
             CurrentInboundLine current = Line();
             ItemState later = State(EventDate.AddMinutes(5), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemId!.Value] = [later] };
-            HashSet<Guid> referenced = [current.CreatedItemId!.Value];
+            Dictionary<Guid, ItemState[]> otherStates = new() { [current.CreatedItemIds[0]] = [later] };
+            HashSet<Guid> referenced = [current.CreatedItemIds[0]];
 
             InboundPartEditPlan plan = Plan([current], [], otherStates, referenced);
 
@@ -358,9 +357,9 @@ namespace LogiEdge.Test.WarehouseService
         }
 
         [Fact]
-        public void Plan_AllowsRemoval_WhenCreatedItemIdIsNull()
+        public void Plan_AllowsRemoval_WhenLineHasNoCreatedItems()
         {
-            CurrentInboundLine current = Line(createdItemUnlinked: true);
+            CurrentInboundLine current = Line(createdItemIds: []);
 
             InboundPartEditPlan plan = Plan([current], []);
 
@@ -382,7 +381,9 @@ namespace LogiEdge.Test.WarehouseService
             PlannedLine add = Assert.Single(plan.Lines);
             Assert.Equal(LineAction.Add, add.Action);
             Assert.Null(add.DraftItemId);
-            Assert.Null(add.CreatedItemId);
+            Assert.Empty(add.CreatedItemIds);
+            Assert.Equal(1, add.ItemsToAdd);
+            Assert.Empty(add.ItemIdsToRemove);
             Assert.Equal("NEW-1", add.ItemNumber);
             Assert.Empty(add.ChangedFields);
             Assert.Empty(add.Violations);
@@ -393,10 +394,10 @@ namespace LogiEdge.Test.WarehouseService
         public void Plan_CollectsAllLinesAndOnlyViolatingMessages_InMixedPlan()
         {
             CurrentInboundLine toUpdate = Line(itemNumber: "OLD-1");
-            CurrentInboundLine toRemove = Line(itemNumber: "GONE-1", createdItemId: Guid.NewGuid());
+            CurrentInboundLine toRemove = Line(itemNumber: "GONE-1");
 
             ItemState later = State(EventDate.AddDays(3), "B2");
-            Dictionary<Guid, ItemState[]> otherStates = new() { [toUpdate.CreatedItemId!.Value] = [later] };
+            Dictionary<Guid, ItemState[]> otherStates = new() { [toUpdate.CreatedItemIds[0]] = [later] };
             HashSet<Guid> referenced = [];
 
             InboundPartEditPlan plan = Plan(
@@ -414,6 +415,154 @@ namespace LogiEdge.Test.WarehouseService
             List<string> violations = plan.AllViolations.ToList();
             Assert.Single(violations);
             Assert.Contains("OLD-1", violations[0]);
+        }
+
+        // --- Count: increase always allowed; decrease gated per removed item ---
+
+        [Fact]
+        public void Plan_PlanCountIncrease_WithItemsToAddAndNoViolations()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b], count: 2);
+
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, count: 5)]);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Equal(LineAction.Update, line.Action);
+            Assert.True(line.ChangedFields.ContainsKey("Count"));
+            Assert.Equal((2, 5), line.ChangedFields["Count"]);
+            Assert.Equal(3, line.ItemsToAdd);
+            Assert.Empty(line.ItemIdsToRemove);
+            Assert.Empty(line.Violations);
+        }
+
+        [Fact]
+        public void Plan_PlanCountDecrease_RemovesCleanItemsInBookingOrder_WhenAllClean()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b, c], count: 3);
+
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, count: 1)]);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Equal(0, line.ItemsToAdd);
+            Assert.Equal([a, b], line.ItemIdsToRemove); // first N-M in booking order
+            Assert.Empty(line.Violations);
+        }
+
+        [Fact]
+        public void Plan_AllowsCountDecrease_WhenSomeItemsHaveLaterHistory_ButEnoughAreClean()
+        {
+            // Motivating typo scenario: 5 units booked, 1 already moved → reduce to 4 succeeds.
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid(), d = Guid.NewGuid(), e = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b, c, d, e], count: 5);
+            ItemState later = State(EventDate.AddDays(1), "B2");
+            Dictionary<Guid, ItemState[]> otherStates = new() { [b] = [later] };
+
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, count: 4)], otherStates);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Equal(0, line.ItemsToAdd);
+            Assert.Equal([a], line.ItemIdsToRemove); // the dirty item is skipped; a clean unit disappears instead
+            Assert.Empty(line.Violations);
+        }
+
+        [Fact]
+        public void Plan_BlocksCountDecrease_WhenTooFewItemsAreRemovable()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b, c], count: 3);
+            ItemState laterA = State(EventDate.AddHours(1), "B2");
+            ItemState laterC = State(EventDate.AddDays(2), "B3");
+            Dictionary<Guid, ItemState[]> otherStates = new() { [a] = [laterA], [c] = [laterC] };
+
+            // Reduce 3 → 1 needs two removable items; only b is clean.
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, count: 1)], otherStates);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Empty(line.ItemIdsToRemove); // nothing removed
+            Assert.Equal(2, line.Violations.Count); // one violation per blocked item
+            Assert.Contains(line.Violations, v => v.Contains("cannot reduce count") && v.Contains(laterA.Date.ToString("o")));
+            Assert.Contains(line.Violations, v => v.Contains("cannot reduce count") && v.Contains(laterC.Date.ToString("o")));
+        }
+
+        [Fact]
+        public void Plan_BlocksCountDecrease_WhenAllItemsAreReferencedByDraftOutbound()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b], count: 2);
+
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, count: 1)], null, [a, b]);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Empty(line.ItemIdsToRemove);
+            Assert.Equal(2, line.Violations.Count);
+            Assert.All(line.Violations, v => Assert.Contains("DRAFT outbound", v));
+        }
+
+        [Fact]
+        public void Plan_AllowsCountDecrease_WhenOnlyReferencedItemsAreBlocked()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b], count: 2);
+            HashSet<Guid> referenced = [b];
+
+            // Reduce 2 → 1 needs one removable item; a is clean, so the decrease succeeds.
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, count: 1)], null, referenced);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Equal([a], line.ItemIdsToRemove);
+            Assert.Empty(line.Violations);
+        }
+
+        // --- Multi-item lines: gated fields and whole-line removal are checked per item ---
+
+        [Fact]
+        public void Plan_BlocksWholeLineRemoval_WhenAnyItemHasLaterHistory()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b], count: 2);
+            ItemState later = State(EventDate.AddDays(1), "B2");
+            Dictionary<Guid, ItemState[]> otherStates = new() { [b] = [later] };
+
+            InboundPartEditPlan plan = Plan([current], [], otherStates);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Equal(LineAction.Remove, line.Action);
+            string violation = Assert.Single(line.Violations); // only the dirty item is reported
+            Assert.Contains("cannot be removed", violation);
+            Assert.Contains(later.Date.ToString("o"), violation);
+        }
+
+        [Fact]
+        public void Plan_BlocksGatedFieldChange_WhenAnyOfSeveralItemsHasLaterHistory()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b], count: 2);
+            ItemState later = State(EventDate.AddHours(3), "B2");
+            Dictionary<Guid, ItemState[]> otherStates = new() { [b] = [later] };
+
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, location: "C3")], otherStates);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            string violation = Assert.Single(line.Violations); // only the dirty item is reported
+            Assert.Contains("cannot change Location", violation);
+            Assert.Contains(later.Date.ToString("o"), violation);
+        }
+
+        [Fact]
+        public void Plan_AllowsNonGatedFieldChange_WhenSomeItemsHaveLaterHistory()
+        {
+            Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+            CurrentInboundLine current = Line(createdItemIds: [a, b], count: 2, comments: "old");
+            ItemState later = State(EventDate.AddHours(3), "B2");
+            Dictionary<Guid, ItemState[]> otherStates = new() { [b] = [later] };
+
+            InboundPartEditPlan plan = Plan([current], [Edit(draftItemId: current.DraftItemId, comments: "new")], otherStates);
+
+            PlannedLine line = Assert.Single(plan.Lines);
+            Assert.Empty(line.Violations);
+            Assert.True(line.ChangedFields.ContainsKey("Comments"));
         }
 
         // --- Planner preconditions (the service validates with friendlier messages) ---

@@ -1,4 +1,4 @@
-@using System.Net
+﻿@using System.Net
 @using LogiEdge.CustomerService.Data
 @using LogiEdge.Shared
 @using LogiEdge.WarehouseService.Data
@@ -73,10 +73,11 @@
 
     /// <summary>
     /// Maps a created item (one table row) to the draft line that created it when this transaction was booked.
-    /// Null for legacy parts whose lines were never linked to their created items.
+    /// All items of one line map to the same line — the line is the unit of editing. Null for legacy parts
+    /// whose lines were never linked to their created items.
     /// </summary>
     private InboundTransactionPartDto.InboundDraftItemDto? GetDraftLineForItem(ItemAtStateDto item)
-        => _inboundPart?.DraftItems.FirstOrDefault(d => d.CreatedItemId == item.Id);
+        => _inboundPart?.DraftItems.FirstOrDefault(d => d.CreatedItemIds.Contains(item.Id));
 
     private async Task ShowEditModalAsync(InboundTransactionPartDto.InboundDraftItemDto line)
         => await _itemModal.ShowAsync(line);
@@ -179,7 +180,7 @@ else if (_errorMessage != null)
                                 <HxButton Color="ThemeColor.Danger"
                                           Size="ButtonSize.Small"
                                           Icon="BootstrapIcon.Trash"
-                                          Tooltip="Remove this inbound item from the transaction."
+                                          Tooltip="Remove this inbound line and all of its items from the transaction."
                                           CssClass="me-2"
                                           OnClick="() => BtnDeleteItemOnClick(draftLine)" />
                             }

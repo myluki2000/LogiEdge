@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace LogiEdge.WarehouseService.Dto
@@ -20,7 +20,10 @@ namespace LogiEdge.WarehouseService.Dto
             public required Guid ItemSchemaId { get; set; }
             public required Guid WarehouseId { get; set; }
             public required string Location { get; set; }
-            /// <summary>Accepted for shape symmetry with the draft DTO; has no effect (booking creates one item per line).</summary>
+            /// <summary>
+            /// Number of physical items this line represents. On existing booked lines, changing it adds or
+            /// removes created items (a decrease is only possible while enough items are still removable).
+            /// </summary>
             public required int Count { get; set; }
             public required bool IsQuarantined { get; set; }
             public required string Comments { get; set; }

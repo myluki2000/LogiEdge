@@ -23,10 +23,10 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             Remove,
         }
 
-        /// <summary>The current state of one booked inbound draft line and its created item.</summary>
+        /// <summary>The current state of one booked inbound draft line and its created items (one per count unit).</summary>
         public sealed record CurrentInboundLine(
             Guid DraftItemId,
-            Guid? CreatedItemId,
+            IReadOnlyList<Guid> CreatedItemIds,  // empty while DRAFT / unlinked
             string ItemNumber,
             Guid CustomerId,
             Guid ItemSchemaId,
@@ -40,9 +40,11 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         /// <summary>One planned change. ChangedFields holds only the fields that actually differ (old → new).</summary>
         public sealed record PlannedLine(
             LineAction Action,
-            Guid? DraftItemId,           // null for Add
-            Guid? CreatedItemId,         // null for Add
-            string ItemNumber,           // desired value (for Remove: the old value) — used in messages/audit
+            Guid? DraftItemId,               // null for Add
+            IReadOnlyList<Guid> CreatedItemIds,  // empty for Add
+            string ItemNumber,               // desired value (for Remove: the old value) — used in messages/audit
+            int ItemsToAdd,                  // items to create: count increase (Update) or the whole line (Add)
+            IReadOnlyList<Guid> ItemIdsToRemove,  // created items to delete on a count decrease; empty otherwise
             IReadOnlyDictionary<string, (object? Old, object? New)> ChangedFields,
             IReadOnlyList<string> Violations);
 
@@ -54,13 +56,15 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         }
 
         /// <summary>
-        /// Identity and arrival fields that may only change while the created item has no later history.
-        /// Comments, IsQuarantined and AdditionalProperties are always editable (section 5.4).
+        /// Identity and arrival fields that may only change while none of the created items has later history.
+        /// Comments, IsQuarantined and AdditionalProperties are always editable (section 5.4). Count is not
+        /// gated: increasing it is always safe, decreasing it is gated per removed item instead.
         /// </summary>
         private static readonly string[] GatedFields = ["ItemNumber", "CustomerId", "ItemSchemaId", "WarehouseId", "Location"];
 
         private static readonly Dictionary<string, (object? Old, object? New)> NoChanges = new();
         private static readonly List<string> NoViolations = [];
+        private static readonly List<Guid> NoItemIds = [];
 
         /// <summary>
         /// Computes the re-booking diff between the current and desired state of a booked inbound part and
@@ -98,7 +102,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
             {
                 if (desired.DraftItemId == null)
                 {
-                    planLines.Add(new PlannedLine(LineAction.Add, null, null, desired.ItemNumber, NoChanges, NoViolations));
+                    planLines.Add(new PlannedLine(LineAction.Add, null, NoItemIds, desired.ItemNumber, desired.Count, NoItemIds, NoChanges, NoViolations));
                     continue;
                 }
 
@@ -108,29 +112,79 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     continue; // unchanged lines are omitted from the plan entirely
 
                 List<string> violations = [];
-                Guid? createdItemId = current.CreatedItemId;
+                int itemsToAdd = Math.Max(0, desired.Count - current.Count);
+                List<Guid> itemIdsToRemove = [];
 
-                if (createdItemId == null)
+                if (current.CreatedItemIds.Count == 0)
                 {
-                    violations.Add($"Item {current.ItemNumber}: cannot be edited — the draft line has no link to its created item and must be relinked first.");
+                    violations.Add($"Item {current.ItemNumber}: cannot be edited — the draft line has no link to its created items and must be relinked first.");
                 }
                 else
                 {
                     string[] gatedChangedFields = GatedFields.Where(f => changedFields.ContainsKey(f)).ToArray();
                     if (gatedChangedFields.Length > 0)
                     {
-                        List<ItemState> otherStates = getOtherStates(createdItemId.Value).ToList();
-                        if (BookedTransactionConflictChecker.HasLaterStates(otherStates, eventDate))
+                        // The change is allowed only while NO created item of the line has later history:
+                        // collect a violation per blocked item.
+                        foreach (Guid itemId in current.CreatedItemIds)
                         {
-                            ItemState? earliest = BookedTransactionConflictChecker.FindEarliestLaterState(otherStates, eventDate);
-                            violations.Add(
-                                $"Item {current.ItemNumber}: cannot change {string.Join(", ", gatedChangedFields)}" +
-                                $" — the item has later history (earliest later state on {earliest!.Date:o}).");
+                            List<ItemState> otherStates = getOtherStates(itemId).ToList();
+                            if (BookedTransactionConflictChecker.HasLaterStates(otherStates, eventDate))
+                            {
+                                ItemState? earliest = BookedTransactionConflictChecker.FindEarliestLaterState(otherStates, eventDate);
+                                violations.Add(
+                                    $"Item {current.ItemNumber}: cannot change {string.Join(", ", gatedChangedFields)}" +
+                                    $" — the item has later history (earliest later state on {earliest!.Date:o}).");
+                            }
+                        }
+                    }
+
+                    if (desired.Count < current.Count)
+                    {
+                        int toRemove = current.Count - desired.Count;
+
+                        // Deterministic: walk the created items in booking order and take the first N-M that are
+                        // removable. Units of a line are interchangeable, so which ones disappear does not change
+                        // the physical result.
+                        List<Guid> removable = [];
+                        foreach (Guid itemId in current.CreatedItemIds)
+                        {
+                            if (removable.Count == toRemove)
+                                break;
+
+                            List<ItemState> otherStates = getOtherStates(itemId).ToList();
+                            if (!BookedTransactionConflictChecker.HasLaterStates(otherStates, eventDate) && !isReferencedByDraftOutbound(itemId))
+                                removable.Add(itemId);
+                        }
+
+                        if (removable.Count == toRemove)
+                        {
+                            itemIdsToRemove = removable;
+                        }
+                        else
+                        {
+                            // Fewer items are clean than units being removed: report every blocked item, remove nothing.
+                            foreach (Guid itemId in current.CreatedItemIds.Where(id => !removable.Contains(id)))
+                            {
+                                List<ItemState> otherStates = getOtherStates(itemId).ToList();
+                                if (BookedTransactionConflictChecker.HasLaterStates(otherStates, eventDate))
+                                {
+                                    ItemState? earliest = BookedTransactionConflictChecker.FindEarliestLaterState(otherStates, eventDate);
+                                    violations.Add(
+                                        $"Item {current.ItemNumber}: cannot reduce count — the item has later history" +
+                                        $" (earliest later state on {earliest!.Date:o}).");
+                                }
+
+                                if (isReferencedByDraftOutbound(itemId))
+                                {
+                                    violations.Add($"Item {current.ItemNumber}: cannot reduce count — it is selected in a DRAFT outbound transaction.");
+                                }
+                            }
                         }
                     }
                 }
 
-                planLines.Add(new PlannedLine(LineAction.Update, desired.DraftItemId.Value, createdItemId, desired.ItemNumber, changedFields, violations));
+                planLines.Add(new PlannedLine(LineAction.Update, desired.DraftItemId.Value, current.CreatedItemIds, desired.ItemNumber, itemsToAdd, itemIdsToRemove, changedFields, violations));
             }
 
             HashSet<Guid> keptDraftItemIds = desiredLines.Where(d => d.DraftItemId != null).Select(d => d.DraftItemId!.Value).ToHashSet();
@@ -140,11 +194,10 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                     continue;
 
                 List<string> violations = [];
-                Guid? createdItemId = current.CreatedItemId;
-
-                if (createdItemId != null)
+                // Removing the line removes all of its created items, so every one of them must be removable.
+                foreach (Guid itemId in current.CreatedItemIds)
                 {
-                    List<ItemState> otherStates = getOtherStates(createdItemId.Value).ToList();
+                    List<ItemState> otherStates = getOtherStates(itemId).ToList();
                     if (BookedTransactionConflictChecker.HasLaterStates(otherStates, eventDate))
                     {
                         ItemState? earliest = BookedTransactionConflictChecker.FindEarliestLaterState(otherStates, eventDate);
@@ -153,13 +206,13 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                             $" (earliest later state on {earliest!.Date:o}).");
                     }
 
-                    if (isReferencedByDraftOutbound(createdItemId.Value))
+                    if (isReferencedByDraftOutbound(itemId))
                     {
                         violations.Add($"Item {current.ItemNumber}: cannot be removed — it is selected in a DRAFT outbound transaction.");
                     }
                 }
 
-                planLines.Add(new PlannedLine(LineAction.Remove, current.DraftItemId, createdItemId, current.ItemNumber, NoChanges, violations));
+                planLines.Add(new PlannedLine(LineAction.Remove, current.DraftItemId, current.CreatedItemIds, current.ItemNumber, 0, NoItemIds, NoChanges, violations));
             }
 
             return new InboundPartEditPlan(planLines);
@@ -168,6 +221,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
         /// <summary>
         /// Field-by-field diff of one draft line. Comments are compared trimmed; AdditionalProperties by
         /// name (ordinal) and value (Equals), where a missing name and an explicit null value count as the same.
+        /// Count is the only changed field that does not rewrite existing items — it adds/removes them.
         /// </summary>
         private static Dictionary<string, (object? Old, object? New)> Diff(
             CurrentInboundLine current,
@@ -187,6 +241,8 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 changedFields["Location"] = (current.Location, desired.Location);
             if (current.IsQuarantined != desired.IsQuarantined)
                 changedFields["IsQuarantined"] = (current.IsQuarantined, desired.IsQuarantined);
+            if (current.Count != desired.Count)
+                changedFields["Count"] = (current.Count, desired.Count);
 
             string newComments = desired.Comments.Trim();
             if (current.Comments.Trim() != newComments)

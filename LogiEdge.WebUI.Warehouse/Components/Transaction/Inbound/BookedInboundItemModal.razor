@@ -1,4 +1,4 @@
-@using LogiEdge.CustomerService.Data
+﻿@using LogiEdge.CustomerService.Data
 @using LogiEdge.CustomerService.Dto
 @using LogiEdge.CustomerService.Services
 @using LogiEdge.WarehouseService.Data
@@ -40,6 +40,7 @@
     private Guid? _warehouseId;
     private string _itemNumber = string.Empty;
     private string _location = string.Empty;
+    private int _count = 1;
     private bool _isQuarantined;
     private string _comments = string.Empty;
     private Dictionary<string, object?> _additionalPropertyValues = [];
@@ -71,6 +72,7 @@
             _warehouseId = existingItem.WarehouseId;
             _itemNumber = existingItem.ItemNumber;
             _location = existingItem.Location;
+            _count = existingItem.Count;
             _isQuarantined = existingItem.IsQuarantined;
             _comments = existingItem.Comments.FirstOrDefault()?.Text ?? string.Empty;
             _additionalPropertyValues = existingItem.AdditionalProperties.ToDictionary(p => p.Name, p => p.Value);
@@ -82,6 +84,7 @@
             _warehouseId = _warehouses.FirstOrDefault()?.Id;
             _itemNumber = string.Empty;
             _location = string.Empty;
+            _count = 1;
             _isQuarantined = false;
             _comments = string.Empty;
             _additionalPropertyValues = [];
@@ -104,7 +107,8 @@
            && _itemSchemaId.HasValue
            && _warehouseId.HasValue
            && !string.IsNullOrWhiteSpace(_itemNumber)
-           && !string.IsNullOrWhiteSpace(_location);
+           && !string.IsNullOrWhiteSpace(_location)
+           && _count >= 1;
 
     private void OnCustomerSelected(Guid customerId)
     {
@@ -196,7 +200,7 @@
         ItemSchemaId = _itemSchemaId!.Value,
         WarehouseId = _warehouseId!.Value,
         Location = _location.Trim(),
-        Count = _existingItem?.Count ?? 1,
+        Count = _count,
         IsQuarantined = _isQuarantined,
         Comments = _comments.Trim(),
         AdditionalProperties = (SelectedSchema?.AdditionalProperties ?? [])
@@ -254,6 +258,10 @@
             <div class="d-flex align-items-center gap-2">
                 <label for="inbound-item-location" class="col-form-label text-nowrap">Location:</label>
                 <input type="text" id="inbound-item-location" class="form-control flex-fill" value="@_location" @oninput="e => _location = e.Value?.ToString() ?? string.Empty" />
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <label for="inbound-item-count" class="col-form-label text-nowrap">Count:</label>
+                <input type="number" min="1" id="inbound-item-count" class="form-control flex-fill" value="@_count" @oninput="e => int.TryParse(e.Value?.ToString(), out _count)" />
             </div>
             <div class="d-flex align-items-center gap-2">
                 <label for="inbound-item-quarantine" class="col-form-label text-nowrap">Quarantined:</label>

@@ -14,7 +14,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LogiEdge.WarehouseService.Migrations
 {
     [DbContext(typeof(WarehouseDbContext))]
-    [Migration("20261017131112_InitialCreate")]
+    [Migration("20261020163653_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -214,8 +214,9 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Property<int>("Count")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("CreatedItemId")
-                        .HasColumnType("uuid");
+                    b.PrimitiveCollection<Guid[]>("CreatedItemIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
 
                     b.Property<Guid>("CustomerId")
                         .HasColumnType("uuid");
