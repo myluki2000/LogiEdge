@@ -26,6 +26,8 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 .Include(st => st.Warehouse)
                 .Include(st => st.Item)
                     .ThenInclude(it => it.Customer)
+                .Include(st => st.Item)
+                    .ThenInclude(it => it.ItemStates)
                 .Where(st => stateIds.Contains(st.Id));
 
 
@@ -38,7 +40,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             List<ItemPropertyInfoDto> itemProperties = [];
 
             // get a list of column property names which are allowed
-            itemProperties.AddRange(typeof(WarehouseItemDto)
+            itemProperties.AddRange(typeof(ItemAtStateDto)
                 .GetProperties()
                 .Select(p => new ItemPropertyInfoDto()
                 {
@@ -55,31 +57,16 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 IsFilterable = true,
             }));
 
+            // "st" is the item state selected for the requested point in time (see ItemsTableStateFilter), so mapping
+            // it via ItemAtStateDto.FromItem yields the item's properties plus those of exactly that state. Tracking is
+            // required because the Item -> ItemStates Include (needed for EntryDate) would otherwise form a cycle, which
+            // EF Core does not allow in no-tracking queries.
+            List<ItemState> selectedStates = await q.AsTracking().ToListAsync();
+
             var result = new ItemsTableResultDto()
             {
                 ItemProperties = itemProperties,
-                Items = await q.Select(st => new WarehouseItemDto()
-                {
-                    Id = st.ItemId,
-                    ItemSchema = st.Item.ItemSchema,
-                    CustomerId = st.Item.CustomerId,
-                    Customer = st.Item.Customer,
-                    WarehouseId = st.WarehouseId,
-                    Warehouse = st.Warehouse,
-                    ItemNumber = st.Item.ItemNumber,
-                    AdditionalProperties = st.Item.ItemSchema.AdditionalProperties.Select(ap => new ItemAdditionalPropertyDto()
-                    {
-                        Name = ap.Name,
-                        Value = st.Item.GetAdditionalProperty(ap),
-                        Type = ap.Type,
-                    }).ToList(),
-                    Comments = st.Item.Comments,
-                    EntryDate = st.Item.ItemStates
-                        .AsQueryable()
-                        .Where(ItemState.IsInWarehouseExpr)
-                        .Min(st => st.Date),
-                    CurrentLocation = st.Item.ItemStates.OrderByDescending(x => x.Date).FirstOrDefault().Location,
-                }).ToListAsync(),
+                Items = selectedStates.Select(st => ItemAtStateDto.FromItem(st.Item, st)).ToList(),
             };
 
             return result;

@@ -10,7 +10,7 @@ namespace LogiEdge.WarehouseService.Dto
         /// If this transaction is in DRAFT state, this will contain the items which
         /// have been selected for outbound.
         /// </summary>
-        public List<WarehouseItemDto>? DraftSelectedItems { get; set; }
+        public List<ItemAtStateDto>? DraftSelectedItems { get; set; }
         /// <summary>
         /// If this transaction is in DRAFT state, this will contain items which are part
         /// of the transaction but for which the user hasn't yet selected a specific item

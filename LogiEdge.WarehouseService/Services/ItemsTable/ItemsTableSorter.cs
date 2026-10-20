@@ -17,8 +17,8 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             if (parameters.SortByProperty == null)
                 return;
 
-            Func<WarehouseItemDto, object?>? lambda = null;
-            if (typeof(WarehouseItemDto).GetProperty(parameters.SortByProperty) is { } itemInfo)
+            Func<ItemAtStateDto, object?>? lambda = null;
+            if (typeof(ItemAtStateDto).GetProperty(parameters.SortByProperty) is { } itemInfo)
             {
                 lambda = it => itemInfo.GetValue(it);
             }

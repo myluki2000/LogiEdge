@@ -33,18 +33,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 throw new InvalidOperationException($"Transaction with ID {transactionId} does not exist or has no outbound transaction part.");
             }
 
-            return OutboundTransactionPartToDto(transactionPart);
-        }
-
-        private static OutboundTransactionPartDto OutboundTransactionPartToDto(OutboundTransactionPart part)
-        {
-            return new OutboundTransactionPartDto()
-            {
-                TransactionId = part.TransactionId,
-                DraftSelectedItems = part.DraftSelectedItems?.Select(WarehouseItemDto.FromItem).ToList(),
-                DraftPlaceholderItems = part.DraftPlaceholderItems,
-                NewItemStates = part.NewItemStates,
-            };
+            return transactionPart.ToDto();
         }
 
         public async Task DeleteOutboundItem(Guid transactionId, Guid itemId)

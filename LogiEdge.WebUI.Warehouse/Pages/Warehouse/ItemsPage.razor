@@ -36,10 +36,10 @@
 
         SortParameters = ItemsTableSortParameters.FromQueryParameters(queryParameters);
         ColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters(queryParameters);
-        // ItemsTableFilterParameters.FromQueryParameters() needs to run last so other query params have been consumed!!
-        // (as this one consumes everything as a wildcard, interpreted as additional item properties)
-        FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
+        // ItemsTableStateParameters must be parsed before ItemsTableFilterParameters, as the latter interprets all
+        // remaining query params as additional item properties (and would swallow the state params like "at")
         StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
+        FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
 
         _items = await ItemsTableService.GetAllItemsAsync(FilterParameters, StateParameters);
         StateHasChanged();

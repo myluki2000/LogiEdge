@@ -75,7 +75,7 @@
     /// Maps a created item (one table row) to the draft line that created it when this transaction was booked.
     /// Null for legacy parts whose lines were never linked to their created items.
     /// </summary>
-    private InboundTransactionPartDto.InboundDraftItemDto? GetDraftLineForItem(WarehouseItemDto item)
+    private InboundTransactionPartDto.InboundDraftItemDto? GetDraftLineForItem(ItemAtStateDto item)
         => _inboundPart?.DraftItems.FirstOrDefault(d => d.CreatedItemId == item.Id);
 
     private async Task ShowEditModalAsync(InboundTransactionPartDto.InboundDraftItemDto line)

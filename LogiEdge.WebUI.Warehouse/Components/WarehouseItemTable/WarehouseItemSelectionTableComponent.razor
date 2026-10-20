@@ -35,7 +35,7 @@
     [Parameter]
     public EventCallback<ItemsTableStateParameters> ItemStateParametersChanged { get; set; }
 
-    private RenderFragment<(WarehouseItemDto item, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
+    private RenderFragment<(ItemAtStateDto item, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
 
     private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? _groupedTableRowRenderFragment;
 

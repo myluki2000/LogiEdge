@@ -34,12 +34,12 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             return
                 new List<string>
                 {
-                    nameof(WarehouseItemDto.Id),
-                    nameof(WarehouseItemDto.Customer),
-                    nameof(WarehouseItemDto.ItemNumber),
-                    nameof(WarehouseItemDto.Warehouse),
-                    nameof(WarehouseItemDto.CurrentLocation),
-                    nameof(WarehouseItemDto.EntryDate)
+                    nameof(ItemAtStateDto.Id),
+                    nameof(ItemAtStateDto.Customer),
+                    nameof(ItemAtStateDto.ItemNumber),
+                    nameof(ItemAtStateDto.Warehouse),
+                    nameof(ItemAtStateDto.Location),
+                    nameof(ItemAtStateDto.EntryDate)
                 }.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name));
 
         }

@@ -9,8 +9,14 @@ using System.Reflection;
 
 namespace LogiEdge.WarehouseService.Dto
 {
-    public class WarehouseItemDto
+    /// <summary>
+    /// Represents an item together with one of its states, i.e. the item as it was at a particular point in time.
+    /// Contains the properties of the item entity as well as the properties of that specific ItemState.
+    /// </summary>
+    public class ItemAtStateDto
     {
+        // ---- Properties of the Item entity ----
+
         [DisplayColumnProperty]
         public Guid Id { get; set; }
 
@@ -21,12 +27,6 @@ namespace LogiEdge.WarehouseService.Dto
         [DisplayColumnProperty]
         [QueryFilterableProperty(nameof(CustomerId))]
         public Customer Customer { get; set; } = null!;
-
-        public required Guid WarehouseId { get; set; }
-
-        [DisplayColumnProperty]
-        [QueryFilterableProperty(nameof(CustomerId))]
-        public Warehouse Warehouse { get; set; } = null!;
 
         [MaxLength(64)]
         [QueryFilterableProperty]
@@ -45,7 +45,24 @@ namespace LogiEdge.WarehouseService.Dto
         [DisplayColumnProperty]
         public DateTime? EntryDate { get; set; }
 
-        public required string? CurrentLocation { get; set; }
+        // ---- Properties of the ItemState this DTO represents ----
+
+        [DisplayColumnProperty]
+        public required DateTime Date { get; set; }
+
+        [QueryFilterableProperty]
+        [DisplayColumnProperty]
+        public required string Location { get; set; }
+
+        public required Guid WarehouseId { get; set; }
+
+        [DisplayColumnProperty]
+        [QueryFilterableProperty(nameof(WarehouseId))]
+        public required Warehouse Warehouse { get; set; } = null!;
+
+        public required bool IsQuarantined { get; set; }
+
+        public Guid? RelatedTransactionId { get; set; }
 
         public object? GetPropertyValue(string propertyName)
         {
@@ -59,21 +76,18 @@ namespace LogiEdge.WarehouseService.Dto
         }
 
         /// <summary>
-        /// Creates a DTO from an Item entity. The ItemSchema (including its AdditionalProperties), Customer, Comments and
-        /// ItemStates (including their Warehouses) navigations must be loaded, e.g. via .Include().
+        /// Creates a DTO from an Item entity and the specific ItemState to represent. The Item's ItemSchema (including its
+        /// AdditionalProperties), Customer, Comments and ItemStates navigations must be loaded, e.g. via .Include(), as well
+        /// as the state's Warehouse navigation.
         /// </summary>
-        public static WarehouseItemDto FromItem(Item item)
+        public static ItemAtStateDto FromItem(Item item, ItemState state)
         {
-            ItemState? currentState = item.ItemStates.OrderByDescending(st => st.Date).FirstOrDefault();
-
-            return new WarehouseItemDto()
+            return new ItemAtStateDto()
             {
                 Id = item.Id,
                 ItemSchema = item.ItemSchema!,
                 CustomerId = item.CustomerId,
                 Customer = item.Customer,
-                WarehouseId = currentState?.WarehouseId ?? Guid.Empty,
-                Warehouse = currentState?.Warehouse,
                 ItemNumber = item.ItemNumber,
                 AdditionalProperties = item.ItemSchema.AdditionalProperties
                     .Select(ap => new ItemAdditionalPropertyDto()
@@ -85,7 +99,12 @@ namespace LogiEdge.WarehouseService.Dto
                     .ToList(),
                 Comments = item.Comments,
                 EntryDate = item.ItemStates.Where(st => st.IsInWarehouse).Min(st => (DateTime?)st.Date),
-                CurrentLocation = currentState?.Location,
+                Date = state.Date,
+                Location = state.Location,
+                WarehouseId = state.WarehouseId,
+                Warehouse = state.Warehouse,
+                IsQuarantined = state.IsQuarantined,
+                RelatedTransactionId = state.RelatedTransactionId,
             };
         }
     }

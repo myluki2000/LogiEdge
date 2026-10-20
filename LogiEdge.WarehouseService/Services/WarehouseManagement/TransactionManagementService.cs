@@ -104,7 +104,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                         NewItemStates = t.NewItemStates,
                     })
                     .FirstOrDefault(),
-                OutboundTransactionPart = outboundPart == null ? null : OutboundTransactionPartToDto(outboundPart),
+                OutboundTransactionPart = outboundPart?.ToDto(),
                 RelocationTransactionPart = await ctx.RelocationTransactionParts
                     .Where(t => t.TransactionId == transactionId)
                     .Select(t => new RelocationTransactionPartDto()
@@ -172,17 +172,6 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 TransactionId = transactionPart.TransactionId,
                 DraftItems = transactionPart.DraftItems.Select(InboundDraftItemToDto).ToList(),
                 NewItemStates = transactionPart.NewItemStates,
-            };
-        }
-
-        private static OutboundTransactionPartDto OutboundTransactionPartToDto(OutboundTransactionPart part)
-        {
-            return new OutboundTransactionPartDto()
-            {
-                TransactionId = part.TransactionId,
-                DraftSelectedItems = part.DraftSelectedItems?.Select(WarehouseItemDto.FromItem).ToList(),
-                DraftPlaceholderItems = part.DraftPlaceholderItems,
-                NewItemStates = part.NewItemStates,
             };
         }
 
@@ -1503,7 +1492,7 @@ namespace LogiEdge.WarehouseService.Services.WarehouseManagement
                 transactionPart.NewItemStates.Add(newItemState);
             }
 
-            return OutboundTransactionPartToDto(transactionPart);
+            return transactionPart.ToDto();
         }
 
         private async Task<RelocationTransactionPartDto?> TryBookRelocationTransactionPart(WarehouseDbContext ctx, Guid transactionId)

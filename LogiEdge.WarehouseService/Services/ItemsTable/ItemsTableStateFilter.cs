@@ -8,6 +8,13 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
     internal class ItemsTableStateFilter
     {
         public IQueryable<ItemState> Filter(IQueryable<Item> itemsQueryableInput, ItemsTableStateParameters parameters) {
+            // when filtering for a point in time, exclude items which did not exist yet at that time; selecting the
+            // matching state with .First() would otherwise throw for them
+            if (parameters.AtTime.HasValue)
+            {
+                itemsQueryableInput = itemsQueryableInput.Where(it => it.ItemStates.Any(st => st.Date <= parameters.AtTime));
+            }
+
             IQueryable<ItemState> itemStatesQueryable = parameters.AtTime.HasValue
                 ? itemsQueryableInput
                     .Select(it => it.ItemStates

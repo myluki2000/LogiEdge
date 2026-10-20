@@ -12,7 +12,7 @@
     [Parameter]
     public Guid ItemId { get; set; }
 
-    private WarehouseItemDto? _item;
+    private ItemAtStateDto? _item;
     private List<ItemStateDto>? _states;
     private IReadOnlyDictionary<Guid, string> _commentAuthorNames = new Dictionary<Guid, string>();
 
@@ -87,12 +87,9 @@ else
             <span class="badge text-bg-secondary item-badge">
                 <a class="link-light" href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.Name</a>
             </span>
-            @if (_item.CurrentLocation != null)
-            {
-                <span class="badge text-bg-info item-badge">
-                    <span class="material-symbols-rounded badge-icon">location_on</span>@_item.CurrentLocation
-                </span>
-            }
+            <span class="badge text-bg-info item-badge">
+                <span class="material-symbols-rounded badge-icon">location_on</span>@_item.Location
+            </span>
             <span class="badge text-bg-secondary item-badge">
                 <a class="link-light" href="@ItemsUrl(nameof(ItemState.Warehouse), _item.WarehouseId.ToString())">@_item.Warehouse.Name</a>
             </span>
@@ -114,7 +111,7 @@ else
                             <dd><a href="@ItemsUrl(nameof(ItemState.Warehouse), _item.WarehouseId.ToString())">@_item.Warehouse.Name</a></dd>
 
                             <dt>Current location</dt>
-                            <dd>@(_item.CurrentLocation ?? "—")</dd>
+                            <dd>@_item.Location</dd>
 
                             <dt>Entry date</dt>
                             <dd>@(_item.EntryDate?.ToLocalTime().ToString("G") ?? "—")</dd>
