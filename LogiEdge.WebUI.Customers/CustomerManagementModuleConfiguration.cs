@@ -1,4 +1,5 @@
 ﻿using LogiEdge.Shared;
+using Microsoft.AspNetCore.Builder;
 using System.Reflection;
 
 namespace LogiEdge.WebUI.Customers

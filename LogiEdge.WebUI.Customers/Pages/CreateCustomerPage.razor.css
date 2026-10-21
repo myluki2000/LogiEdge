@@ -1,0 +1,38 @@
+﻿.create-customer-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.create-customer-page-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.create-customer-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    background: transparent;
+    border-radius: 0.375rem;
+    color: var(--bs-body-color, #212529);
+}
+
+.create-customer-back-btn:hover {
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+.create-customer-back-btn .material-symbols-rounded {
+    font-size: 1.25rem;
+}
+
+.create-customer-card {
+    max-width: 48rem;
+}
+
+.create-customer-btn-icon {
+    font-size: 1rem;
+}

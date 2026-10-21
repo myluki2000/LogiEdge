@@ -1,4 +1,4 @@
-# LogiEdge — Codebase Overview & Inner Workings
+﻿# LogiEdge — Codebase Overview & Inner Workings
 
 > This document is written for AI agents (and new developers) to quickly understand the
 > architecture, data flow, and conventions of this codebase before making changes.
@@ -182,7 +182,7 @@ methods (sync versions are `.Result` wrappers — prefer the async ones in UI co
 ### 6.2 CustomerService (`LogiEdge.CustomerService/`)
 
 - `Customer` entity: `Id`, `Abbreviation` (unique-ish, uppercased on lookup), `Name`.
-- `CustomerManagementService`: list/get-by-abbreviation/get-by-id/create (sync + async).
+- `CustomerManagementService`: list/get-by-abbreviation/get-by-id/create/update (sync + async); the abbreviation is immutable after creation.
 - Used by WarehouseService (items belong to customers) and ExcelImporterService
   (auto-creates missing customers with a 2-letter uppercase abbreviation).
 
@@ -319,7 +319,7 @@ migrations, and the UI is a static stub.
   PDF, previews it via `/tmp/{guid}`, and raises `OnFileAttachmentSaveRequested` for the
   parent page to persist. Template management pages live under
   `/document-generator/templates/`.
-- **Customers UI**: list + create pages (simple).
+- **Customers UI**: list, detail (name editable, abbreviation fixed), and create pages under /customers.
 - Programmatic links: `LinkHelpers.RouteTo<T>(params)` parses a component's route
   template and substitutes parameters (used across components instead of hardcoding URLs).
 
@@ -329,7 +329,7 @@ migrations, and the UI is a static stub.
 |---|---|---|
 | `/` | Blazor page | `LogiEdge/Pages/Index.razor` (contains debug `Component1`) |
 | `/Settings` | Blazor page | settings KV editor (`ExcelImporterConfig` etc.) |
-| `/customer`, `/customer/create` | Blazor pages | WebUI.Customers |
+| `/customers`, `/customers/{id}`, `/customers/create` | Blazor pages | WebUI.Customers |
 | `/warehouse/items`, `/warehouse/item/{ItemId}`, `/warehouse/create` | Blazor pages | WebUI.Warehouse |
 | `/warehouse/transactions/`, `/warehouse/transactions/{TransactionId:guid}` | Blazor pages | WebUI.Warehouse |
 | `/planning-board` | Blazor page (stub) | WebUI.PlanningBoard |

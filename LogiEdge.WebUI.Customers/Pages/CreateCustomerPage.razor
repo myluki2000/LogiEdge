@@ -1,53 +1,81 @@
-﻿@page "/customer/create"
-@using LogiEdge.CustomerService.Services;
-@using Microsoft.AspNetCore.Components.Forms
-@using System.Text.RegularExpressions;
-@using LogiEdge.WebUI.Shared.Shared
+﻿@page "/customers/create"
 
-@inject CustomerManagementService CustomerService;
-@inject NavigationManager NavManager;
+@using LogiEdge.CustomerService.Dto
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WebUI.Shared.Shared
+@using System.Text.RegularExpressions
+
+@inject CustomerManagementService CustomerService
+@inject NavigationManager NavManager
 
 @code {
-    private string? customerName;
-    private string? customerAbbreviation;
+    private string _name = string.Empty;
+    private string _abbreviation = string.Empty;
+    private string? _feedbackError;
 
-    private string feedback = string.Empty;
-
-    private async Task CreateNewCustomer()
+    private async Task CreateNewCustomerAsync()
     {
-        if (customerName == null || customerAbbreviation == null)
+        _feedbackError = null;
+
+        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_abbreviation))
         {
-            feedback = "Customer needs to have both an abbreviation and a name!";
+            _feedbackError = "Customer needs to have both an abbreviation and a name!";
             return;
         }
 
-        if (!Regex.IsMatch(customerAbbreviation, @"^[A-Z]+$"))
+        string trimmedName = _name.Trim();
+        string trimmedAbbreviation = _abbreviation.Trim();
+
+        if (!Regex.IsMatch(trimmedAbbreviation, @"^[A-Z]+$"))
         {
-            feedback = "Abbreviation must only contain uppercase letters!";
+            _feedbackError = "Abbreviation must only contain uppercase letters!";
             return;
         }
 
-        if(await CustomerService.GetCustomerByAbbreviation(customerAbbreviation) != null) {
-            feedback = "A customer with the specified abbreviation already exists! Abbreviations must be unique!";
+        if (await CustomerService.GetCustomerByAbbreviation(trimmedAbbreviation) != null)
+        {
+            _feedbackError = "A customer with the specified abbreviation already exists! Abbreviations must be unique!";
             return;
         }
 
-        await CustomerService.CreateCustomer(customerName, customerAbbreviation);
-        feedback = "New customer created successfully!";
-        NavManager.NavigateToRoute<Pages.CustomersPage>();
+        CustomerDto created = await CustomerService.CreateCustomer(trimmedName, trimmedAbbreviation);
+        NavManager.NavigateToRoute<CustomerPage>(new Dictionary<string, object> { ["Id"] = created.Id });
     }
 }
 
-<h3>CreateCustomer</h3>
+<div class="create-customer-page">
+    <div class="create-customer-page-header d-flex align-items-center flex-wrap gap-3">
+        <button type="button" class="create-customer-back-btn" title="Back to customers" aria-label="Back to customers" @onclick="@(() => NavManager.NavigateToRoute<CustomersPage>())">
+            <span class="material-symbols-rounded">arrow_back</span>
+        </button>
+        <h3 class="create-customer-page-title mb-0">New Customer</h3>
+    </div>
 
-<label>Customer Name:</label>
-<InputText @bind-Value="customerName"></InputText>
-<br />
-<label>Customer Abbreviation:</label>
-<InputText @bind-Value="customerAbbreviation"></InputText>
-<br />
+    <div class="card create-customer-card">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Name</label>
+                    <HxInputText @bind-Value="_name" Placeholder="e.g. Acme GmbH" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Abbreviation</label>
+                    <HxInputText @bind-Value="_abbreviation" Placeholder="e.g. ACM" />
+                    <div class="form-text">Uppercase letters only (A–Z). Must be unique.</div>
+                </div>
+            </div>
 
-<button @onclick="CreateNewCustomer">Create</button>
-<button href="/customer">Cancel</button>
+            @if (_feedbackError != null)
+            {
+                <div class="alert alert-danger create-customer-feedback mt-3" role="alert">@_feedbackError</div>
+            }
 
-<p style="color:red;">@feedback</p>
+            <div class="d-flex gap-2 create-customer-form-actions">
+                <HxButton Color="ThemeColor.Primary" OnClick="CreateNewCustomerAsync">
+                    <span class="material-symbols-rounded create-customer-btn-icon" aria-hidden="true">person_add</span>Create Customer
+                </HxButton>
+                <HxButton Color="ThemeColor.Secondary" OnClick="@(() => NavManager.NavigateToRoute<CustomersPage>())">Cancel</HxButton>
+            </div>
+        </div>
+    </div>
+</div>

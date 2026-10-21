@@ -1,0 +1,175 @@
+﻿@page "/customers/{Id:guid}"
+
+@using LogiEdge.CustomerService.Dto
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WebUI.Shared.Shared
+
+@inject CustomerManagementService CustomerService
+@inject NavigationManager NavigationManager
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private CustomerDto? _customer;
+    private bool _loaded;
+
+    private string _name = string.Empty;
+    private string? _feedbackError;
+    private string? _feedbackSuccess;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        CustomerDto? customer = await CustomerService.GetCustomerByIdAsync(Id);
+        _customer = customer;
+        if (customer != null)
+        {
+            _name = customer.Name;
+        }
+        _loaded = true;
+    }
+
+    private bool HasChanges => _customer != null && _name != _customer.Name;
+
+    private void OnNameChanged(string? value)
+    {
+        _name = value ?? string.Empty;
+        ClearFeedback();
+    }
+
+    private void ClearFeedback()
+    {
+        _feedbackError = null;
+        _feedbackSuccess = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        ClearFeedback();
+
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            _feedbackError = "Customer needs to have a name!";
+            return;
+        }
+
+        string trimmedName = _name.Trim();
+
+        CustomerDto? updated = await CustomerService.UpdateCustomerAsync(Id, trimmedName);
+        if (updated == null)
+        {
+            _feedbackError = "The customer no longer exists. Please reload the page.";
+            return;
+        }
+
+        _customer = updated;
+        _name = updated.Name;
+        _feedbackSuccess = "Customer saved successfully!";
+    }
+
+    private void CancelAsync()
+    {
+        if (_customer != null)
+        {
+            _name = _customer.Name;
+        }
+        ClearFeedback();
+    }
+}
+
+@if (!_loaded || _customer == null)
+{
+    @if (_loaded && _customer == null)
+    {
+        <div class="customer-page">
+            <h3>Customer not found</h3>
+            <p>No customer with ID @Id exists.</p>
+            <a href="@(RouteTo<CustomersPage>())">Back to customers</a>
+        </div>
+    }
+    else
+    {
+        <HxSpinner />
+    }
+}
+else
+{
+    <div class="customer-page">
+        <div class="customer-page-header d-flex align-items-center flex-wrap gap-3">
+            <button type="button" class="customer-back-btn" title="Back to customers" aria-label="Back to customers" @onclick="@(() => NavigationManager.NavigateToRoute<CustomersPage>())">
+                <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+            <h3 class="customer-page-title mb-0">@_customer.Name</h3>
+            <span class="badge text-bg-primary customer-abbrev-badge">
+                <span class="material-symbols-rounded customer-badge-icon" aria-hidden="true">tag</span>@_customer.Abbreviation
+            </span>
+        </div>
+
+        <div class="row g-3 customer-page-body">
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-header">Details</div>
+                    <div class="card-body">
+                        <dl class="customer-details mb-0">
+                            <dt>Name</dt>
+                            <dd>@_customer.Name</dd>
+
+                            <dt>Abbreviation</dt>
+                            <dd><span class="badge text-bg-light customer-abbrev-badge">@_customer.Abbreviation</span></dd>
+
+                            <dt>ID</dt>
+                            <dd class="font-monospace small">@_customer.Id</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Edit customer</span>
+                        @if (HasChanges)
+                        {
+                            <span class="badge text-bg-warning customer-dirty-badge">Unsaved changes</span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Name</label>
+                                <HxInputText Value="@_name" ValueChanged="OnNameChanged" ValueExpression="() => _name" Placeholder="e.g. Acme GmbH" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Abbreviation</label>
+                                <span class="form-control-plaintext customer-abbrev-readonly">@_customer.Abbreviation</span>
+                                <div class="form-text">Cannot be changed.</div>
+                            </div>
+                        </div>
+
+                        @if (_feedbackError != null)
+                        {
+                            <div class="alert alert-danger customer-feedback mt-3" role="alert">@_feedbackError</div>
+                        }
+                        else if (_feedbackSuccess != null)
+                        {
+                            <div class="alert alert-success customer-feedback mt-3" role="alert">@_feedbackSuccess</div>
+                        }
+
+                        <div class="d-flex gap-2 customer-form-actions">
+                            <HxButton Color="ThemeColor.Primary" OnClick="SaveAsync">
+                                <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">save</span>Save Changes
+                            </HxButton>
+                            <HxButton Color="ThemeColor.Secondary" OnClick="CancelAsync">Cancel</HxButton>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

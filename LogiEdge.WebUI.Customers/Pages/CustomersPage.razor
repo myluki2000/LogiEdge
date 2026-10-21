@@ -1,20 +1,112 @@
-﻿@page "/customer"
+﻿@page "/customers"
 
-@using Havit.Blazor.Components.Web.Bootstrap
 @using LogiEdge.CustomerService.Dto
-@using LogiEdge.CustomerService.Services;
+@using LogiEdge.CustomerService.Services
 @using LogiEdge.WebUI.Shared.Shared
 
 @inject CustomerManagementService CustomerService
 @inject NavigationManager NavigationManager
 
-<h3>Customers</h3>
+@code {
+    private List<CustomerDto>? _customers;
+    private string? _searchTerm = string.Empty;
 
-<ul>
-    @foreach(CustomerDto customer in CustomerService.GetCustomers())
+    protected override async Task OnInitializedAsync()
     {
-        <li>@customer.Name [@customer.Abbreviation]</li>
+        await base.OnInitializedAsync();
+        _customers = await CustomerService.GetCustomersAsync();
     }
-</ul>
 
-<HxButton Color="ThemeColor.Primary" OnClick="() => NavigationManager.NavigateToRoute<CreateCustomerPage>()" Text="Create New Customer" />
+    private bool HasSearchTerm => !string.IsNullOrWhiteSpace(_searchTerm);
+
+    private IEnumerable<CustomerDto> FilteredCustomers =>
+        (_customers ?? [])
+            .Where(c => !HasSearchTerm
+                || c.Name.Contains(Search, StringComparison.OrdinalIgnoreCase)
+                || c.Abbreviation.Contains(Search, StringComparison.OrdinalIgnoreCase));
+
+    private string Search => _searchTerm!.Trim();
+
+    private void GoToCreatePage()
+    {
+        NavigationManager.NavigateToRoute<CreateCustomerPage>();
+    }
+
+    private void GoToCustomerPage(CustomerDto customer)
+    {
+        NavigationManager.NavigateToRoute<CustomerPage>(new Dictionary<string, object> { ["Id"] = customer.Id });
+    }
+}
+
+<div class="customers-page">
+    <div class="customers-page-header d-flex align-items-center flex-wrap gap-3">
+        <h3 class="customers-page-title mb-0">Customers</h3>
+        @if (_customers != null)
+        {
+            <span class="badge text-bg-secondary customers-count-badge" title="Total number of customers">@_customers.Count</span>
+        }
+
+        <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+            <div class="input-group customers-search">
+                <span class="input-group-text customers-icon" aria-hidden="true"><span class="material-symbols-rounded">search</span></span>
+                <InputText class="form-control" placeholder="Search by name or abbreviation..." @bind-Value="_searchTerm" />
+            </div>
+            <HxButton Color="ThemeColor.Primary" OnClick="GoToCreatePage">
+                <span class="material-symbols-rounded customers-btn-icon">person_add</span>New Customer
+            </HxButton>
+        </div>
+    </div>
+
+    @if (_customers is null)
+    {
+        <HxSpinner />
+    }
+    else if (_customers.Count == 0)
+    {
+        <div class="card customers-empty-card">
+            <div class="card-body text-center customers-empty-body">
+                <span class="material-symbols-rounded customers-empty-icon" aria-hidden="true">group</span>
+                <h5>No customers yet</h5>
+                <p class="text-muted mb-3">Get started by creating your first customer.</p>
+                <HxButton Color="ThemeColor.Primary" OnClick="GoToCreatePage">
+                    <span class="material-symbols-rounded customers-btn-icon">person_add</span>Create Customer
+                </HxButton>
+            </div>
+        </div>
+    }
+    else if (!FilteredCustomers.Any())
+    {
+        <div class="card">
+            <div class="card-body text-center customers-no-results">
+                <span class="material-symbols-rounded customers-empty-icon" aria-hidden="true">search_off</span>
+                <p class="text-muted mb-0">No customers match “@_searchTerm”.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 customers-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Abbreviation</th>
+                            <th>ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (CustomerDto customer in FilteredCustomers)
+                        {
+                            <tr>
+                                <td><a class="customers-name-link" href="@(RouteTo<CustomerPage>("Id", customer.Id))">@customer.Name</a></td>
+                                <td><span class="badge text-bg-light customers-abbrev-badge">@customer.Abbreviation</span></td>
+                                <td class="font-monospace small customers-id-cell" title="@customer.Id">@customer.Id</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

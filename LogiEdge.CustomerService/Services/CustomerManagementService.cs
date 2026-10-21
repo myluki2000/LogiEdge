@@ -16,14 +16,18 @@ namespace LogiEdge.CustomerService.Services
         public List<CustomerDto> GetCustomers()
         {
             using CustomerDbContext dbContext = dbContextFactory.CreateDbContext();
-            
-            return dbContext.Customers.Select(CustomerToDto).ToList();
+
+            return dbContext.Customers.Select(CustomerToDto)
+                .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
         }
 
         public async Task<List<CustomerDto>> GetCustomersAsync()
         {
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
-            return dbContext.Customers.Select(CustomerToDto).ToList();
+            return dbContext.Customers.Select(CustomerToDto)
+                .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
         }
 
         public async Task<CustomerDto?> GetCustomerByAbbreviation(string abbreviation)
@@ -43,6 +47,20 @@ namespace LogiEdge.CustomerService.Services
         {
             await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
             return dbContext.Customers.Select(CustomerToDto).FirstOrDefault(x => x.Id == id);
+        }
+
+        public async Task<CustomerDto?> UpdateCustomerAsync(Guid id, string name)
+        {
+            await using CustomerDbContext dbContext = await dbContextFactory.CreateDbContextAsync();
+            Customer? customer = await dbContext.Customers.AsTracking().FirstOrDefaultAsync(x => x.Id == id);
+            if (customer == null)
+            {
+                return null;
+            }
+
+            customer.Name = name;
+            await dbContext.SaveChangesAsync();
+            return CustomerToDto(customer);
         }
 
         public async Task<CustomerDto> CreateCustomer(string name, string abbreviation)
