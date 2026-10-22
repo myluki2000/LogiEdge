@@ -9,5 +9,19 @@ namespace LogiEdge.Data
             : base(options)
         {
         }
+
+        public DbSet<ApiToken> ApiTokens => Set<ApiToken>();
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<ApiToken>(entity =>
+            {
+                entity.HasIndex(token => token.HashedToken).IsUnique();
+                entity.HasIndex(token => token.UserId);
+                entity.Property(token => token.HashedToken).HasMaxLength(64);
+            });
+        }
     }
 }

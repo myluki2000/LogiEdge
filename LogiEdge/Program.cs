@@ -1,5 +1,6 @@
 ﻿using Havit.Blazor.Components.Web;
 using Havit.Blazor.Components.Web.Bootstrap;
+using LogiEdge.ApiAuth;
 using LogiEdge.Areas.Identity;
 using LogiEdge.BaseService;
 using LogiEdge.WebUI.Customers;
@@ -10,10 +11,12 @@ using LogiEdge.ExcelImporterService;
 using LogiEdge.Service.DocumentGenerator;
 using LogiEdge.Service.PlanningBoard;
 using LogiEdge.Shared;
+using LogiEdge.Shared.ApiAuth;
 using LogiEdge.WebUI.DocumentGenerator;
 using LogiEdge.WebUI.PlanningBoard;
 using LogiEdge.WebUI.Warehouse;
 using LogiEdge.WarehouseService;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -51,6 +54,9 @@ namespace LogiEdge
             })
                 .AddRoles<IdentityRole>()
                 .AddEntityFrameworkStores<AppIdentityDbContext>();
+            // Bearer token scheme for programmatic API access ("lget_\u2026" tokens); endpoints opt in explicitly.
+            builder.Services.AddAuthentication()
+                .AddScheme<ApiTokenSchemeOptions, ApiTokenAuthenticationHandler>(AppAuthSchemes.Token, _ => { });
             builder.Services.AddHxServices();
             builder.Services.AddRazorPages();
             builder.Services.AddServerSideBlazor();
@@ -62,9 +68,14 @@ namespace LogiEdge
                     .RequireAuthenticatedUser()
                     .Build();
             });
-            builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
+            // The composite provider reports HttpContext.User for HTTP requests (cookie or API token) and
+            // delegates to the revalidating Identity provider for Blazor circuits.
+            builder.Services.AddScoped<RevalidatingIdentityAuthenticationStateProvider<IdentityUser>>();
+            builder.Services.AddScoped<AuthenticationStateProvider, BlazorOrHttpAuthenticationStateProvider>();
             builder.Services.AddSingleton<ISystemUserProvider, SystemUserProvider>();
             builder.Services.AddSingleton<IUserDirectory, UserDirectory>();
+            builder.Services.AddScoped<IAuthTokenService, AuthTokenService>();
+            builder.Services.Configure<ApiTokensOptions>(builder.Configuration.GetSection(ApiTokensOptions.SectionName));
 
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
 
