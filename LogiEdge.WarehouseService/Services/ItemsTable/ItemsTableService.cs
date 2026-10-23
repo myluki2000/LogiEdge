@@ -1,4 +1,4 @@
-﻿using LogiEdge.Shared.Attributes;
+using LogiEdge.Shared.Attributes;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Dto;
 using LogiEdge.WarehouseService.Persistence;
@@ -23,6 +23,9 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 .Include(st => st.Item)
                     .ThenInclude(it => it.ItemSchema)
                         .ThenInclude(sch => sch.AdditionalProperties)
+                .Include(st => st.Item)
+                    .ThenInclude(it => it.ItemSchema)
+                        .ThenInclude(sch => sch.LookupColumns)
                 .Include(st => st.Warehouse)
                 .Include(st => st.Item)
                     .ThenInclude(it => it.Customer)
@@ -33,11 +36,26 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 .Where(st => stateIds.Contains(st.Id));
 
 
-            ItemsTablePropertyFilter propertyFilter = new();
-            q = propertyFilter.Filter(q, filterParams);
-
             List<Guid> itemSchemaIds = q.Select(x => x.Item.ItemSchemaId).Distinct().ToList();
-            IReadOnlySet<ItemSchema> itemSchemas = await ctx.ItemSchemas.Where(sch => itemSchemaIds.Contains(sch.Id)).ToHashSetAsync();
+            // load the schemas before property filtering, so that lookup column names can be classified as in-memory
+            // filters (they must not reach the SQL JsonContains filter below)
+            IReadOnlySet<ItemSchema> itemSchemas = await ctx.ItemSchemas
+                .Include(sch => sch.LookupColumns)
+                .Where(sch => itemSchemaIds.Contains(sch.Id))
+                .ToHashSetAsync();
+
+            // one indexed load of all lookup entries for the schemas in scope, grouped by schema, column and key
+            List<ItemSchemaLookupEntry> lookupEntries = await ctx.ItemSchemaLookupEntries
+                .AsNoTracking()
+                .Include(e => e.Column)
+                .Where(e => itemSchemaIds.Contains(e.Column.ItemSchemaId))
+                .ToListAsync();
+            IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>> groupedLookupData = LookupValueResolver.Group(lookupEntries);
+
+            var (sqlParameters, lookupFilters) = LookupValueResolver.ClassifyFilterParameters(itemSchemas, filterParams.AdditionalPropertyParameters);
+
+            ItemsTablePropertyFilter propertyFilter = new();
+            q = propertyFilter.Filter(q, filterParams with { AdditionalPropertyParameters = sqlParameters });
 
             List<ItemPropertyInfoDto> itemProperties = [];
 
@@ -58,6 +76,13 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 IsDisplayable = true,
                 IsFilterable = true,
             }));
+            itemProperties.AddRange(itemSchemas.SelectMany(sch => sch.LookupColumns).Select(col => new ItemPropertyInfoDto()
+            {
+                Name = col.Name,
+                Type = typeof(string),
+                IsDisplayable = true,
+                IsFilterable = true,
+            }));
 
             // "st" is the item state selected for the requested point in time (see ItemsTableStateFilter), so mapping
             // it via ItemAtStateDto.FromItem yields the item's properties plus those of exactly that state. Tracking is
@@ -65,10 +90,17 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             // EF Core does not allow in no-tracking queries.
             List<ItemState> selectedStates = await q.AsTracking().ToListAsync();
 
+            List<ItemAtStateDto> items = selectedStates
+                .Select(st => ItemAtStateDto.FromItem(st.Item, st, LookupValueResolver.ResolveForItem(st.Item, groupedLookupData)))
+                .ToList();
+
+            // lookup column values are derived data and cannot be pushed into SQL, so filter them in memory
+            items = items.Where(dto => lookupFilters.All(kvp => string.Equals((string?)dto.GetPropertyValue(kvp.Key), kvp.Value, StringComparison.Ordinal))).ToList();
+
             var result = new ItemsTableResultDto()
             {
                 ItemProperties = itemProperties,
-                Items = selectedStates.Select(st => ItemAtStateDto.FromItem(st.Item, st)).ToList(),
+                Items = items,
             };
 
             return result;

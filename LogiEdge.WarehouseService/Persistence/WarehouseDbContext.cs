@@ -21,6 +21,10 @@ namespace LogiEdge.WarehouseService.Persistence
 
         public DbSet<ItemSchema> ItemSchemas { get; set; }
 
+        public DbSet<ItemSchemaLookupColumn> ItemSchemaLookupColumns { get; set; }
+
+        public DbSet<ItemSchemaLookupEntry> ItemSchemaLookupEntries { get; set; }
+
         public DbSet<InventoryTransaction> InventoryTransactions { get; set; }
 
         public DbSet<InboundTransactionPart> InboundTransactionParts { get; set; }
@@ -38,6 +42,14 @@ namespace LogiEdge.WarehouseService.Persistence
 
             modelBuilder.Entity<Customer>().ToTable("Customers", t => t.ExcludeFromMigrations());
             modelBuilder.Entity<ItemSchema>().HasMany(sch => sch.Customers).WithMany();
+
+            modelBuilder.Entity<ItemSchemaLookupColumn>()
+                .HasIndex(c => new { c.ItemSchemaId, c.Name })
+                .IsUnique();
+
+            modelBuilder.Entity<ItemSchemaLookupEntry>()
+                .HasIndex(e => new { e.ColumnId, e.Key })
+                .IsUnique();
 
             modelBuilder.Entity<Item>()
                 .HasMany(x => x.ItemStates)

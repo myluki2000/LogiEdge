@@ -152,6 +152,62 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.ToTable("ItemSchemas");
                 });
 
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemSchemaLookupColumn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("ItemSchemaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("KeySource")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemSchemaId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ItemSchemaLookupColumns");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemSchemaLookupEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ColumnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ColumnId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("ItemSchemaLookupEntries");
+                });
+
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemState", b =>
                 {
                     b.Property<Guid>("Id")
@@ -472,6 +528,28 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Navigation("AdditionalProperties");
                 });
 
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemSchemaLookupColumn", b =>
+                {
+                    b.HasOne("LogiEdge.WarehouseService.Data.ItemSchema", "ItemSchema")
+                        .WithMany("LookupColumns")
+                        .HasForeignKey("ItemSchemaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ItemSchema");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemSchemaLookupEntry", b =>
+                {
+                    b.HasOne("LogiEdge.WarehouseService.Data.ItemSchemaLookupColumn", "Column")
+                        .WithMany("Entries")
+                        .HasForeignKey("ColumnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Column");
+                });
+
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemState", b =>
                 {
                     b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransactionPart", null)
@@ -581,6 +659,16 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("ItemStates");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemSchema", b =>
+                {
+                    b.Navigation("LookupColumns");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemSchemaLookupColumn", b =>
+                {
+                    b.Navigation("Entries");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", b =>

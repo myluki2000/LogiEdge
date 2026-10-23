@@ -17,5 +17,9 @@ namespace LogiEdge.WarehouseService.Dto
         /// List of IDs of customers whose items use this schema.
         /// </summary>
         public required List<Guid> CustomerIds { get; set; }
+        /// <summary>
+        /// Lookup columns of this schema (entry counts only; the entries themselves are loaded per column).
+        /// </summary>
+        public required List<ItemSchemaLookupColumnDto> LookupColumns { get; set; } = [];
     }
 }

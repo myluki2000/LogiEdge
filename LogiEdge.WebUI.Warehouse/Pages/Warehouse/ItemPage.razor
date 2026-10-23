@@ -163,6 +163,38 @@ else
                                 </tbody>
                             </table>
                         }
+
+                        @if (_item.ItemSchema.LookupColumns.Count > 0)
+                        {
+                            <h6 class="mt-4 mb-2">Looked-up properties</h6>
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Property</th>
+                                        <th scope="col">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (ItemSchemaLookupColumn column in _item.ItemSchema.LookupColumns)
+                                    {
+                                        ItemAdditionalPropertyDto? property = _item.LookupProperties.FirstOrDefault(p => p.Name == column.Name);
+                                        <tr>
+                                            <th scope="row">@column.Name</th>
+                                            <td>
+                                                @if (property?.Value != null)
+                                                {
+                                                    <a href="@ItemsUrl(property!.Name, ValueToUrlParameter(property.Value))">@FormatValue(property.Value)</a>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
                     </div>
                 </div>
             </div>

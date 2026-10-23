@@ -1,8 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Dto;
 
@@ -24,7 +22,9 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             }
             else
             {
-                lambda = it => (it.AdditionalProperties.FirstOrDefault(x => x.Name == parameters.SortByProperty) ?? null);
+                // return the value (not the property DTO), so that sorting works for any comparable value type
+                lambda = it => (it.AdditionalProperties.FirstOrDefault(x => x.Name == parameters.SortByProperty)
+                               ?? it.LookupProperties.FirstOrDefault(x => x.Name == parameters.SortByProperty))?.Value;
             }
 
             if (parameters.SortOrderDescending)
