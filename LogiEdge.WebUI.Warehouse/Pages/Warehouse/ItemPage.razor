@@ -164,7 +164,7 @@ else
                             </table>
                         }
 
-                        @if (_item.LookupProperties.Count > 0)
+                        @if (_item.ItemSchema.LookupColumns.Count > 0)
                         {
                             <h6 class="mt-4 mb-2">Looked-up properties</h6>
                             <table class="table table-sm align-middle mb-0">
@@ -175,14 +175,15 @@ else
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (ItemAdditionalPropertyDto property in _item.LookupProperties)
+                                    @foreach (ItemSchemaLookupColumn column in _item.ItemSchema.LookupColumns)
                                     {
+                                        ItemAdditionalPropertyDto? property = _item.LookupProperties.FirstOrDefault(p => p.Name == column.Name);
                                         <tr>
-                                            <th scope="row">@property.Name</th>
+                                            <th scope="row">@column.Name</th>
                                             <td>
-                                                @if (property.Value != null)
+                                                @if (property?.Value != null)
                                                 {
-                                                    <a href="@ItemsUrl(property.Name, ValueToUrlParameter(property.Value))">@FormatValue(property.Value)</a>
+                                                    <a href="@ItemsUrl(property!.Name, ValueToUrlParameter(property.Value))">@FormatValue(property.Value)</a>
                                                 }
                                                 else
                                                 {

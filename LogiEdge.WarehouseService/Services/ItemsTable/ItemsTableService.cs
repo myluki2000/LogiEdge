@@ -1,4 +1,4 @@
-﻿using LogiEdge.Shared.Attributes;
+using LogiEdge.Shared.Attributes;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Dto;
 using LogiEdge.WarehouseService.Persistence;
@@ -23,6 +23,9 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 .Include(st => st.Item)
                     .ThenInclude(it => it.ItemSchema)
                         .ThenInclude(sch => sch.AdditionalProperties)
+                .Include(st => st.Item)
+                    .ThenInclude(it => it.ItemSchema)
+                        .ThenInclude(sch => sch.LookupColumns)
                 .Include(st => st.Warehouse)
                 .Include(st => st.Item)
                     .ThenInclude(it => it.Customer)
