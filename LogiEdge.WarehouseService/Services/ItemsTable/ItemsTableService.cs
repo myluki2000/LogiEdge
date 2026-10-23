@@ -28,6 +28,8 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                     .ThenInclude(it => it.Customer)
                 .Include(st => st.Item)
                     .ThenInclude(it => it.ItemStates)
+            .Include(st => st.Item)
+                .ThenInclude(it => it.Comments)
                 .Where(st => stateIds.Contains(st.Id));
 
 
