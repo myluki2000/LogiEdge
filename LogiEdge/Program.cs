@@ -1,4 +1,4 @@
-﻿using Havit.Blazor.Components.Web;
+using Havit.Blazor.Components.Web;
 using Havit.Blazor.Components.Web.Bootstrap;
 using LogiEdge.ApiAuth;
 using LogiEdge.Areas.Identity;

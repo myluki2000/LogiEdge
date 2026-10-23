@@ -1,0 +1,252 @@
+﻿@page "/Settings/Tokens"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.Options
+@using LogiEdge.Shared.ApiAuth
+@attribute [Authorize(Roles = AppRoles.Admin)]
+@inject IAuthTokenService AuthTokenService
+@inject IUserDirectory UserDirectory
+@inject UserManager<IdentityUser> UserManager
+@inject IOptions<ApiTokensOptions> ApiTokensOptions
+
+@code {
+    private const string KindPermanent = "permanent";
+    private const string KindEphemeral = "ephemeral";
+
+    private IReadOnlyList<ApiTokenInfo>? _tokens;
+    private IReadOnlyDictionary<Guid, string> _userNames = new Dictionary<Guid, string>();
+    private List<IdentityUser> _users = new();
+
+    private Guid? _selectedUserId;
+    private string _newTokenName = "";
+    private string? _newTokenDescription;
+    private string _newTokenKind = KindPermanent;
+    private int _newTokenLifetimeMinutes = 5;
+
+    private CreatedToken? _createdToken;
+    private string? _formError;
+    private string? _revokeMessage;
+
+    private List<int> EphemeralLifetimeOptions =>
+        new[] { 5, 15, 30, 60 }
+            .Where(minutes => TimeSpan.FromMinutes(minutes) <= ApiTokensOptions.Value.EphemeralMaxLifetime)
+            .ToList();
+
+    private bool CanCreateEphemeral => EphemeralLifetimeOptions.Count > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        _users = UserManager.Users.ToList();
+        if (CanCreateEphemeral)
+        {
+            _newTokenLifetimeMinutes = EphemeralLifetimeOptions[0];
+        }
+
+        await LoadTokensAsync();
+    }
+
+    private async Task LoadTokensAsync()
+    {
+        IReadOnlyList<ApiTokenInfo> tokens = await AuthTokenService.GetTokensAsync();
+        Guid[] userIds = tokens.Select(t => t.UserId)
+                               .Concat(tokens.Select(t => t.CreatedByUserId))
+                               .Distinct()
+                               .ToArray();
+        _userNames = await UserDirectory.GetUserNamesAsync(userIds);
+        _tokens = tokens;
+    }
+
+    private string UserName(Guid userId) =>
+        _userNames.GetValueOrDefault(userId) ?? userId.ToString();
+
+    private static string UserLabel(IdentityUser user) =>
+        !string.IsNullOrEmpty(user.UserName) ? user.UserName : user.Email ?? user.Id.ToString();
+
+    private async Task CreateTokenAsync()
+    {
+        _formError = null;
+
+        if (_selectedUserId == null)
+        {
+            _formError = "Select a user.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_newTokenName))
+        {
+            _formError = "Name is required.";
+            return;
+        }
+
+        string name = _newTokenName.Trim();
+        CreatedToken created = _newTokenKind == KindEphemeral
+            ? await AuthTokenService.CreateEphemeralTokenAsync(_selectedUserId.Value, TimeSpan.FromMinutes(_newTokenLifetimeMinutes), name)
+            : await AuthTokenService.CreatePermanentTokenAsync(_selectedUserId.Value, name, string.IsNullOrWhiteSpace(_newTokenDescription) ? null : _newTokenDescription.Trim());
+
+        _createdToken = created;
+        _newTokenName = "";
+        _newTokenDescription = null;
+
+        await LoadTokensAsync();
+    }
+
+    private async Task RevokeAsync(ApiTokenInfo token)
+    {
+        _revokeMessage = null;
+
+        bool revoked = await AuthTokenService.RevokeTokenAsync(token.Id);
+        if (!revoked)
+        {
+            _revokeMessage = "The token could not be revoked.";
+        }
+
+        await LoadTokensAsync();
+    }
+
+    private static string KindOf(ApiTokenInfo token) =>
+        token.ExpiresAtUtc == null
+            ? "Permanent"
+            : $"Expires at {token.ExpiresAtUtc.Value:yyyy-MM-dd HH:mm} UTC";
+
+    private static bool IsActive(ApiTokenInfo token) =>
+        token.RevokedAtUtc == null && (token.ExpiresAtUtc == null || token.ExpiresAtUtc > DateTime.UtcNow);
+
+    private static string StatusOf(ApiTokenInfo token) =>
+        token.RevokedAtUtc != null ? "Revoked" :
+        token.ExpiresAtUtc != null && token.ExpiresAtUtc <= DateTime.UtcNow ? "Expired" : "Active";
+
+    private static string StatusBadgeClass(ApiTokenInfo token) =>
+        token.RevokedAtUtc != null ? "text-bg-danger" :
+        token.ExpiresAtUtc != null && token.ExpiresAtUtc <= DateTime.UtcNow ? "text-bg-secondary" : "text-bg-success";
+
+    private static string FormatLocal(DateTime utc) => utc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+}
+
+<h3>API Tokens</h3>
+
+@if (_tokens == null)
+{
+    <p>Loading tokens...</p>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-header">Create token</div>
+        <div class="card-body">
+            @if (_createdToken != null)
+            {
+                <div class="alert alert-info" key="@_createdToken.Id">
+                    <h6 class="alert-heading mb-2">Token created</h6>
+                    <p class="mb-2">Copy your new API token now. It is shown only once and cannot be retrieved later.</p>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" class="form-control-plaintext font-monospace" readonly value="@_createdToken.Value" />
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="navigator.clipboard.writeText('@_createdToken.Value')">Copy</button>
+                    </div>
+                </div>
+            }
+
+            @if (_formError != null)
+            {
+                <div class="alert alert-danger py-2">@_formError</div>
+            }
+
+            <form @onsubmit="CreateTokenAsync" @onsubmit:preventDefault>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="token-user">User</label>
+                        <select id="token-user" class="form-select" @bind="_selectedUserId">
+                            <option value="">Select a user...</option>
+                            @foreach (IdentityUser user in _users)
+                            {
+                                <option value="@user.Id">@UserLabel(user)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="token-name">Name</label>
+                        <input id="token-name" type="text" class="form-control" required @bind="_newTokenName" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="token-description">Description (optional)</label>
+                        <input id="token-description" type="text" class="form-control" @bind="_newTokenDescription" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="token-kind">Kind</label>
+                        <select id="token-kind" class="form-select" @bind="_newTokenKind">
+                            <option value="@KindPermanent">Permanent</option>
+                            @if (CanCreateEphemeral)
+                            {
+                                <option value="@KindEphemeral">Time-limited</option>
+                            }
+                        </select>
+                    </div>
+                    @if (_newTokenKind == KindEphemeral)
+                    {
+                        <div class="col-md-6">
+                            <label class="form-label" for="token-lifetime">Lifetime</label>
+                            <select id="token-lifetime" class="form-select" @bind="_newTokenLifetimeMinutes">
+                                @foreach (int minutes in EphemeralLifetimeOptions)
+                                {
+                                    <option value="@minutes">@minutes min</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">Create token</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Kind</th>
+                    <th>Created by</th>
+                    <th>Created</th>
+                    <th>Last used</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (_tokens.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8">No API tokens yet.</td>
+                    </tr>
+                }
+                @foreach (ApiTokenInfo token in _tokens)
+                {
+                    <tr>
+                        <td>@token.Name</td>
+                        <td>@UserName(token.UserId)</td>
+                        <td>@KindOf(token)</td>
+                        <td>@UserName(token.CreatedByUserId)</td>
+                        <td>@FormatLocal(token.CreatedAtUtc)</td>
+                        <td>@(token.LastUsedAtUtc == null ? "-" : FormatLocal(token.LastUsedAtUtc.Value))</td>
+                        <td><span class="badge @StatusBadgeClass(token)">@StatusOf(token)</span></td>
+                        <td>
+                            @if (IsActive(token))
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RevokeAsync(token)">Revoke</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (_revokeMessage != null)
+    {
+        <div class="alert alert-warning py-2">@_revokeMessage</div>
+    }
+}

@@ -1,4 +1,5 @@
 ﻿using LogiEdge.Data;
+using LogiEdge.Shared;
 using LogiEdge.Shared.ApiAuth;
 using LogiEdge.Shared.Utility;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -16,7 +17,8 @@ namespace LogiEdge.ApiAuth
         public async Task<CreatedToken> CreatePermanentTokenAsync(Guid userId, string name, string? description = null)
         {
             ValidateName(name);
-            Guid createdByUserId = await authenticationStateProvider.GetUserIdAsync();
+            Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
+            await EnsureMayActForUserAsync(actingUserId, userId);
 
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
             await EnsureUserExistsAsync(ctx, userId);
@@ -28,7 +30,7 @@ namespace LogiEdge.ApiAuth
                 Description = description,
                 UserId = userId.ToString(),
                 HashedToken = ApiTokenValue.Hash(tokenValue),
-                CreatedByUserId = createdByUserId.ToString(),
+                CreatedByUserId = actingUserId.ToString(),
                 CreatedAtUtc = DateTime.UtcNow,
             };
 
@@ -47,7 +49,8 @@ namespace LogiEdge.ApiAuth
                     $"Lifetime exceeds the configured maximum of {options.Value.EphemeralMaxLifetime}.");
 
             ValidateName(name);
-            Guid createdByUserId = await authenticationStateProvider.GetUserIdAsync();
+            Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
+            await EnsureMayActForUserAsync(actingUserId, userId);
 
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
             await EnsureUserExistsAsync(ctx, userId);
@@ -59,7 +62,7 @@ namespace LogiEdge.ApiAuth
                 Name = name,
                 UserId = userId.ToString(),
                 HashedToken = ApiTokenValue.Hash(tokenValue),
-                CreatedByUserId = createdByUserId.ToString(),
+                CreatedByUserId = actingUserId.ToString(),
                 CreatedAtUtc = DateTime.UtcNow,
                 ExpiresAtUtc = expiresAtUtc,
             };
@@ -70,16 +73,21 @@ namespace LogiEdge.ApiAuth
             return new CreatedToken(token.Id, tokenValue, token.ExpiresAtUtc);
         }
 
-        public async Task RevokeTokenAsync(Guid tokenId)
+        public async Task<bool> RevokeTokenAsync(Guid tokenId)
         {
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
 
             ApiToken? token = await ctx.ApiTokens.FirstOrDefaultAsync(t => t.Id == tokenId);
             if (token is null || token.RevokedAtUtc is not null)
-                return; // no-op: unknown or already revoked
+                return false; // no-op: unknown or already revoked
+
+            Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
+            if (actingUserId != Guid.Parse(token.UserId) && !await IsAdminAsync())
+                return false; // only the owner or an admin may revoke
 
             token.RevokedAtUtc = DateTime.UtcNow;
             await ctx.SaveChangesAsync();
+            return true;
         }
 
         public async Task<IReadOnlyList<ApiTokenInfo>> GetTokensAsync()
@@ -91,6 +99,24 @@ namespace LogiEdge.ApiAuth
                 .OrderByDescending(token => token.CreatedAtUtc)
                 .ToListAsync();
 
+            return ToTokenInfos(tokens);
+        }
+
+        public async Task<IReadOnlyList<ApiTokenInfo>> GetTokensForUserAsync(Guid userId)
+        {
+            await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
+
+            List<ApiToken> tokens = await ctx.ApiTokens
+                .AsNoTracking()
+                .Where(token => token.UserId == userId.ToString())
+                .OrderByDescending(token => token.CreatedAtUtc)
+                .ToListAsync();
+
+            return ToTokenInfos(tokens);
+        }
+
+        private static IReadOnlyList<ApiTokenInfo> ToTokenInfos(List<ApiToken> tokens)
+        {
             return tokens.Select(token => new ApiTokenInfo(
                 token.Id,
                 token.Name,
@@ -102,6 +128,19 @@ namespace LogiEdge.ApiAuth
                 token.RevokedAtUtc,
                 token.LastUsedAtUtc))
                 .ToList();
+        }
+
+        private async Task<bool> IsAdminAsync()
+        {
+            AuthenticationState state = await authenticationStateProvider.GetAuthenticationStateAsync();
+            return state.User.IsInRole(AppRoles.Admin);
+        }
+
+        private async Task EnsureMayActForUserAsync(Guid actingUserId, Guid targetUserId)
+        {
+            if (actingUserId != targetUserId && !await IsAdminAsync())
+                throw new UnauthorizedAccessException(
+                    $"User '{actingUserId}' may only create tokens for themselves.");
         }
 
         private static void ValidateName(string name)

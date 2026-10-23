@@ -10,5 +10,12 @@
     public static class AppAuthSchemes
     {
         public const string Token = "ApiToken";
+
+        /// <summary>
+        /// The Identity cookie scheme and the API token scheme, comma-separated — for use in
+        /// [Authorize(AuthenticationSchemes = ...)] attributes, which require constant expressions
+        /// (IdentityConstants.ApplicationScheme is a static readonly field, not a const, in .NET 10).
+        /// </summary>
+        public const string CookieAndToken = "Identity.Application, ApiToken";
     }
 }

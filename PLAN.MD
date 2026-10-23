@@ -329,14 +329,17 @@ migrations, and the UI is a static stub.
 |---|---|---|
 | `/` | Blazor page | `LogiEdge/Pages/Index.razor` (contains debug `Component1`) |
 | `/Settings` | Blazor page | settings KV editor (`ExcelImporterConfig` etc.) |
+| `/Settings/Tokens` | Blazor page | API token management, admin-only (`LogiEdge/Pages/Settings/Tokens.razor`) |
+| `/Identity/Account/Manage` | Razor Page | profile (with Profile / API Tokens nav) |
+| `/Identity/Account/Manage/Tokens` | Razor Page | own API tokens |
 | `/customers`, `/customers/{id}`, `/customers/create` | Blazor pages | WebUI.Customers |
 | `/warehouse/items`, `/warehouse/item/{ItemId}`, `/warehouse/create` | Blazor pages | WebUI.Warehouse |
 | `/warehouse/transactions/`, `/warehouse/transactions/{TransactionId:guid}` | Blazor pages | WebUI.Warehouse |
 | `/planning-board` | Blazor page (stub) | WebUI.PlanningBoard |
 | `/document-generator/templates/`, `.../{TemplateId:guid}` | Blazor pages | WebUI.DocumentGenerator |
 | `/tmp/{id:guid}` | Minimal API | cached file serving (PDF previews) |
-| `/api/attachments/{attachmentId:guid}/download` | MVC controller | attachment download |
-| `/RunExcelImport` | Minimal API | triggers Excel import |
+| `/api/attachments/{attachmentId:guid}/download` | MVC controller | attachment download (cookie or API token) |
+| `/RunExcelImport` | Minimal API | triggers Excel import (admin; cookie or API token) |
 
 ## 8. Conventions & Patterns to Follow
 

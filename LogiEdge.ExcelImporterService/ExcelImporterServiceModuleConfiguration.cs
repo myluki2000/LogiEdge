@@ -23,7 +23,7 @@ namespace LogiEdge.ExcelImporterService
             // per-request service provider (each HTTP request already runs in its own DI scope).
             app.MapGet("/RunExcelImport", async (HttpContext context) =>
                 await context.RequestServices.GetRequiredService<ExcelImportingService>().RunImportAsync())
-                .RequireAuthorization(new AuthorizeAttribute { Roles = AppRoles.Admin });
+                .RequireAuthorization(new AuthorizeAttribute { Roles = AppRoles.Admin, AuthenticationSchemes = AppAuthSchemes.CookieAndToken });
         }
 
         public Assembly Assembly => typeof(ExcelImporterServiceModuleConfiguration).Assembly;
