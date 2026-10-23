@@ -1,9 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using LogiEdge.CustomerService.Data;
 
 namespace LogiEdge.WarehouseService.Data
@@ -21,6 +18,11 @@ namespace LogiEdge.WarehouseService.Data
         /// Items that use this schema have these additional properties.
         /// </summary>
         public required List<ItemSchemaProperty> AdditionalProperties { get; set; }
+        /// <summary>
+        /// Lookup columns of this schema: read-only, derived properties whose values are looked up
+        /// from stored key-value tables (e.g. an article name by the item's ItemNumber).
+        /// </summary>
+        public List<ItemSchemaLookupColumn> LookupColumns { get; set; } = [];
         /// <summary>
         /// List of customers whose items use this schema.
         /// </summary>

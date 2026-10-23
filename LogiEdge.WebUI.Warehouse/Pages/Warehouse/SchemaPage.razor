@@ -1,0 +1,375 @@
+@page "/warehouse/schemas/{SchemaId:guid}"
+
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+@using LogiEdge.WebUI.Shared.Shared
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
+@inject WarehouseManagementService WarehouseService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+@code {
+    [Parameter]
+    public Guid SchemaId { get; set; }
+
+    private ItemSchemaDto? _schema;
+    private List<LookupColumnSection>? _columns;
+    private bool _loaded;
+
+    // add-column form state
+    private string _newColumnName = string.Empty;
+    private string? _newColumnDescription;
+    private string? _addColumnError;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await base.OnParametersSetAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        ItemSchemaDto? schema = await WarehouseService.GetItemSchema(SchemaId);
+        _schema = schema;
+
+        List<LookupColumnSection>? sections = null;
+        if (schema != null)
+        {
+            ItemSchemaLookupColumnDetailDto?[] details = await Task.WhenAll(
+                schema.LookupColumns.Select(c => WarehouseService.GetItemSchemaLookupColumnAsync(c.Id)));
+
+            sections = [];
+            foreach (ItemSchemaLookupColumnDetailDto? detail in details)
+            {
+                if (detail == null)
+                    continue;
+
+                LookupColumnSection section = new()
+                {
+                    Column = detail
+                };
+
+                // keep the client-side state of a column that is still there across reloads
+                LookupColumnSection? previous = _columns?.FirstOrDefault(c => c.Column.Id == detail.Id);
+                if (previous != null)
+                {
+                    section.SearchTerm = previous.SearchTerm;
+                    section.BulkAddText = previous.BulkAddText;
+                }
+
+                sections.Add(section);
+            }
+        }
+
+        _columns = sections;
+        _loaded = true;
+    }
+
+    private async Task AddColumnAsync()
+    {
+        _addColumnError = null;
+
+        if (string.IsNullOrWhiteSpace(_newColumnName))
+        {
+            _addColumnError = "A name is required for the new lookup column.";
+            return;
+        }
+
+        try
+        {
+            await WarehouseService.AddLookupColumnAsync(SchemaId, _newColumnName.Trim(), _newColumnDescription);
+            _newColumnName = string.Empty;
+            _newColumnDescription = null;
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            _addColumnError = ex.Message;
+        }
+    }
+
+    private async Task RemoveColumnAsync(LookupColumnSection section)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"Remove lookup column \"{section.Column.Name}\"? All of its entries will be deleted as well.");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            await WarehouseService.RemoveLookupColumnAsync(section.Column.Id);
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            section.FeedbackError = ex.Message;
+        }
+    }
+
+    private async Task RemoveEntryAsync(LookupColumnSection section, Guid entryId)
+    {
+        try
+        {
+            await WarehouseService.RemoveLookupEntryAsync(entryId);
+            await LoadAsync();
+        }
+        catch (InvalidOperationException ex)
+        {
+            section.FeedbackError = ex.Message;
+        }
+    }
+
+    private async Task AddEntriesAsync(LookupColumnSection section)
+    {
+        section.AddFeedback = null;
+        section.BulkAddError = null;
+
+        List<(string Key, string Value)> entries = ParseBulkEntries(section.BulkAddText);
+        if (entries.Count == 0)
+            return;
+
+        try
+        {
+            (int added, int updated) = await WarehouseService.AddLookupEntriesAsync(section.Column.Id, entries);
+            await LoadAsync();
+
+            // the sections were rebuilt by the reload — set the feedback on the reloaded one
+            LookupColumnSection? reloaded = _columns?.FirstOrDefault(c => c.Column.Id == section.Column.Id);
+            if (reloaded != null)
+            {
+                reloaded.AddFeedback = $"Added {added}, updated {updated}.";
+                reloaded.BulkAddText = string.Empty;
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            section.BulkAddError = ex.Message;
+        }
+    }
+
+    // one entry per line: key,value — split on the first comma, so values may contain further commas;
+    // whitespace around key and value is trimmed; lines without a comma are skipped
+    private static List<(string Key, string Value)> ParseBulkEntries(string text)
+    {
+        List<(string Key, string Value)> entries = [];
+
+        foreach (string line in text.Split('\n'))
+        {
+            int separatorIndex = line.IndexOf(',');
+            if (separatorIndex < 0)
+                continue;
+
+            entries.Add((line[..separatorIndex].Trim(), line[(separatorIndex + 1)..].Trim()));
+        }
+
+        return entries;
+    }
+
+    private sealed class LookupColumnSection
+    {
+        public required ItemSchemaLookupColumnDetailDto Column { get; set; }
+        public string SearchTerm { get; set; } = string.Empty;
+        public string BulkAddText { get; set; } = string.Empty;
+        public string? AddFeedback { get; set; }
+        public string? BulkAddError { get; set; }
+        public string? FeedbackError { get; set; }
+
+        public IEnumerable<ItemSchemaLookupEntryDto> FilteredEntries =>
+            Column.Entries.Where(e => SearchTerm.Length == 0
+                || e.Key.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                || e.Value.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+@if (!_loaded || _schema == null)
+{
+    @if (_loaded && _schema == null)
+    {
+        <div class="schema-page">
+            <h3>Schema not found</h3>
+            <p>No item schema with ID @SchemaId exists.</p>
+            <a href="@(RouteTo<SchemasPage>())">Back to item schemas</a>
+        </div>
+    }
+    else
+    {
+        <HxSpinner />
+    }
+}
+else
+{
+    <div class="schema-page">
+        <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm" title="Back to item schemas" aria-label="Back to item schemas"
+                    @onclick="@(() => NavigationManager.NavigateToRoute<SchemasPage>())">
+                <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+            <h3 class="mb-0">@_schema.Name</h3>
+            <span class="badge text-bg-secondary" title="Number of lookup columns">@_schema.LookupColumns.Count lookup columns</span>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Properties</span>
+                        <span class="badge text-bg-secondary">@_schema.AdditionalProperties.Count</span>
+                    </div>
+                    <div class="card-body">
+                        @if (_schema.AdditionalProperties.Count == 0)
+                        {
+                            <p class="text-muted mb-0">This schema has no additional properties.</p>
+                        }
+                        else
+                        {
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Property</th>
+                                        <th scope="col">Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (ItemPropertyInfoDto property in _schema.AdditionalProperties)
+                                    {
+                                        <tr>
+                                            <th scope="row">@property.Name</th>
+                                            <td>@property.Type.Name</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Lookup columns</span>
+                        <span class="badge text-bg-secondary">@(_columns?.Count ?? 0)</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="new-lookup-column-name">Name</label>
+                                <InputText id="new-lookup-column-name" class="form-control" placeholder="e.g. ArticleName" @bind-Value="_newColumnName" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="new-lookup-column-description">Description</label>
+                                <InputText id="new-lookup-column-description" class="form-control" placeholder="optional" @bind-Value="_newColumnDescription" />
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <HxButton Color="ThemeColor.Primary" OnClick="AddColumnAsync">
+                                    <span class="material-symbols-rounded">add</span>Add column
+                                </HxButton>
+                            </div>
+                        </div>
+
+                        @if (_addColumnError != null)
+                        {
+                            <div class="alert alert-danger py-2" role="alert">@_addColumnError</div>
+                        }
+
+                        @if ((_columns?.Count ?? 0) == 0)
+                        {
+                            <p class="text-muted mb-0">No lookup columns yet. Add one above.</p>
+                        }
+
+                        @{
+                            List<LookupColumnSection> sections = _columns ?? [];
+                        }
+                        @for (int i = 0; i < sections.Count; i++)
+                        {
+                            LookupColumnSection section = sections[i];
+
+                            <div class="@(i == 0 ? "" : "border-top pt-3 mt-3")">
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <h5 class="mb-0">@section.Column.Name</h5>
+                                    @if (!string.IsNullOrWhiteSpace(section.Column.Description))
+                                    {
+                                        <span class="text-muted">@section.Column.Description</span>
+                                    }
+                                    <span class="badge text-bg-secondary ms-auto" title="Number of entries in this column">@section.Column.Entries.Count entries</span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Remove lookup column (including all its entries)" aria-label="Remove lookup column"
+                                            @onclick="() => RemoveColumnAsync(section)">
+                                        <span class="material-symbols-rounded">delete</span>
+                                    </button>
+                                </div>
+
+                                @if (section.FeedbackError != null)
+                                {
+                                    <div class="alert alert-danger py-2 mt-2" role="alert">@section.FeedbackError</div>
+                                }
+
+                                <div class="input-group input-group-sm mt-2" style="max-width: 320px;">
+                                    <span class="input-group-text"><span class="material-symbols-rounded">search</span></span>
+                                    <InputText class="form-control" placeholder="Search entries..." @bind-Value="section.SearchTerm" />
+                                </div>
+
+                                @if (section.Column.Entries.Count == 0)
+                                {
+                                    <p class="text-muted small mt-2 mb-0">No entries yet — add some below.</p>
+                                }
+                                else if (!section.FilteredEntries.Any())
+                                {
+                                    <p class="text-muted small mt-2 mb-0">No entries match “@section.SearchTerm”.</p>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive mt-2">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Key</th>
+                                                    <th scope="col">Value</th>
+                                                    <th scope="col" class="text-end"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (ItemSchemaLookupEntryDto entry in section.FilteredEntries)
+                                                {
+                                                    <tr>
+                                                        <td>@entry.Key</td>
+                                                        <td>@entry.Value</td>
+                                                        <td class="text-end">
+                                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Remove entry" aria-label="Remove entry"
+                                                                    @onclick="() => RemoveEntryAsync(section, entry.Id)">
+                                                                <span class="material-symbols-rounded">delete</span>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+
+                                <div class="mt-3">
+                                    <label class="form-label" for="@($"bulk-add-{section.Column.Id}")">Add entries</label>
+                                    <InputTextArea id="@($"bulk-add-{section.Column.Id}")" class="form-control font-monospace" rows="4"
+                                                   placeholder="key,value per line" @bind-Value="section.BulkAddText" />
+                                    <div class="form-text">One entry per line: key,value — split on the first comma, so values may contain further commas; whitespace around key and value is trimmed</div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <HxButton Color="ThemeColor.Primary" Size="ButtonSize.Small" OnClick="() => AddEntriesAsync(section)">Add entries</HxButton>
+                                        @if (section.AddFeedback != null)
+                                        {
+                                            <span class="text-success small">@section.AddFeedback</span>
+                                        }
+                                    </div>
+                                    @if (section.BulkAddError != null)
+                                    {
+                                        <div class="alert alert-danger py-2 mt-2" role="alert">@section.BulkAddError</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
