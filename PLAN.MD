@@ -199,6 +199,7 @@ methods (sync versions are `.Result` wrappers — prefer the async ones in UI co
 - `ItemSchema` — named template of additional properties; many-to-many with customers.
   `ItemSchemaProperty` is `[Owned]`: name + `SupportedTypes` enum (String, Int32, Single,
   Boolean, DateTime) + IsRequired/IsUnique.
+- `ItemSchemaLookupColumn` / `ItemSchemaLookupEntry` — lookup columns of a schema: read-only derived properties resolved by key (v1: `ItemNumber`) against stored key-value entries; unique indexes on (schema, name) and (column, key). Managed via the `/warehouse/schemas` pages.
 - `ItemState` — one row per (item, date, warehouse, location): the item's position in
   time. `IsInWarehouse` excludes special locations `__PRE_ARRIVAL` and `__SHIPPED`
   (`SpecialLocations.cs` also defines `__ARRIVAL_AREA`, `__LOADING_AREA`).
@@ -236,7 +237,7 @@ system used by all item tables:
 - Which properties are displayable/filterable is driven by attributes on the entity:
   `[DisplayColumnProperty]` (shows as a column) and `[QueryFilterableProperty(optional
   compare-with property)]` (filterable via query params; e.g. `Customer` filters by
-  `CustomerId`). Schema additional properties are always displayable + filterable.
+  `CustomerId`). Schema additional properties are always displayable + filterable. Schema lookup columns are likewise displayable + filterable; their values are resolved in memory after the query (one indexed load of the entries for the schemas in scope via `LookupValueResolver`), so filters on them apply as an in-memory post-filter.
 - `ItemsTableService.GetItemsAtStateAsync / GetItemsAsync / GetAllItemsAsync` build an
   `IQueryable<ItemState>` (with deep Includes) and apply:
   - `ItemsTablePropertyFilter` — builds **expression trees**: equality filters for base
@@ -329,17 +330,14 @@ migrations, and the UI is a static stub.
 |---|---|---|
 | `/` | Blazor page | `LogiEdge/Pages/Index.razor` (contains debug `Component1`) |
 | `/Settings` | Blazor page | settings KV editor (`ExcelImporterConfig` etc.) |
-| `/Settings/Tokens` | Blazor page | API token management, admin-only (`LogiEdge/Pages/Settings/Tokens.razor`) |
-| `/Identity/Account/Manage` | Razor Page | profile (with Profile / API Tokens nav) |
-| `/Identity/Account/Manage/Tokens` | Razor Page | own API tokens |
 | `/customers`, `/customers/{id}`, `/customers/create` | Blazor pages | WebUI.Customers |
 | `/warehouse/items`, `/warehouse/item/{ItemId}`, `/warehouse/create` | Blazor pages | WebUI.Warehouse |
 | `/warehouse/transactions/`, `/warehouse/transactions/{TransactionId:guid}` | Blazor pages | WebUI.Warehouse |
 | `/planning-board` | Blazor page (stub) | WebUI.PlanningBoard |
 | `/document-generator/templates/`, `.../{TemplateId:guid}` | Blazor pages | WebUI.DocumentGenerator |
 | `/tmp/{id:guid}` | Minimal API | cached file serving (PDF previews) |
-| `/api/attachments/{attachmentId:guid}/download` | MVC controller | attachment download (cookie or API token) |
-| `/RunExcelImport` | Minimal API | triggers Excel import (admin; cookie or API token) |
+| `/api/attachments/{attachmentId:guid}/download` | MVC controller | attachment download |
+| `/RunExcelImport` | Minimal API | triggers Excel import |
 
 ## 8. Conventions & Patterns to Follow
 

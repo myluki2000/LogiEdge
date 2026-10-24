@@ -1,0 +1,79 @@
+@page "/warehouse/schemas"
+
+@using LogiEdge.CustomerService.Dto
+@using LogiEdge.CustomerService.Services
+@using LogiEdge.WarehouseService.Dto
+@using LogiEdge.WarehouseService.Services.WarehouseManagement
+
+@inject WarehouseManagementService WarehouseService
+@inject CustomerManagementService CustomerService
+
+@code {
+    private List<ItemSchemaDto>? _schemas;
+    private Dictionary<Guid, string> _customerNames = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        List<CustomerDto> customers = await CustomerService.GetCustomersAsync();
+        _customerNames = customers.ToDictionary(c => c.Id, c => c.Name);
+        _schemas = await WarehouseService.GetItemSchemas();
+    }
+}
+
+<div class="schemas-page">
+    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+        <h3 class="mb-0">Item schemas</h3>
+        @if (_schemas != null)
+        {
+            <span class="badge text-bg-secondary" title="Total number of item schemas">@_schemas.Count</span>
+        }
+    </div>
+
+    @if (_schemas is null)
+    {
+        <HxSpinner />
+    }
+    else if (_schemas.Count == 0)
+    {
+        <div class="card">
+            <div class="card-body text-center">
+                <p class="text-muted mb-0">No item schemas yet. Schemas are created by the Excel inventory import.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Additional properties</th>
+                            <th>Lookup columns</th>
+                            <th>Customers</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (ItemSchemaDto schema in _schemas)
+                        {
+                            <tr>
+                                <td><a href="@(RouteTo<SchemaPage>("SchemaId", schema.Id))">@schema.Name</a></td>
+                                <td><span class="badge text-bg-light">@schema.AdditionalProperties.Count</span></td>
+                                <td><span class="badge text-bg-light">@schema.LookupColumns.Count</span></td>
+                                <td>
+                                    @foreach (Guid customerId in schema.CustomerIds)
+                                    {
+                                        <span class="badge text-bg-secondary me-1">@_customerNames.GetValueOrDefault(customerId, customerId.ToString())</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

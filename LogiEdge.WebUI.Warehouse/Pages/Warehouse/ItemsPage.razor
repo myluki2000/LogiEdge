@@ -63,53 +63,34 @@
 
     private void UpdateUrl()
     {
+        Dictionary<string, StringValues> newQueryParameters = [];
+        AddToNewQueryParameters(FilterParameters?.ToQueryParameters());
+        AddToNewQueryParameters(SortParameters?.ToQueryParameters());
+        AddToNewQueryParameters(ColumnDisplayParameters?.ToQueryParameters());
+        AddToNewQueryParameters(StateParameters?.ToQueryParameters());
+
         // get the old query parameters
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
         Dictionary<string, StringValues> queryParameters = QueryHelpers.ParseQuery(uri.Query)
             .Where(x => x.Value.Count > 0)
             .ToDictionary();
 
-        Dictionary<string, StringValues> newQueryParameters = [];
-        bool changed = false;
-
-        // for each parameters object, check if our url parameters differ from the current ones, and update them if so
-        ItemsTableFilterParameters urlFilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
-        if (!urlFilterParameters.Equals(FilterParameters) && FilterParameters != null)
-        {
-            AddToNewQueryParameters(FilterParameters.ToQueryParameters());
-            changed = true;
-        }
-        ItemsTableSortParameters urlSortParameters = ItemsTableSortParameters.FromQueryParameters(queryParameters);
-        if (!urlSortParameters.Equals(SortParameters) && SortParameters != null)
-        {
-            AddToNewQueryParameters(SortParameters.ToQueryParameters());
-            changed = true;
-        }
-        ItemsTableColumnDisplayParameters urlColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters(queryParameters);
-        if (!urlColumnDisplayParameters.Equals(ColumnDisplayParameters) && ColumnDisplayParameters != null)
-        {
-            AddToNewQueryParameters(ColumnDisplayParameters.ToQueryParameters());
-            changed = true;
-        }
-
-        ItemsTableStateParameters urlStateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
-        if (!urlStateParameters.Equals(StateParameters) && StateParameters != null)
-        {
-            AddToNewQueryParameters(StateParameters.ToQueryParameters());
-            changed = true;
-        }
-
-        string newUrl = GetPageUrlWithParams(newQueryParameters);
+        bool changed = newQueryParameters.Count != queryParameters.Count ||
+                       !newQueryParameters.All(kvp => queryParameters.TryGetValue(kvp.Key, out StringValues value) &&
+                                                     value.SequenceEqual(kvp.Value));
 
         if (changed)
         {
-            NavigationManager.NavigateTo(newUrl, forceLoad: false);
+            NavigationManager.NavigateTo(GetPageUrlWithParams(newQueryParameters), forceLoad: false);
         }
 
         return;
 
-        void AddToNewQueryParameters(Dictionary<string, StringValues> parameters)
+        void AddToNewQueryParameters(Dictionary<string, StringValues>? parameters)
         {
+            if (parameters == null)
+                return;
+
             foreach (KeyValuePair<string, StringValues> kvp in parameters)
             {
                 newQueryParameters[kvp.Key] = kvp.Value;

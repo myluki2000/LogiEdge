@@ -35,6 +35,13 @@ namespace LogiEdge.WarehouseService.Dto
 
         public required List<ItemAdditionalPropertyDto> AdditionalProperties { get; set; }
 
+        /// <summary>
+        /// Values derived from the item schema's lookup tables (keyed by the item's ItemNumber), not stored on the item
+        /// itself. Deliberately reuses ItemAdditionalPropertyDto (Type will be String) so all rendering paths treat
+        /// lookups like any other property.
+        /// </summary>
+        public required List<ItemAdditionalPropertyDto> LookupProperties { get; set; } = [];
+
         [DisplayColumnProperty]
         public required SortedSet<Comment> Comments { get; set; }
 
@@ -72,16 +79,37 @@ namespace LogiEdge.WarehouseService.Dto
                 return itemProperty.GetValue(this);
 
             ItemAdditionalPropertyDto? additionalProperty = AdditionalProperties.FirstOrDefault(x => x.Name == propertyName);
-            return additionalProperty?.Value;
+            if (additionalProperty != null)
+                return additionalProperty.Value;
+
+            return LookupProperties.FirstOrDefault(x => x.Name == propertyName)?.Value;
         }
 
         /// <summary>
         /// Creates a DTO from an Item entity and the specific ItemState to represent. The Item's ItemSchema (including its
-        /// AdditionalProperties), Customer, Comments and ItemStates navigations must be loaded, e.g. via .Include(), as well
+        /// AdditionalProperties and LookupColumns), Customer, Comments and ItemStates navigations must be loaded, e.g. via
+        /// .Include(), as well
         /// as the state's Warehouse navigation.
+        /// When lookupValuesByColumn is provided (column name → resolved value), the matching schema lookup columns are
+        /// added to LookupProperties; otherwise it stays empty.
         /// </summary>
-        public static ItemAtStateDto FromItem(Item item, ItemState state)
+        public static ItemAtStateDto FromItem(Item item, ItemState state, IReadOnlyDictionary<string, string>? lookupValuesByColumn = null)
         {
+            List<ItemAdditionalPropertyDto> lookupProperties = [];
+            if (lookupValuesByColumn != null)
+            {
+                foreach (ItemSchemaLookupColumn column in item.ItemSchema.LookupColumns)
+                {
+                    if (lookupValuesByColumn.TryGetValue(column.Name, out string? value))
+                        lookupProperties.Add(new ItemAdditionalPropertyDto()
+                        {
+                            Name = column.Name,
+                            Value = value,
+                            Type = ItemSchemaProperty.SupportedTypes.String,
+                        });
+                }
+            }
+
             return new ItemAtStateDto()
             {
                 Id = item.Id,
@@ -97,6 +125,7 @@ namespace LogiEdge.WarehouseService.Dto
                         Type = ap.Type,
                     })
                     .ToList(),
+                LookupProperties = lookupProperties,
                 Comments = item.Comments,
                 EntryDate = item.ItemStates.Where(st => st.IsInWarehouse).Min(st => (DateTime?)st.Date),
                 Date = state.Date,

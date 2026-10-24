@@ -52,8 +52,8 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             if (SortByProperty is not null)
             {
                 result["sortBy"] = SortByProperty;
+                result["orderDescending"] = SortOrderDescending.ToString();
             }
-            result["orderDescending"] = SortOrderDescending.ToString();
             if (GroupByProperties.Length > 0)
             {
                 result["groupBy"] = new StringValues(GroupByProperties);
