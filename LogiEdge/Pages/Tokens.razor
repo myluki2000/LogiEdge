@@ -44,12 +44,12 @@
             _newTokenLifetimeMinutes = EphemeralLifetimeOptions[0];
         }
 
-        await LoadTokensAsync();
+        await LoadTokens();
     }
 
-    private async Task LoadTokensAsync()
+    private async Task LoadTokens()
     {
-        IReadOnlyList<ApiTokenInfo> tokens = await AuthTokenService.GetTokensAsync();
+        IReadOnlyList<ApiTokenInfo> tokens = await AuthTokenService.GetAllTokens();
         Guid[] userIds = tokens.Select(t => t.UserId)
                                .Concat(tokens.Select(t => t.CreatedByUserId))
                                .Distinct()
@@ -64,7 +64,7 @@
     private static string UserLabel(IdentityUser user) =>
         !string.IsNullOrEmpty(user.UserName) ? user.UserName : user.Email ?? user.Id.ToString();
 
-    private async Task CreateTokenAsync()
+    private async Task CreateToken()
     {
         _formError = null;
 
@@ -82,27 +82,27 @@
 
         string name = _newTokenName.Trim();
         CreatedToken created = _newTokenKind == KindEphemeral
-            ? await AuthTokenService.CreateEphemeralTokenAsync(_selectedUserId.Value, TimeSpan.FromMinutes(_newTokenLifetimeMinutes), name)
-            : await AuthTokenService.CreatePermanentTokenAsync(_selectedUserId.Value, name, string.IsNullOrWhiteSpace(_newTokenDescription) ? null : _newTokenDescription.Trim());
+            ? await AuthTokenService.CreateEphemeralToken(_selectedUserId.Value, TimeSpan.FromMinutes(_newTokenLifetimeMinutes), name)
+            : await AuthTokenService.CreatePermanentToken(_selectedUserId.Value, name, string.IsNullOrWhiteSpace(_newTokenDescription) ? null : _newTokenDescription.Trim());
 
         _createdToken = created;
         _newTokenName = "";
         _newTokenDescription = null;
 
-        await LoadTokensAsync();
+        await LoadTokens();
     }
 
-    private async Task RevokeAsync(ApiTokenInfo token)
+    private async Task Revoke(ApiTokenInfo token)
     {
         _revokeMessage = null;
 
-        bool revoked = await AuthTokenService.RevokeTokenAsync(token.Id);
+        bool revoked = await AuthTokenService.RevokeToken(token.Id);
         if (!revoked)
         {
             _revokeMessage = "The token could not be revoked.";
         }
 
-        await LoadTokensAsync();
+        await LoadTokens();
     }
 
     private static string KindOf(ApiTokenInfo token) =>
@@ -152,7 +152,7 @@ else
                 <div class="alert alert-danger py-2">@_formError</div>
             }
 
-            <form @onsubmit="CreateTokenAsync" @onsubmit:preventDefault>
+            <form @onsubmit="CreateToken" @onsubmit:preventDefault>
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="token-user">User</label>
@@ -236,7 +236,7 @@ else
                         <td>
                             @if (IsActive(token))
                             {
-                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RevokeAsync(token)">Revoke</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => Revoke(token)">Revoke</button>
                             }
                         </td>
                     </tr>

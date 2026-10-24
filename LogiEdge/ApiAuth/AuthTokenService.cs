@@ -14,14 +14,14 @@ namespace LogiEdge.ApiAuth
         AuthenticationStateProvider authenticationStateProvider,
         IOptions<ApiTokensOptions> options) : IAuthTokenService
     {
-        public async Task<CreatedToken> CreatePermanentTokenAsync(Guid userId, string name, string? description = null)
+        public async Task<CreatedToken> CreatePermanentToken(Guid userId, string name, string? description = null)
         {
             ValidateName(name);
             Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
-            await EnsureMayActForUserAsync(actingUserId, userId);
+            await EnsureMayActForUser(actingUserId, userId);
 
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
-            await EnsureUserExistsAsync(ctx, userId);
+            await EnsureUserExists(ctx, userId);
 
             string tokenValue = ApiTokenValue.Generate();
             ApiToken token = new()
@@ -40,7 +40,7 @@ namespace LogiEdge.ApiAuth
             return new CreatedToken(token.Id, tokenValue, token.ExpiresAtUtc);
         }
 
-        public async Task<CreatedToken> CreateEphemeralTokenAsync(Guid userId, TimeSpan lifetime, string name = "ephemeral")
+        public async Task<CreatedToken> CreateEphemeralToken(Guid userId, TimeSpan lifetime, string name = "ephemeral")
         {
             if (lifetime <= TimeSpan.Zero)
                 throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, "Lifetime must be positive.");
@@ -50,10 +50,10 @@ namespace LogiEdge.ApiAuth
 
             ValidateName(name);
             Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
-            await EnsureMayActForUserAsync(actingUserId, userId);
+            await EnsureMayActForUser(actingUserId, userId);
 
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
-            await EnsureUserExistsAsync(ctx, userId);
+            await EnsureUserExists(ctx, userId);
 
             string tokenValue = ApiTokenValue.Generate();
             DateTime expiresAtUtc = DateTime.UtcNow + lifetime;
@@ -73,7 +73,7 @@ namespace LogiEdge.ApiAuth
             return new CreatedToken(token.Id, tokenValue, token.ExpiresAtUtc);
         }
 
-        public async Task<bool> RevokeTokenAsync(Guid tokenId)
+        public async Task<bool> RevokeToken(Guid tokenId)
         {
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
 
@@ -82,7 +82,7 @@ namespace LogiEdge.ApiAuth
                 return false; // no-op: unknown or already revoked
 
             Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
-            if (actingUserId != Guid.Parse(token.UserId) && !await IsAdminAsync())
+            if (actingUserId != Guid.Parse(token.UserId) && !await IsAdmin())
                 return false; // only the owner or an admin may revoke
 
             token.RevokedAtUtc = DateTime.UtcNow;
@@ -90,8 +90,24 @@ namespace LogiEdge.ApiAuth
             return true;
         }
 
-        public async Task<IReadOnlyList<ApiTokenInfo>> GetTokensAsync()
+        public async Task<IReadOnlyList<ApiTokenInfo>> GetTokens()
         {
+            Guid actingUserId = await authenticationStateProvider.GetUserIdAsync();
+            return await GetTokensForUserCore(actingUserId);
+        }
+
+        public async Task<IReadOnlyList<ApiTokenInfo>> GetTokensForUser(Guid userId)
+        {
+            if (!await IsAdmin())
+                throw new UnauthorizedAccessException($"Only admins may list tokens of user '{userId}'.");
+            return await GetTokensForUserCore(userId);
+        }
+
+        public async Task<IReadOnlyList<ApiTokenInfo>> GetAllTokens()
+        {
+            if (!await IsAdmin())
+                throw new UnauthorizedAccessException("Only admins may list all tokens.");
+
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
 
             List<ApiToken> tokens = await ctx.ApiTokens
@@ -102,7 +118,7 @@ namespace LogiEdge.ApiAuth
             return ToTokenInfos(tokens);
         }
 
-        public async Task<IReadOnlyList<ApiTokenInfo>> GetTokensForUserAsync(Guid userId)
+        private async Task<IReadOnlyList<ApiTokenInfo>> GetTokensForUserCore(Guid userId)
         {
             await using AppIdentityDbContext ctx = await dbContextFactory.CreateDbContextAsync();
 
@@ -130,15 +146,15 @@ namespace LogiEdge.ApiAuth
                 .ToList();
         }
 
-        private async Task<bool> IsAdminAsync()
+        private async Task<bool> IsAdmin()
         {
             AuthenticationState state = await authenticationStateProvider.GetAuthenticationStateAsync();
             return state.User.IsInRole(AppRoles.Admin);
         }
 
-        private async Task EnsureMayActForUserAsync(Guid actingUserId, Guid targetUserId)
+        private async Task EnsureMayActForUser(Guid actingUserId, Guid targetUserId)
         {
-            if (actingUserId != targetUserId && !await IsAdminAsync())
+            if (actingUserId != targetUserId && !await IsAdmin())
                 throw new UnauthorizedAccessException(
                     $"User '{actingUserId}' may only create tokens for themselves.");
         }
@@ -149,7 +165,7 @@ namespace LogiEdge.ApiAuth
                 throw new ArgumentException("Token name must not be empty.", nameof(name));
         }
 
-        private static async Task EnsureUserExistsAsync(AppIdentityDbContext ctx, Guid userId)
+        private static async Task EnsureUserExists(AppIdentityDbContext ctx, Guid userId)
         {
             bool exists = await ctx.Users.AnyAsync(user => user.Id == userId.ToString());
             if (!exists)

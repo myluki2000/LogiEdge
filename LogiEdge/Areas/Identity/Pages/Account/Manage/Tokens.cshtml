@@ -176,7 +176,7 @@ else
         var ownUserId = GetOwnUserId();
         if (ownUserId is not null)
         {
-            Tokens = await AuthTokenService.GetTokensForUserAsync(ownUserId.Value);
+            Tokens = await AuthTokenService.GetTokens();
         }
     }
 
@@ -215,15 +215,15 @@ else
 
         if (timeLimited)
         {
-            NewToken = await AuthTokenService.CreateEphemeralTokenAsync(ownUserId.Value, TimeSpan.FromMinutes(TokenInput.LifetimeMinutes!.Value), name!);
+            NewToken = await AuthTokenService.CreateEphemeralToken(ownUserId.Value, TimeSpan.FromMinutes(TokenInput.LifetimeMinutes!.Value), name!);
         }
         else
         {
-            NewToken = await AuthTokenService.CreatePermanentTokenAsync(ownUserId.Value, name!, description);
+            NewToken = await AuthTokenService.CreatePermanentToken(ownUserId.Value, name!, description);
         }
 
         TokenInput = new TokenInputModel();
-        Tokens = await AuthTokenService.GetTokensForUserAsync(ownUserId.Value);
+        Tokens = await AuthTokenService.GetTokens();
         return Page();
     }
 
@@ -235,12 +235,12 @@ else
             return NotFound();
         }
 
-        var revoked = await AuthTokenService.RevokeTokenAsync(tokenId);
+        var revoked = await AuthTokenService.RevokeToken(tokenId);
         StatusMessage = revoked
             ? "The token has been revoked."
             : "The token could not be revoked. It may have already been revoked.";
 
-        Tokens = await AuthTokenService.GetTokensForUserAsync(ownUserId.Value);
+        Tokens = await AuthTokenService.GetTokens();
         return Page();
     }
 
