@@ -14,6 +14,7 @@ using LogiEdge.Shared;
 using LogiEdge.Shared.ApiAuth;
 using LogiEdge.WebUI.DocumentGenerator;
 using LogiEdge.WebUI.PlanningBoard;
+using LogiEdge.WebUI.Shared;
 using LogiEdge.WebUI.Warehouse;
 using LogiEdge.WarehouseService;
 using Microsoft.AspNetCore.Authentication;
@@ -78,41 +79,49 @@ namespace LogiEdge
             builder.Services.Configure<ApiTokensOptions>(builder.Configuration.GetSection(ApiTokensOptions.SectionName));
 
             builder.Services.AddSingleton<ServiceModuleConfigurationCollection>();
+            builder.Services.AddSingleton<WebUIModuleConfigurationCollection>();
 
-            // modules
-            List<IServiceModuleConfiguration> modules =
+            // service modules: DI + migrations
+            List<IServiceModuleConfiguration> serviceModules =
             [
                 new BaseServiceModuleConfiguration(),
-                new CustomerManagementModuleConfiguration(),
                 new CustomerServiceModuleConfiguration(),
-                new WarehouseModuleConfiguration(),
                 new WarehouseServiceModuleConfiguration(),
                 new ExcelImporterServiceModuleConfiguration(),
                 new PlanningBoardServiceModuleConfiguration(),
-                new PlanningBoardWebUiModuleConfiguration(),
                 new DocumentGeneratorServiceModuleConfiguration(),
+            ];
+
+            // webui modules: Blazor route discovery + nav menu
+            List<IWebUIModuleConfiguration> webUiModules =
+            [
+                new CustomerManagementModuleConfiguration(),
+                new WarehouseModuleConfiguration(),
+                new PlanningBoardWebUiModuleConfiguration(),
                 new DocumentGeneratorWebUiModuleConfiguration(),
             ];
 
             // add services of modules
-            foreach (IServiceModuleConfiguration module in modules)
+            foreach (IServiceModuleConfiguration module in serviceModules)
             {
                 module.RegisterServices(builder);
             }
 
-            // auto mapper profiles
+            // auto mapper profiles - service modules only; no WebUI project contains an AutoMapper
+            // Profile class today, so this is behavior-equivalent to the previous all-modules scan.
             builder.Services.AddAutoMapper(cfg =>
             {
-                cfg.AddMaps(modules.Select(x => x.Assembly).Distinct());
-            }, [typeof(Program).Assembly, ..modules.Select(x => x.Assembly).Distinct()]);
+                cfg.AddMaps(serviceModules.Select(x => x.Assembly).Distinct());
+            }, [typeof(Program).Assembly, ..serviceModules.Select(x => x.Assembly).Distinct()]);
             
             // build app
             var app = builder.Build();
 
-            // add modules to our module list stored as a singleton service
-            app.Services.GetService<ServiceModuleConfigurationCollection>()!.AddRange(modules);
+            // add modules to our module lists stored as singleton services
+            app.Services.GetService<ServiceModuleConfigurationCollection>()!.AddRange(serviceModules);
+            app.Services.GetService<WebUIModuleConfigurationCollection>()!.AddRange(webUiModules);
 
-            foreach (IServiceModuleConfiguration module in modules)
+            foreach (IServiceModuleConfiguration module in serviceModules)
             {
                 module.OnAppBuilt(app);
             }

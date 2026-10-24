@@ -1,8 +1,9 @@
-﻿@using LogiEdge.WebUI.Shared.Shared
-@inject ServiceModuleConfigurationCollection Modules
+﻿@using LogiEdge.WebUI.Shared
+@using LogiEdge.WebUI.Shared.Shared
+@inject WebUIModuleConfigurationCollection WebUiModules
 
 <CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="@Modules.Select(x => x.Assembly)">
+    <Router AppAssembly="@typeof(App).Assembly" AdditionalAssemblies="@WebUiModules.Select(x => x.Assembly)">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
             <FocusOnNavigate RouteData="@routeData" Selector="h1" />

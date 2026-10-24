@@ -1,19 +1,21 @@
 using System.Reflection;
-using LogiEdge.Shared;
-using Microsoft.AspNetCore.Builder;
+using LogiEdge.WebUI.Shared;
 
 namespace LogiEdge.WebUI.DocumentGenerator
 {
-    public class DocumentGeneratorWebUiModuleConfiguration : IServiceModuleConfiguration
+    public class DocumentGeneratorWebUiModuleConfiguration : IWebUIModuleConfiguration
     {
-        public void RegisterServices(WebApplicationBuilder builder)
-        {
-        }
-
-        public void OnAppBuilt(WebApplication app)
-        {
-        }
-
         public Assembly Assembly => typeof(DocumentGeneratorWebUiModuleConfiguration).Assembly;
+
+        public IReadOnlyList<NavMenuItem> MenuItems { get; } =
+        [
+            new NavMenuItem
+            {
+                Label = "Document templates",
+                Href = RouteTo<Pages.Templates.IndexPage>(),
+                Icon = "description",
+                Order = 400,
+            },
+        ];
     }
 }

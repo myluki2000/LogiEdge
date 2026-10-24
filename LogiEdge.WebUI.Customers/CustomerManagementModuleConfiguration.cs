@@ -1,19 +1,21 @@
-﻿using LogiEdge.Shared;
-using Microsoft.AspNetCore.Builder;
-using System.Reflection;
+﻿using System.Reflection;
+using LogiEdge.WebUI.Shared;
 
 namespace LogiEdge.WebUI.Customers
 {
-    public class CustomerManagementModuleConfiguration : IServiceModuleConfiguration
+    public class CustomerManagementModuleConfiguration : IWebUIModuleConfiguration
     {
         public Assembly Assembly => typeof(CustomerManagementModuleConfiguration).Assembly;
 
-        public void OnAppBuilt(WebApplication app)
-        {
-        }
-
-        public void RegisterServices(WebApplicationBuilder builder)
-        {
-        }
+        public IReadOnlyList<NavMenuItem> MenuItems { get; } =
+        [
+            new NavMenuItem
+            {
+                Label = "Customers",
+                Href = RouteTo<Pages.CustomersPage>(),
+                Icon = "group",
+                Order = 100,
+            },
+        ];
     }
 }
