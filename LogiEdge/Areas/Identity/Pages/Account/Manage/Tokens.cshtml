@@ -1,0 +1,279 @@
+﻿@page
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@using Microsoft.AspNetCore.Identity
+@using LogiEdge.Shared.ApiAuth
+@using Microsoft.Extensions.Options
+@inject UserManager<IdentityUser> UserManager
+@inject IAuthTokenService AuthTokenService
+@inject IOptions<ApiTokensOptions> ApiTokenOptions
+
+@{
+    ViewData["Title"] = "API Tokens";
+    ViewData["ActivePage"] = ManageNavPages.Tokens;
+}
+
+<h3>@ViewData["Title"]</h3>
+
+<div class="row">
+    <div class="col-md-9">
+<Partial Name="_StatusMessage" Model="StatusMessage" />
+
+<h4>Create a new token</h4>
+@if (NewToken is not null)
+{
+    <div class="alert alert-success">
+        <strong>Your token has been created.</strong>
+        Copy it now — the value is shown exactly once and cannot be retrieved later.
+        @if (NewToken.ExpiresAtUtc is not null)
+        {
+            <p>This token expires on @FormatLocal(NewToken.ExpiresAtUtc.Value).</p>
+        }
+        <div class="d-flex gap-2 mt-2">
+            <input type="text" readonly class="form-control font-monospace" id="new-token-value" value="@NewToken.Value" />
+            <button type="button" class="btn btn-outline-primary" id="copy-new-token-button">Copy</button>
+        </div>
+    </div>
+    <script>
+        document.getElementById('copy-new-token-button').addEventListener('click', function () {
+            var valueInput = document.getElementById('new-token-value');
+            navigator.clipboard.writeText(valueInput.value).then(function () {
+                var button = document.getElementById('copy-new-token-button');
+                button.textContent = 'Copied';
+                setTimeout(function () { button.textContent = 'Copy'; }, 2000);
+            });
+        });
+    </script>
+}
+
+<form method="post" asp-page-handler="CreateToken">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-floating">
+                <input asp-for="TokenInput.Name" class="form-control" placeholder="Please choose a token name." />
+                <label asp-for="TokenInput.Name" class="form-label"></label>
+                <span asp-validation-for="TokenInput.Name" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-floating">
+                <input asp-for="TokenInput.Description" class="form-control" placeholder="Description (optional)." />
+                <label asp-for="TokenInput.Description" class="form-label"></label>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <select asp-for="TokenInput.Kind" class="form-select">
+                <option value="Permanent">Permanent</option>
+                @if (EphemeralLifetimeMinutes.Count > 0)
+                {
+                    <option value="Time-limited">Time-limited</option>
+                }
+            </select>
+            <label asp-for="TokenInput.Kind" class="form-label"></label>
+            <span asp-validation-for="TokenInput.Kind" class="text-danger"></span>
+        </div>
+        <div class="col-md-6" id="token-lifetime-field" style="@(TokenInput.Kind == "Time-limited" ? "" : "display: none")">
+            <select asp-for="TokenInput.LifetimeMinutes" class="form-select">
+                @foreach (var minutes in EphemeralLifetimeMinutes)
+                {
+                    <option value="@minutes">@minutes min</option>
+                }
+            </select>
+            <label asp-for="TokenInput.LifetimeMinutes" class="form-label"></label>
+            <span asp-validation-for="TokenInput.LifetimeMinutes" class="text-danger"></span>
+        </div>
+    </div>
+    @if (TokenFormHasErrors)
+    {
+        <div class="alert alert-danger">Please fix the highlighted fields.</div>
+    }
+    <button type="submit" class="btn btn-primary">Create token</button>
+</form>
+<script>
+    (function () {
+        var kindSelect = document.getElementById('TokenInput_Kind');
+        var lifetimeField = document.getElementById('token-lifetime-field');
+        function syncLifetimeVisibility() {
+            lifetimeField.style.display = kindSelect.value === 'Time-limited' ? '' : 'none';
+        }
+        kindSelect.addEventListener('change', syncLifetimeVisibility);
+        syncLifetimeVisibility();
+    })();
+</script>
+
+<hr />
+<h4>Your tokens</h4>
+@if (Tokens.Count == 0)
+{
+    <p>No API tokens yet.</p>
+}
+else
+{
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Kind</th>
+                <th>Created</th>
+                <th>Last used</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var token in Tokens)
+            {
+                var status = GetTokenStatus(token);
+                <tr>
+                    <td>@token.Name</td>
+                    <td>@(string.IsNullOrWhiteSpace(token.Description) ? "—" : token.Description)</td>
+                    <td>@(token.ExpiresAtUtc is null ? "Permanent" : $"Expires at {FormatLocal(token.ExpiresAtUtc.Value)}")</td>
+                    <td>@FormatLocal(token.CreatedAtUtc)</td>
+                    <td>@(token.LastUsedAtUtc is null ? "—" : FormatLocal(token.LastUsedAtUtc.Value))</td>
+                    <td><span class="badge text-bg-@GetTokenStatusBadgeClass(status)">@status</span></td>
+                    <td>
+                        @if (IsTokenActive(token))
+                        {
+                            <form method="post" asp-page-handler="RevokeToken" asp-route-tokenId="@token.Id">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+    </div>
+</div>
+
+@functions {
+    public string? StatusMessage { get; set; }
+
+    // Manages only the signed-in user's own API tokens.
+    public IReadOnlyList<ApiTokenInfo> Tokens { get; set; } = Array.Empty<ApiTokenInfo>();
+    public CreatedToken? NewToken { get; set; }
+    public IReadOnlyList<int> EphemeralLifetimeMinutes { get; set; } = Array.Empty<int>();
+
+    [BindProperty]
+    public TokenInputModel TokenInput { get; set; } = new();
+
+    public bool TokenFormHasErrors =>
+        HasError(nameof(TokenInput.Name)) ||
+        HasError(nameof(TokenInput.Kind)) ||
+        HasError(nameof(TokenInput.LifetimeMinutes));
+
+    private static readonly int[] EphemeralLifetimeCandidatesMinutes = { 5, 15, 30, 60 };
+
+    private bool HasError(string key) => ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0;
+
+    public async Task OnGetAsync()
+    {
+        EphemeralLifetimeMinutes = GetAllowedEphemeralLifetimes(ApiTokenOptions.Value.EphemeralMaxLifetime);
+
+        var ownUserId = GetOwnUserId();
+        if (ownUserId is not null)
+        {
+            Tokens = await AuthTokenService.GetTokens();
+        }
+    }
+
+    public async Task<IActionResult> OnPostCreateTokenAsync()
+    {
+        NewToken = null;
+
+        var allowedLifetimes = GetAllowedEphemeralLifetimes(ApiTokenOptions.Value.EphemeralMaxLifetime);
+        var ownUserId = GetOwnUserId();
+        if (ownUserId is null)
+        {
+            return NotFound();
+        }
+
+        var name = TokenInput.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            ModelState.AddModelError(nameof(TokenInput.Name), "Name is required.");
+        }
+
+        var description = string.IsNullOrWhiteSpace(TokenInput.Description) ? null : TokenInput.Description.Trim();
+        var timeLimited = string.Equals(TokenInput.Kind, "Time-limited", StringComparison.OrdinalIgnoreCase);
+        if (timeLimited && allowedLifetimes.Count == 0)
+        {
+            ModelState.AddModelError(nameof(TokenInput.Kind), "Time-limited tokens are not available.");
+        }
+        else if (timeLimited && (!TokenInput.LifetimeMinutes.HasValue || !allowedLifetimes.Contains(TokenInput.LifetimeMinutes.Value)))
+        {
+            ModelState.AddModelError(nameof(TokenInput.LifetimeMinutes), "Please choose a valid lifetime.");
+        }
+
+        if (TokenFormHasErrors)
+        {
+            return Page();
+        }
+
+        if (timeLimited)
+        {
+            NewToken = await AuthTokenService.CreateEphemeralToken(ownUserId.Value, TimeSpan.FromMinutes(TokenInput.LifetimeMinutes!.Value), name!);
+        }
+        else
+        {
+            NewToken = await AuthTokenService.CreatePermanentToken(ownUserId.Value, name!, description);
+        }
+
+        TokenInput = new TokenInputModel();
+        Tokens = await AuthTokenService.GetTokens();
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostRevokeTokenAsync(Guid tokenId)
+    {
+        var ownUserId = GetOwnUserId();
+        if (ownUserId is null)
+        {
+            return NotFound();
+        }
+
+        var revoked = await AuthTokenService.RevokeToken(tokenId);
+        StatusMessage = revoked
+            ? "The token has been revoked."
+            : "The token could not be revoked. It may have already been revoked.";
+
+        Tokens = await AuthTokenService.GetTokens();
+        return Page();
+    }
+
+    private Guid? GetOwnUserId()
+    {
+        // .NET 10: the ClaimsPrincipal overload of GetUserId is synchronous (GetUserIdAsync takes an IdentityUser).
+        var userId = UserManager.GetUserId(User);
+        return Guid.TryParse(userId, out var id) ? id : null;
+    }
+
+    private static IReadOnlyList<int> GetAllowedEphemeralLifetimes(TimeSpan maxLifetime) =>
+        EphemeralLifetimeCandidatesMinutes.Where(minutes => TimeSpan.FromMinutes(minutes) <= maxLifetime).ToList();
+
+    public static bool IsTokenActive(ApiTokenInfo token) =>
+        token.RevokedAtUtc is null && (token.ExpiresAtUtc is null || token.ExpiresAtUtc > DateTime.UtcNow);
+
+    public static string GetTokenStatus(ApiTokenInfo token) =>
+        token.RevokedAtUtc is not null ? "Revoked" : IsTokenActive(token) ? "Active" : "Expired";
+
+    private static string GetTokenStatusBadgeClass(string status) => status switch
+    {
+        "Active" => "success",
+        "Revoked" => "danger",
+        _ => "secondary",
+    };
+
+    private static string FormatLocal(DateTime utcDateTime) => utcDateTime.ToLocalTime().ToString("g");
+
+    public class TokenInputModel
+    {
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+        public string Kind { get; set; } = "Permanent";
+        public int? LifetimeMinutes { get; set; }
+    }
+}
