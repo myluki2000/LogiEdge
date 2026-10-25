@@ -29,7 +29,7 @@
     public RenderFragment<(ItemAtStateDto item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
-    public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
+    public RenderFragment<(IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemAtStateDto> group, List<string> propertiesToDisplay)>? GroupedTableRowRenderFragment { get; set; }
 }
 
 <WarehouseItemAtStateTableComponent Items="Items"

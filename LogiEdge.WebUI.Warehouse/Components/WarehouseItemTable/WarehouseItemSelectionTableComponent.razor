@@ -37,7 +37,7 @@
 
     private RenderFragment<(ItemAtStateDto item, OrderedDictionary<string, object?> properties)>? _tableRowRenderFragment;
 
-    private RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? _groupedTableRowRenderFragment;
+    private RenderFragment<(IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemAtStateDto> group, List<string> propertiesToDisplay)>? _groupedTableRowRenderFragment;
 
     private void OnItemSelectionCheckboxChanged(Guid itemId, bool newValue)
     {
@@ -93,7 +93,7 @@
         </tr>
     };
 
-    _groupedTableRowRenderFragment ??=
+    /*_groupedTableRowRenderFragment ??=
         data => __builder =>
         {
             <tr>
@@ -130,7 +130,7 @@
                     </td>
                 }
             </tr>
-        };
+        };*/
 }
 
 <WarehouseItemTableComponent Items="Items"

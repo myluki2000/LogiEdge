@@ -1,12 +1,13 @@
 ﻿using System.Linq.Expressions;
 using LogiEdge.WarehouseService.Data;
+using LogiEdge.WarehouseService.Dto;
 using LogiEdge.WarehouseService.Services.ItemsTable;
 
 namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 {
-    internal class ItemsTableGrouper
+    public class ItemsTableGrouper
     {
-        public IEnumerable<IGrouping<ItemGroupPropertiesValues, ItemState>> Group(List<ItemState> itemsAtMoment, ItemsTableSortParameters sortParameters)
+        public IEnumerable<IGrouping<ItemGroupPropertiesValues, ItemAtStateDto>> Group(List<ItemAtStateDto> itemsAtMoment, ItemsTableSortParameters sortParameters)
         {
             ParameterExpression parameterExp = Expression.Parameter(typeof(ItemState), "st");
 
@@ -14,11 +15,11 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 
             if (groupByProperties.Length == 0)
                 return itemsAtMoment
-                    .Select(st => new Grouping<ItemGroupPropertiesValues, ItemState>(
-                        ItemGroupPropertiesValues.OfItemState(st, groupByProperties), 
+                    .Select(st => new Grouping<ItemGroupPropertiesValues, ItemAtStateDto>(
+                        ItemGroupPropertiesValues.OfItemAtState(st, groupByProperties), 
                         [st]));
 
-            return itemsAtMoment.GroupBy(st => ItemGroupPropertiesValues.OfItemState(st, groupByProperties));
+            return itemsAtMoment.GroupBy(st => ItemGroupPropertiesValues.OfItemAtState(st, groupByProperties));
         }
 
         public class ItemGroupPropertiesValues(IReadOnlyDictionary<string, object?> groupProperties)
@@ -27,26 +28,17 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
 
             public object? this[string propertyName] => _groupProperties[propertyName];
 
+            public IEnumerable<string> Properties => _groupProperties.Keys;
+
             public bool ContainsProperty(string propertyName) => _groupProperties.ContainsKey(propertyName);
 
-            public static ItemGroupPropertiesValues OfItemState(ItemState itemState, string[] groupByPropertyNames)
+            public static ItemGroupPropertiesValues OfItemAtState(ItemAtStateDto item, string[] groupByPropertyNames)
             {
                 Dictionary<string, object?> groupProperties = [];
 
                 foreach (string propertyName in groupByPropertyNames)
                 {
-                    if (typeof(ItemState).GetProperty(propertyName) is { } stateInfo)
-                    {
-                        groupProperties.Add(propertyName, stateInfo.GetValue(itemState));
-                    } 
-                    else if (typeof(Item).GetProperty(propertyName) is { } itemInfo)
-                    {
-                        groupProperties.Add(propertyName, itemInfo.GetValue(itemState.Item));
-                    }
-                    else
-                    {
-                        groupProperties.Add(propertyName, itemState.Item.GetAdditionalProperty(propertyName));
-                    }
+                    groupProperties.Add(propertyName, item.GetPropertyValue(propertyName));
                 }
 
                 return new ItemGroupPropertiesValues(groupProperties);

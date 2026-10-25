@@ -34,7 +34,7 @@
     public RenderFragment<(ItemAtStateDto item, OrderedDictionary<string, object?> properties)>? TableRowRenderFragment { get; set; }
 
     [Parameter]
-    public RenderFragment<(List<Item> items, List<ItemState> itemStates, OrderedDictionary<string, object?[]> properties)>? GroupedTableRowRenderFragment { get; set; }
+    public RenderFragment<(IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemAtStateDto> group, List<string> propertiesToDisplay)>? GroupedTableRowRenderFragment { get; set; }
 
     private OrderedDictionary<string, bool> DisplayPropertyColumnsSetting { get; set; } = [];
 
@@ -186,20 +186,21 @@
         data => __builder =>
         {
             <tr>
-                <td>@(data.itemStates.Count)x</td>
+                <td>@(data.group.Count())x</td>
 
-                @foreach ((string propertyName, object?[] propertyValues) in data.properties)
+                @foreach (string propertyName in data.propertiesToDisplay)
                 {
-                    List<IGrouping<object?, object?>> groupedValues = propertyValues.GroupBy(x => x).ToList();
+                    List<string> groupByProperties = SortParameters.GroupByProperties.ToList();
+                    List<IGrouping<object?, ItemAtStateDto>> groupedValues = data.group.GroupBy(x => x.GetPropertyValue(propertyName)).ToList();
                     <td>
-                        @if (groupedValues.Count == 1)
+                        @if (groupedValues.Count() == 1)
                         {
-                            <PropertyValueComponent PropertyValue="@propertyValues[0]"/>
+                            <PropertyValueComponent PropertyValue="@groupedValues.First().Key"/>
                         }
                         else
                         {
                             int i = 0;
-                            foreach (IGrouping<object?, object?> groupedValue in groupedValues)
+                            foreach (IGrouping<object?, ItemAtStateDto> groupedValue in groupedValues)
                             {
                                 <span style="white-space: nowrap; display: inline-flex; align-items: center;" class="@(i == 0 ? "": "ms-2")">
                                     <text>@(groupedValue.Count())x</text>
@@ -300,32 +301,13 @@
     <tbody>
         @if (SortParameters.GroupByProperties.Length > 0)
         {
-            /*ItemsTableGrouper itemsGrouper = new();
-            List<IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState>> groupedItems = itemsGrouper.Group(ItemsAtMoment, SortParameters).ToList();
+            ItemsTableGrouper itemsGrouper = new();
+            List<IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemAtStateDto>> groupedItems = itemsGrouper.Group(Items.Items, SortParameters).ToList();
 
-            @foreach (IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemState> itemGroup in groupedItems)
+            @foreach (IGrouping<ItemsTableGrouper.ItemGroupPropertiesValues, ItemAtStateDto> itemGroup in groupedItems)
             {
-                OrderedDictionary<string, object?[]> properties = new();
-
-                // only display properties which are activated as display properties
-                @foreach (string propertyName in propertyColumnsToDisplay)
-                {
-                    if (itemGroup.Key.ContainsProperty(propertyName))
-                    {
-                        object? propertyValue = itemGroup.Key[propertyName];
-                        properties.Add(propertyName, [propertyValue]);
-                    }
-                    else
-                    {
-                        object?[] propertyValues = itemGroup
-                            .Select(st => GetItemPropertyValue(st.Item, st, propertyName))
-                            .ToArray();
-                        properties.Add(propertyName, propertyValues);
-                    }
-                }
-
-                @GroupedTableRowRenderFragment((itemGroup.Select(st => st.Item).ToList(), itemGroup.ToList(), properties))
-            }*/
+                @GroupedTableRowRenderFragment((itemGroup, propertyColumnsToDisplay))
+            }
         }
         else
         {
