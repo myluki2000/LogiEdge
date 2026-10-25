@@ -188,17 +188,22 @@
             <tr>
                 <td>@(data.group.Count())x</td>
 
+                // a table cell per property to display
                 @foreach (string propertyName in data.propertiesToDisplay)
                 {
-                    List<string> groupByProperties = SortParameters.GroupByProperties.ToList();
+                    // firstly we need to create a grouping of the items by the property value, because for this specific property, it may be that either
+                    // all items have the same value, or that items have different values (remember that this property we're displaying is not necessarily one
+                    // the user grouped by, so different values may appear)
                     List<IGrouping<object?, ItemAtStateDto>> groupedValues = data.group.GroupBy(x => x.GetPropertyValue(propertyName)).ToList();
                     <td>
                         @if (groupedValues.Count() == 1)
                         {
+                            // if all values are the same, we can just display that value without any count
                             <PropertyValueComponent PropertyValue="@groupedValues.First().Key"/>
                         }
                         else
                         {
+                            // if there are multiple values, we need to display each value with a count of how many items have that value
                             int i = 0;
                             foreach (IGrouping<object?, ItemAtStateDto> groupedValue in groupedValues)
                             {
