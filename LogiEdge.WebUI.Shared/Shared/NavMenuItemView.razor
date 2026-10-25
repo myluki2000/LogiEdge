@@ -1,0 +1,49 @@
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Routing
+
+<AuthorizeView Policy="@Item.Policy" Roles="@Item.RolesValue">
+    <li class="nav-item px-3 @(Item.Children.Count > 0 ? "has-children" : "")">
+        <div class="nav-row">
+            <NavLink class="nav-link" href="@Item.Href" Match="@Item.Match">
+                @if (Item.Icon is not null)
+                {
+                    <span class="material-symbols-rounded nav-icon" aria-hidden="true">@Item.Icon</span>
+                }
+                @Item.Label
+            </NavLink>
+            @if (Item.Children.Count > 0)
+            {
+                var expanded = ExpandedBranches.Contains(Item.Href);
+                <button type="button" class="nav-caret" title="@(expanded ? "Collapse" : "Expand")"
+                        aria-expanded="@(expanded ? "true" : "false")"
+                        @onclick:stopPropagation @onclick="() => OnToggle.InvokeAsync(Item)">
+                    <span class="material-symbols-rounded" aria-hidden="true">
+                        @(expanded ? "expand_less" : "expand_more")
+                    </span>
+                </button>
+            }
+        </div>
+        @if (Item.Children.Count > 0 && ExpandedBranches.Contains(Item.Href))
+        {
+            <ul class="nav-submenu flex-column">
+                @foreach (var child in Item.Children)
+                {
+                    <NavMenuItemView Item="@child" ExpandedBranches="@ExpandedBranches" OnToggle="@OnToggle" />
+                }
+            </ul>
+        }
+    </li>
+</AuthorizeView>
+
+@code {
+    [Parameter]
+    public required NavMenuItem Item { get; set; }
+
+    /// <summary>Hrefs of all branches currently expanded (auto-expansion for the active page plus caret overrides).</summary>
+    [Parameter]
+    public IReadOnlyCollection<string> ExpandedBranches { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<NavMenuItem> OnToggle { get; set; }
+}

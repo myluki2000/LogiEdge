@@ -1,5 +1,8 @@
-﻿@using Microsoft.AspNetCore.Components.Routing
-@using LogiEdge.Shared
+@implements IDisposable
+@using Microsoft.AspNetCore.Components.Routing
+@inject WebUIModuleConfigurationCollection WebUiModules
+@inject NavigationManager NavigationManager
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">LogiEdge</a>
@@ -10,44 +13,13 @@
 </div>
 
 <div class="@NavMenuCssClass nav-scrollable d-flex flex-column" @onclick="ToggleNavMenu">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="material-symbols-rounded nav-icon" aria-hidden="true">home</span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/customers">
-                <span class="material-symbols-rounded nav-icon" aria-hidden="true">group</span> Customers
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/warehouse/schemas">
-                <span class="material-symbols-rounded nav-icon" aria-hidden="true">table_view</span> Item schemas
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="material-symbols-rounded nav-icon" aria-hidden="true">add</span> Counter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="fetchdata">
-                <span class="material-symbols-rounded nav-icon" aria-hidden="true">list_alt</span> Fetch data
-            </NavLink>
-        </div>
-        <AuthorizeView Roles="@AppRoles.Admin">
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="/Settings">
-                    <span class="material-symbols-rounded nav-icon" aria-hidden="true">settings</span> Settings
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="/Settings/Tokens">
-                    <span class="material-symbols-rounded nav-icon" aria-hidden="true">vpn_key</span> API Tokens
-                </NavLink>
-            </div>
-        </AuthorizeView>
+    <nav>
+        <ul class="nav-list flex-column">
+            @foreach (var item in RootItems)
+            {
+                <NavMenuItemView Item="@item" ExpandedBranches="@ExpandedBranches" OnToggle="Toggle" />
+            }
+        </ul>
     </nav>
 
     <div class="mt-auto login-box">
@@ -58,7 +30,77 @@
 @code {
     private bool collapseNavMenu = true;
 
+    // Hrefs of the branches that must be expanded for the active page to be visible (recomputed on every navigation).
+    private HashSet<string> _autoExpandedBranches = [];
+
+    // Caret overrides from the user. Cleared on every navigation, so hierarchies contract again when navigating away.
+    private Dictionary<string, bool> _manualToggles = new();
+
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private IReadOnlyList<NavMenuItem> RootItems =>
+        SortItems(BaseNavMenuItems.All.Concat(WebUiModules.SelectMany(m => m.MenuItems)));
+
+    // Everything currently expanded: the auto branches plus caret overrides.
+    private IReadOnlyCollection<string> ExpandedBranches
+    {
+        get
+        {
+            if (_manualToggles.Count == 0)
+                return _autoExpandedBranches;
+
+            var branches = new HashSet<string>(_autoExpandedBranches);
+            foreach (var (href, expanded) in _manualToggles)
+            {
+                if (expanded)
+                    branches.Add(href);
+                else
+                    branches.Remove(href);
+            }
+            return branches;
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+        SyncWithLocation();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            SyncWithLocation();
+            StateHasChanged();
+        });
+    }
+
+    private void SyncWithLocation()
+    {
+        // NavigationManager.Uri is an absolute URL in every hosting model, so ToBaseRelativePath can't throw.
+        var path = NavMenuRouteHelper.GetPath(NavigationManager.ToBaseRelativePath(NavigationManager.Uri));
+        _autoExpandedBranches = NavMenuRouteHelper.GetActiveBranches(RootItems, path);
+        _manualToggles.Clear();
+    }
+
+    private void Toggle(NavMenuItem item)
+    {
+        _manualToggles[item.Href] = !ExpandedBranches.Contains(item.Href);
+        StateHasChanged();
+    }
+
+    private static IReadOnlyList<NavMenuItem> SortItems(IEnumerable<NavMenuItem> items) =>
+        items
+            .OrderBy(i => i.Order)
+            .ThenBy(i => i.Label)
+            .Select(i => i with { Children = SortItems(i.Children) })
+            .ToList();
 
     private void ToggleNavMenu()
     {

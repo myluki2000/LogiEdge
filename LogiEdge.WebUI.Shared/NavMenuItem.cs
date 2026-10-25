@@ -30,6 +30,9 @@ namespace LogiEdge.WebUI.Shared
         /// <summary>Optional role names (e.g. [AppRoles.Admin]); item hidden unless the user holds one.</summary>
         public string[]? Roles { get; init; }
 
+        /// <summary>Comma-separated role names for AuthorizeView (null when no roles are set).</summary>
+        public string? RolesValue => Roles is null ? null : string.Join(",", Roles);
+
         /// <summary>Nested items; rendered collapsed by default. Recursion depth is unlimited.</summary>
         public IReadOnlyList<NavMenuItem> Children { get; init; } = [];
     }

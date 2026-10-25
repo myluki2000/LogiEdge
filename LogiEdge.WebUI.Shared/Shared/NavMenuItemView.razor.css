@@ -1,0 +1,69 @@
+﻿.nav-item {
+    font-size: 0.9rem;
+    padding-bottom: 0.5rem;
+}
+
+.nav-icon {
+    width: 2rem;
+    font-size: 1.1rem;
+    vertical-align: text-top;
+    top: -2px;
+}
+
+.nav-row {
+    display: flex;
+    align-items: center;
+}
+
+.nav-item ::deep a {
+    color: #d7d7d7;
+    border-radius: 4px;
+    height: 3rem;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    line-height: 3rem;
+}
+
+.nav-item ::deep a.active {
+    background-color: rgba(255,255,255,0.25);
+    color: white;
+}
+
+.nav-item ::deep a:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.nav-caret {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    height: 3rem;
+    padding: 0 0.25rem;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #d7d7d7;
+    cursor: pointer;
+}
+
+.nav-caret:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.nav-caret .material-symbols-rounded {
+    font-size: 1.1rem;
+    width: 1.5rem;
+}
+
+.nav-submenu {
+    margin: 0;
+    padding: 0 0 0 1.25rem;
+    list-style: none;
+}
+
+.nav-submenu .nav-item {
+    font-size: 0.85rem;
+}
