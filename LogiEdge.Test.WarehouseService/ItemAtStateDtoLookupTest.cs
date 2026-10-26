@@ -1,4 +1,4 @@
-using LogiEdge.CustomerService.Data;
+﻿using LogiEdge.CustomerService.Data;
 using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Dto;
 using System.Text.Json;
@@ -48,7 +48,8 @@ namespace LogiEdge.Test.WarehouseService
                 {
                     Id = customerId,
                     Abbreviation = "CA",
-                    Name = "Customer A",
+                    CanonicalName = "Customer A",
+                    ShortName = "Customer A",
                 },
                 ItemNumber = "1140192",
                 AdditionalProperties = JsonDocument.Parse("""{"Color":"Black"}"""),

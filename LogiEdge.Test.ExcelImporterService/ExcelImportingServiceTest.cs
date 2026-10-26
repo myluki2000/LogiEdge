@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using LogiEdge.CustomerService.Data;
 using LogiEdge.CustomerService.Persistence;
 using LogiEdge.CustomerService.Services;
 using LogiEdge.ExcelImporterService.Data;
@@ -9,15 +10,24 @@ using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
 namespace LogiEdge.Test.ExcelImporterService
 {
-    public class ExcelImportingServiceTest(DatabaseFixture dbFixture) : IClassFixture<DatabaseFixture>
+    /// <summary>
+    /// Each test method gets its own DatabaseFixture (fresh database), because both scenarios import
+    /// into the same warehouse/customer names and would otherwise contaminate each other.
+    /// </summary>
+    public class ExcelImportingServiceTest : IAsyncLifetime
     {
+        private readonly DatabaseFixture dbFixture = new();
+
+        public async Task InitializeAsync() => await dbFixture.InitializeAsync();
+
+        public async Task DisposeAsync() => await dbFixture.DisposeAsync();
         private static readonly Guid TestAuthorId = new("aaaaaaaa-bbbb-cccc-dddd-eeeeffff0001");
 
         /// <summary>
@@ -41,8 +51,10 @@ namespace LogiEdge.Test.ExcelImporterService
             using CustomerDbContext customerCtx = dbFixture.CustomerDbContextFactory.CreateDbContext();
             using WarehouseDbContext warehouseCtx = dbFixture.WarehouseDbContextFactory.CreateDbContext();
 
-            // assert that customer was created with the correct name
-            Assert.Equal("ExampleCustomer", customerCtx.Customers.First().Name);
+            // assert that the customer was auto-created with both names set to the imported name
+            Customer createdCustomer = customerCtx.Customers.First();
+            Assert.Equal("ExampleCustomer", createdCustomer.CanonicalName);
+            Assert.Equal("ExampleCustomer", createdCustomer.ShortName);
 
             // assert warehouse was created with the correct name
             Assert.Equal("ExampleWarehouse", warehouseCtx.Warehouses.First().Name);
@@ -100,8 +112,10 @@ namespace LogiEdge.Test.ExcelImporterService
             using CustomerDbContext customerCtx = dbFixture.CustomerDbContextFactory.CreateDbContext();
             using WarehouseDbContext warehouseCtx = dbFixture.WarehouseDbContextFactory.CreateDbContext();
 
-            // assert that customer was created with the correct name
-            Assert.Equal("ExampleCustomer", customerCtx.Customers.First().Name);
+            // assert that the customer was auto-created with both names set to the imported name
+            Customer createdCustomer = customerCtx.Customers.First();
+            Assert.Equal("ExampleCustomer", createdCustomer.CanonicalName);
+            Assert.Equal("ExampleCustomer", createdCustomer.ShortName);
 
             // assert warehouse was created with the correct name
             Assert.Equal("ExampleWarehouse", warehouseCtx.Warehouses.First().Name);
@@ -136,15 +150,24 @@ namespace LogiEdge.Test.ExcelImporterService
         {
             await postgres.StartAsync();
 
-            // TODO: Fix test
-            WarehouseDbContextFactory = null;
-            CustomerDbContextFactory = null;
-            /*WarehouseDbContextFactory = new TestContextFactory<WarehouseDbContext>(
-                () => new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>()
-                    .UseNpgsql(CreateConnection("logiedge")).Options));
+            string connectionString = new NpgsqlConnectionStringBuilder(postgres.GetConnectionString())
+            {
+                Database = "logiedge",
+            }.ConnectionString;
+
+            // LogiEdgeDbContext.OnConfiguring unconditionally applies UseNpgsql with the connection string from
+            // IConfiguration, so both contexts must be constructed with a real configuration pointing at Testcontainers.
+            IConfiguration configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:DatabaseConnection"] = connectionString,
+                })
+                .Build();
+
+            WarehouseDbContextFactory = new TestContextFactory<WarehouseDbContext>(
+                () => new WarehouseDbContext(new DbContextOptionsBuilder<WarehouseDbContext>().Options, configuration));
             CustomerDbContextFactory = new TestContextFactory<CustomerDbContext>(
-                () => new CustomerDbContext(new DbContextOptionsBuilder<CustomerDbContext>()
-                    .UseNpgsql(CreateConnection("logiedge")).Options));*/
+                () => new CustomerDbContext(new DbContextOptionsBuilder<CustomerDbContext>().Options, configuration));
 
             await using CustomerDbContext customerDbContext = await CustomerDbContextFactory.CreateDbContextAsync();
             IRelationalDatabaseCreator customerDbCreator = customerDbContext.Database.GetService<IRelationalDatabaseCreator>();
@@ -154,17 +177,6 @@ namespace LogiEdge.Test.ExcelImporterService
             await using WarehouseDbContext warehouseDbContext = await WarehouseDbContextFactory.CreateDbContextAsync();
             IRelationalDatabaseCreator warehouseDbCreator = warehouseDbContext.Database.GetService<IRelationalDatabaseCreator>();
             await warehouseDbCreator.CreateTablesAsync();
-
-        }
-
-        private NpgsqlConnection CreateConnection(string dbName)
-        {
-            return new NpgsqlConnection(
-                new NpgsqlConnectionStringBuilder(postgres.GetConnectionString())
-                {
-                    Database = dbName
-                }.ConnectionString
-            );
         }
 
         public async Task DisposeAsync()

@@ -22,7 +22,8 @@
     private IEnumerable<CustomerDto> FilteredCustomers =>
         (_customers ?? [])
             .Where(c => !HasSearchTerm
-                || c.Name.Contains(Search, StringComparison.OrdinalIgnoreCase)
+                || c.ShortName.Contains(Search, StringComparison.OrdinalIgnoreCase)
+                || c.CanonicalName.Contains(Search, StringComparison.OrdinalIgnoreCase)
                 || c.Abbreviation.Contains(Search, StringComparison.OrdinalIgnoreCase));
 
     private string Search => _searchTerm!.Trim();
@@ -99,7 +100,7 @@
                         @foreach (CustomerDto customer in FilteredCustomers)
                         {
                             <tr>
-                                <td><a class="customers-name-link" href="@(RouteTo<CustomerPage>("Id", customer.Id))">@customer.Name</a></td>
+                                <td><a class="customers-name-link" title="@customer.CanonicalName" href="@(RouteTo<CustomerPage>("Id", customer.Id))">@customer.ShortName</a></td>
                                 <td><span class="badge text-bg-light customers-abbrev-badge">@customer.Abbreviation</span></td>
                                 <td class="font-monospace small customers-id-cell" title="@customer.Id">@customer.Id</td>
                             </tr>

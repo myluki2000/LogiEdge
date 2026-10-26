@@ -13,7 +13,15 @@ namespace LogiEdge.CustomerService.Persistence
     public class CustomerDbContext : LogiEdgeDbContext<CustomerDbContext>
     {
         public DbSet<Customer> Customers { get; init; }
+        public DbSet<Address> Addresses { get; init; }
 
         public CustomerDbContext(DbContextOptions<CustomerDbContext> options, IConfiguration configuration) : base(options, configuration) { }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            CustomerModelConfiguration.Configure(modelBuilder);
+        }
     }
 }

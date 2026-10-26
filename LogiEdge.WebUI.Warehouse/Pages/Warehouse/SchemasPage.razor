@@ -17,7 +17,7 @@
         await base.OnInitializedAsync();
 
         List<CustomerDto> customers = await CustomerService.GetCustomersAsync();
-        _customerNames = customers.ToDictionary(c => c.Id, c => c.Name);
+        _customerNames = customers.ToDictionary(c => c.Id, c => c.ShortName);
         _schemas = await WarehouseService.GetItemSchemas();
     }
 }

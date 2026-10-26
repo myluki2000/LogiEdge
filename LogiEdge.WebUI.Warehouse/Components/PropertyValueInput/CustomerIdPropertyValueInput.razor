@@ -31,6 +31,6 @@
     <option value="@Guid.Empty"> </option>
     @foreach (CustomerDto customer in Customers.OrderBy(cu => cu.Abbreviation.ToUpper()))
     {
-        <option value="@customer.Id">[@customer.Abbreviation] @customer.Name</option>
+        <option value="@customer.Id">[@customer.Abbreviation] @customer.ShortName</option>
     }
 </InputSelect>

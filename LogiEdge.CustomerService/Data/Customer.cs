@@ -14,13 +14,18 @@ namespace LogiEdge.CustomerService.Data
     {
         [Key] public Guid Id { get; set; }
         public required string Abbreviation { get; set; }
-        public required string Name { get; set; }
+        [MaxLength(256)] public required string CanonicalName { get; set; }
+        [MaxLength(256)] public required string ShortName { get; set; }
+
+        public Address? BillingAddress { get; set; }
+        public List<Address> DeliveryAddresses { get; set; } = [];
+
         public int CompareTo(object? other)
         {
             if (other is not Customer otherCustomer)
                 return 1;
 
-            return string.Compare(Name, otherCustomer.Name, StringComparison.CurrentCultureIgnoreCase);
+            return string.Compare(CanonicalName, otherCustomer.CanonicalName, StringComparison.CurrentCultureIgnoreCase);
         }
     }
 }

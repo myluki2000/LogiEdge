@@ -24,6 +24,10 @@ namespace LogiEdge.ExcelImporterService.Data
 
     public class InventoryFileMatchingOptions
     {
+        /// <summary>
+        /// The customer's canonical (full legal) name. Must match the customer's <c>Customer.CanonicalName</c>;
+        /// see .notes/customers.md §5 / OQ3.
+        /// </summary>
         public required string CustomerName { get; init; }
         public required string WarehouseName { get; init; }
         public required string FileName { get; init; }

@@ -36,3 +36,12 @@
 .create-customer-btn-icon {
     font-size: 1rem;
 }
+
+.create-customer-divider {
+    opacity: 0.25;
+}
+
+.create-customer-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+}

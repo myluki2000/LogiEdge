@@ -48,7 +48,7 @@
         if (PropertyType == typeof(Customer) && _customerNameLookup == null)
         {
             _customerNameLookup = (await CustomerService.GetCustomersAsync())
-                .ToDictionary(c => c.Id, c => c.Name);
+                .ToDictionary(c => c.Id, c => c.ShortName);
         } 
         else if (PropertyType == typeof(Warehouse) && _warehouseNameLookup == null)
         {

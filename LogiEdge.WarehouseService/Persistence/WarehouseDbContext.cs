@@ -1,5 +1,6 @@
 using LogiEdge.BaseService.Data;
 using LogiEdge.CustomerService.Data;
+using LogiEdge.CustomerService.Persistence;
 using LogiEdge.Shared;
 using LogiEdge.Shared.Conventions;
 using LogiEdge.WarehouseService.Data;
@@ -41,6 +42,8 @@ namespace LogiEdge.WarehouseService.Persistence
             modelBuilder.HasPostgresExtension("hstore");
 
             modelBuilder.Entity<Customer>().ToTable("Customers", t => t.ExcludeFromMigrations());
+            modelBuilder.Entity<Address>().ToTable("Addresses", t => t.ExcludeFromMigrations());
+            CustomerModelConfiguration.Configure(modelBuilder);
             modelBuilder.Entity<ItemSchema>().HasMany(sch => sch.Customers).WithMany();
 
             modelBuilder.Entity<ItemSchemaLookupColumn>()

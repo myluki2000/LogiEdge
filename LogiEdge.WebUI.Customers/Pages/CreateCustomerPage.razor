@@ -1,4 +1,4 @@
-﻿@page "/customers/create"
+@page "/customers/create"
 
 @using LogiEdge.CustomerService.Dto
 @using LogiEdge.CustomerService.Services
@@ -9,21 +9,32 @@
 @inject NavigationManager NavManager
 
 @code {
-    private string _name = string.Empty;
+    private string _canonicalName = string.Empty;
+    private string _shortName = string.Empty;
     private string _abbreviation = string.Empty;
+
+    // Optional billing address.
+    private string _billingLabel = string.Empty;
+    private string _billingStreet = string.Empty;
+    private string _billingHouseNumber = string.Empty;
+    private string _billingZipCode = string.Empty;
+    private string _billingCity = string.Empty;
+    private string _billingCountry = string.Empty;
+
     private string? _feedbackError;
 
     private async Task CreateNewCustomerAsync()
     {
         _feedbackError = null;
 
-        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_abbreviation))
+        if (string.IsNullOrWhiteSpace(_canonicalName) || string.IsNullOrWhiteSpace(_shortName) || string.IsNullOrWhiteSpace(_abbreviation))
         {
-            _feedbackError = "Customer needs to have both an abbreviation and a name!";
+            _feedbackError = "Customer needs to have a canonical name, a short name and an abbreviation!";
             return;
         }
 
-        string trimmedName = _name.Trim();
+        string trimmedCanonicalName = _canonicalName.Trim();
+        string trimmedShortName = _shortName.Trim();
         string trimmedAbbreviation = _abbreviation.Trim();
 
         if (!Regex.IsMatch(trimmedAbbreviation, @"^[A-Z]+$"))
@@ -38,7 +49,26 @@
             return;
         }
 
-        CustomerDto created = await CustomerService.CreateCustomer(trimmedName, trimmedAbbreviation);
+        bool hasStreet = !string.IsNullOrWhiteSpace(_billingStreet);
+        if (hasStreet && (string.IsNullOrWhiteSpace(_billingZipCode) || string.IsNullOrWhiteSpace(_billingCity) || string.IsNullOrWhiteSpace(_billingCountry)))
+        {
+            _feedbackError = "A billing address with a street also needs a zip code, city and country!";
+            return;
+        }
+
+        AddressDto? billingAddress = hasStreet
+            ? new AddressDto
+            {
+                Label = string.IsNullOrWhiteSpace(_billingLabel) ? null : _billingLabel.Trim(),
+                Street = _billingStreet.Trim(),
+                HouseNumber = string.IsNullOrWhiteSpace(_billingHouseNumber) ? null : _billingHouseNumber.Trim(),
+                ZipCode = _billingZipCode.Trim(),
+                City = _billingCity.Trim(),
+                Country = _billingCountry.Trim(),
+            }
+            : null;
+
+        CustomerDto created = await CustomerService.CreateCustomer(trimmedCanonicalName, trimmedShortName, trimmedAbbreviation, billingAddress);
         NavManager.NavigateToRoute<CustomerPage>(new Dictionary<string, object> { ["Id"] = created.Id });
     }
 }
@@ -55,13 +85,49 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">Name</label>
-                    <HxInputText @bind-Value="_name" Placeholder="e.g. Acme GmbH" />
+                    <label class="form-label">Canonical name</label>
+                    <HxInputText @bind-Value="_canonicalName" Placeholder="e.g. Acme Trading Co. GmbH" />
+                    <div class="form-text">Full legal company name.</div>
                 </div>
                 <div class="col-md-6">
+                    <label class="form-label">Short name</label>
+                    <HxInputText @bind-Value="_shortName" Placeholder="e.g. Acme Trading" />
+                    <div class="form-text">Display name without legal suffixes.</div>
+                </div>
+                <div class="col-md-4">
                     <label class="form-label">Abbreviation</label>
                     <HxInputText @bind-Value="_abbreviation" Placeholder="e.g. ACM" />
                     <div class="form-text">Uppercase letters only (A–Z). Must be unique.</div>
+                </div>
+            </div>
+
+            <hr class="create-customer-divider" />
+
+            <h6 class="create-customer-section-title">Billing address (optional)</h6>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Label</label>
+                    <HxInputText @bind-Value="_billingLabel" Placeholder="e.g. HQ" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Street</label>
+                    <HxInputText @bind-Value="_billingStreet" Placeholder="e.g. Industriestraße" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">House number</label>
+                    <HxInputText @bind-Value="_billingHouseNumber" Placeholder="e.g. 12" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Zip code</label>
+                    <HxInputText @bind-Value="_billingZipCode" Placeholder="e.g. 10115" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">City</label>
+                    <HxInputText @bind-Value="_billingCity" Placeholder="e.g. Berlin" />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Country</label>
+                    <HxInputText @bind-Value="_billingCountry" Placeholder="e.g. Germany" />
                 </div>
             </div>
 

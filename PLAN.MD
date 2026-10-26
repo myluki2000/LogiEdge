@@ -137,7 +137,7 @@ Identity details:
 |---|---|---|---|
 | `AppIdentityDbContext` | host | `appidentity` | Identity only |
 | `ApplicationDbContext` | BaseService | `application` | `Settings` (KV strings), `Attachments` (files) |
-| `CustomerDbContext` | CustomerService | `application` | `Customers` |
+| `CustomerDbContext` | CustomerService | `application` | `Customers`, `Addresses` (dual-role FKs: billing 1:1 / delivery 1:N) |
 | `WarehouseDbContext` | WarehouseService | `application` | warehouses, items, states, schemas, transactions |
 | `PlanningBoardDbContext` | PlanningBoard | `application` | `Boards` — **no Migrations folder exists** (see Known Issues) |
 | `DocumentGeneratorDbContext` | DocumentGenerator | `application` | TPT templates |
@@ -181,10 +181,19 @@ methods (sync versions are `.Result` wrappers — prefer the async ones in UI co
 
 ### 6.2 CustomerService (`LogiEdge.CustomerService/`)
 
-- `Customer` entity: `Id`, `Abbreviation` (unique-ish, uppercased on lookup), `Name`.
-- `CustomerManagementService`: list/get-by-abbreviation/get-by-id/create/update (sync + async); the abbreviation is immutable after creation.
+- `Customer` entity: `Id`, `Abbreviation` (unique DB index, uppercased on lookup),
+  `CanonicalName` + `ShortName` (full legal name vs. display name; UI shows `ShortName`).
+  One optional `BillingAddress` (1:1) and a list of `DeliveryAddresses` (1:N).
+- `Address` entity (`Data/Address.cs`): label, street/house number, zip/city/country,
+  `IsDefaultDeliveryAddress` (at most one per customer); each row has exactly one of the two
+  FKs set (`BillingCustomerId` / `DeliveryCustomerId`, enforced by check constraint `CK_Addresses_SingleRole`).
+- `CustomerManagementService`: list/get-by-abbreviation/get-by-id/create/update (sync + async);
+  the abbreviation is immutable after creation. Address operations: set/replace/clear billing
+  address, add/update/remove delivery addresses, set default delivery address. All update paths
+  use `.AsTracking()` (global NoTracking).
 - Used by WarehouseService (items belong to customers) and ExcelImporterService
-  (auto-creates missing customers with a 2-letter uppercase abbreviation).
+  (matches customers by `CanonicalName`; auto-creates missing customers with
+  `CanonicalName = ShortName = <name>` and a 2-letter uppercase abbreviation).
 
 ### 6.3 WarehouseService (`LogiEdge.WarehouseService/`) — the core domain
 
@@ -237,7 +246,8 @@ system used by all item tables:
 - Which properties are displayable/filterable is driven by attributes on the entity:
   `[DisplayColumnProperty]` (shows as a column) and `[QueryFilterableProperty(optional
   compare-with property)]` (filterable via query params; e.g. `Customer` filters by
-  `CustomerId`). Schema additional properties are always displayable + filterable. Schema lookup columns are likewise displayable + filterable; their values are resolved in memory after the query (one indexed load of the entries for the schemas in scope via `LookupValueResolver`), so filters on them apply as an in-memory post-filter.
+  `CustomerId`). Schema additional properties are always displayable + filterable.
+ Schema lookup columns are likewise displayable + filterable; their values are resolved in memory after the query (one indexed load of the entries for the schemas in scope via `LookupValueResolver`), so filters on them apply as an in-memory post-filter.
 - `ItemsTableService.GetItemsAtStateAsync / GetItemsAsync / GetAllItemsAsync` build an
   `IQueryable<ItemState>` (with deep Includes) and apply:
   - `ItemsTablePropertyFilter` — builds **expression trees**: equality filters for base
@@ -320,7 +330,7 @@ migrations, and the UI is a static stub.
   PDF, previews it via `/tmp/{guid}`, and raises `OnFileAttachmentSaveRequested` for the
   parent page to persist. Template management pages live under
   `/document-generator/templates/`.
-- **Customers UI**: list, detail (name editable, abbreviation fixed), and create pages under /customers.
+- **Customers UI**: list (short name + canonical tooltip), detail (names editable, abbreviation fixed, billing address + delivery addresses management), and create pages (with optional billing address) under /customers.
 - Programmatic links: `LinkHelpers.RouteTo<T>(params)` parses a component's route
   template and substitutes parameters (used across components instead of hardcoding URLs).
 
@@ -429,10 +439,12 @@ Notes:
 
 ## 10. Known Issues, TODOs & Gotchas
 
-- **Broken test fixture**: `LogiEdge.Test.ExcelImporterService/ExcelImportingServiceTest.cs`
-  — `DatabaseFixture.InitializeAsync` sets both context factories to `null` with a
-  "TODO: Fix test" (the commented-out code shows the intended Testcontainers setup).
-  Tests currently throw NREs.
+- `WarehouseDbContextModelSnapshot.cs` is stale: it records the pre-change `Customer` shape (no `CanonicalName`/`ShortName`) and has no `Address`. Harmless at runtime and for migration generation (`Customer` and `Address` are `.ExcludeFromMigrations()` in WarehouseService — no operations are ever generated for them); the snapshot refreshes when the next real WarehouseService migration is generated.
+- **Test isolation**: the `LogiEdge.Test.ExcelImporterService` scenarios import into the same
+  warehouse/customer names, so each test method gets its own Testcontainers database
+  (per-method fixture, not a shared `IClassFixture`) — don't reintroduce sharing there.
+  Note: `LogiEdgeDbContext.OnConfiguring` unconditionally applies the connection string from
+  `IConfiguration`, so test contexts must be constructed with a real in-memory configuration.
 - **PlanningBoard has no migrations** despite calling `Database.Migrate()`; tables for
   `Boards` are never created by EF. The UI is a static stub.
 - **Relocation transactions**: part entity and booking logic are unimplemented (TODO).

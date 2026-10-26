@@ -85,7 +85,7 @@ else
             <h3 class="item-page-title mb-0">@_item.ItemNumber</h3>
 
             <span class="badge text-bg-secondary item-badge">
-                <a class="link-light" href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.Name</a>
+                <a class="link-light" href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.ShortName</a>
             </span>
             <span class="badge text-bg-info item-badge">
                 <span class="material-symbols-rounded badge-icon">location_on</span>@_item.Location
@@ -105,7 +105,7 @@ else
                             <dd><a href="@ItemsUrl(nameof(Item.ItemNumber), _item.ItemNumber)">@_item.ItemNumber</a></dd>
 
                             <dt>Customer</dt>
-                            <dd><a href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.Name</a></dd>
+                            <dd><a href="@ItemsUrl(nameof(Item.Customer), _item.CustomerId.ToString())">@_item.Customer.ShortName</a></dd>
 
                             <dt>Warehouse</dt>
                             <dd><a href="@ItemsUrl(nameof(ItemState.Warehouse), _item.WarehouseId.ToString())">@_item.Warehouse.Name</a></dd>

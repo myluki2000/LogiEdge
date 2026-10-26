@@ -16,7 +16,18 @@
 			"IdentifyingColumns": [
 				"Artikel",
 				"Einlagerdatum"
-			]
+			],
+			"UseSchema": "TestSchema"
+		}
+	],
+	"InventoryItemSchemas": [
+		{
+			"Name": "TestSchema",
+			"Customers": [
+				"ExampleCustomer"
+			],
+			"AdditionalProperties": [],
+			"AdditionalPropertiesTypes": []
 		}
 	]
 }

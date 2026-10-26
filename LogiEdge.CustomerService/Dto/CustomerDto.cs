@@ -8,6 +8,9 @@ namespace LogiEdge.CustomerService.Dto
     {
         public Guid Id { get; set; }
         public required string Abbreviation { get; set; }
-        public required string Name { get; set; }
+        public required string CanonicalName { get; set; }
+        public required string ShortName { get; set; }
+        public AddressDto? BillingAddress { get; set; }
+        public List<AddressDto> DeliveryAddresses { get; set; } = [];
     }
 }

@@ -58,3 +58,16 @@
 .customer-abbrev-readonly {
     font-family: var(--bs-font-monospace);
 }
+
+.delivery-address {
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+}
+
+.delivery-address-form {
+    border: 1px dashed var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    background-color: var(--bs-tertiary-bg, #f8f9fa);
+    padding: 1rem;
+}

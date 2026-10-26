@@ -1,4 +1,4 @@
-﻿@page "/customers/{Id:guid}"
+@page "/customers/{Id:guid}"
 
 @using LogiEdge.CustomerService.Dto
 @using LogiEdge.CustomerService.Services
@@ -11,12 +11,49 @@
     [Parameter]
     public Guid Id { get; set; }
 
+    private const string CustomerGoneMessage = "The customer no longer exists. Please reload the page.";
+    private const string IncompleteAddressMessage = "An address needs a street, zip code, city and country!";
+
     private CustomerDto? _customer;
     private bool _loaded;
 
-    private string _name = string.Empty;
+    // Name editing.
+    private string _canonicalName = string.Empty;
+    private string _shortName = string.Empty;
     private string? _feedbackError;
     private string? _feedbackSuccess;
+
+    // Billing address form.
+    private string _billingLabel = string.Empty;
+    private string _billingStreet = string.Empty;
+    private string _billingHouseNumber = string.Empty;
+    private string _billingZipCode = string.Empty;
+    private string _billingCity = string.Empty;
+    private string _billingCountry = string.Empty;
+    private string? _billingError;
+    private string? _billingSuccess;
+
+    // Delivery addresses: add form.
+    private bool _showAddDeliveryForm;
+    private string _newDeliveryLabel = string.Empty;
+    private string _newDeliveryStreet = string.Empty;
+    private string _newDeliveryHouseNumber = string.Empty;
+    private string _newDeliveryZipCode = string.Empty;
+    private string _newDeliveryCity = string.Empty;
+    private string _newDeliveryCountry = string.Empty;
+
+    // Delivery addresses: edit form (one address at a time).
+    private Guid? _editingDeliveryAddressId;
+    private string _editLabel = string.Empty;
+    private string _editStreet = string.Empty;
+    private string _editHouseNumber = string.Empty;
+    private string _editZipCode = string.Empty;
+    private string _editCity = string.Empty;
+    private string _editCountry = string.Empty;
+
+    // Delivery addresses: shared feedback.
+    private string? _deliveryError;
+    private string? _deliverySuccess;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -30,56 +67,363 @@
         _customer = customer;
         if (customer != null)
         {
-            _name = customer.Name;
+            ResetNameFields();
+            ResetBillingFields();
+            ResetDeliveryState();
         }
         _loaded = true;
     }
 
-    private bool HasChanges => _customer != null && _name != _customer.Name;
-
-    private void OnNameChanged(string? value)
+    // Re-fetches the customer and resets all form state so the UI reflects the saved data.
+    private async Task<bool> RefreshAsync()
     {
-        _name = value ?? string.Empty;
-        ClearFeedback();
+        CustomerDto? customer = await CustomerService.GetCustomerByIdAsync(Id);
+        if (customer == null)
+        {
+            return false;
+        }
+
+        _customer = customer;
+        ResetNameFields();
+        ResetBillingFields();
+        ResetDeliveryState();
+        return true;
     }
 
-    private void ClearFeedback()
+    private bool HasNameChanges => _customer != null && (_canonicalName != _customer.CanonicalName || _shortName != _customer.ShortName);
+
+    private void ResetNameFields()
     {
+        if (_customer != null)
+        {
+            _canonicalName = _customer.CanonicalName;
+            _shortName = _customer.ShortName;
+        }
+    }
+
+    private async Task SaveNamesAsync()
+    {
+        _feedbackError = null;
+        _feedbackSuccess = null;
+
+        if (string.IsNullOrWhiteSpace(_canonicalName) || string.IsNullOrWhiteSpace(_shortName))
+        {
+            _feedbackError = "Customer needs to have both a canonical name and a short name!";
+            return;
+        }
+
+        CustomerDto? updated = await CustomerService.UpdateCustomerAsync(Id, _canonicalName.Trim(), _shortName.Trim());
+        if (updated == null)
+        {
+            _feedbackError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _feedbackError = CustomerGoneMessage;
+            return;
+        }
+
+        _feedbackSuccess = "Customer saved successfully!";
+    }
+
+    private void CancelNameEdit()
+    {
+        ResetNameFields();
         _feedbackError = null;
         _feedbackSuccess = null;
     }
 
-    private async Task SaveAsync()
+    private static bool IsSameValue(string? formValue, string? savedValue)
+        => string.IsNullOrWhiteSpace(formValue) ? savedValue == null : !string.IsNullOrEmpty(savedValue) && formValue.Trim() == savedValue;
+
+    private bool HasBillingChanges
     {
-        ClearFeedback();
-
-        if (string.IsNullOrWhiteSpace(_name))
+        get
         {
-            _feedbackError = "Customer needs to have a name!";
-            return;
+            AddressDto? billing = _customer?.BillingAddress;
+            if (billing == null)
+            {
+                return !string.IsNullOrWhiteSpace(_billingStreet);
+            }
+
+            return !IsSameValue(_billingLabel, billing.Label)
+                || !IsSameValue(_billingStreet, billing.Street)
+                || !IsSameValue(_billingHouseNumber, billing.HouseNumber)
+                || !IsSameValue(_billingZipCode, billing.ZipCode)
+                || !IsSameValue(_billingCity, billing.City)
+                || !IsSameValue(_billingCountry, billing.Country);
         }
-
-        string trimmedName = _name.Trim();
-
-        CustomerDto? updated = await CustomerService.UpdateCustomerAsync(Id, trimmedName);
-        if (updated == null)
-        {
-            _feedbackError = "The customer no longer exists. Please reload the page.";
-            return;
-        }
-
-        _customer = updated;
-        _name = updated.Name;
-        _feedbackSuccess = "Customer saved successfully!";
     }
 
-    private void CancelAsync()
+    private void ResetBillingFields()
     {
-        if (_customer != null)
+        AddressDto? billing = _customer?.BillingAddress;
+        _billingLabel = billing?.Label ?? string.Empty;
+        _billingStreet = billing?.Street ?? string.Empty;
+        _billingHouseNumber = billing?.HouseNumber ?? string.Empty;
+        _billingZipCode = billing?.ZipCode ?? string.Empty;
+        _billingCity = billing?.City ?? string.Empty;
+        _billingCountry = billing?.Country ?? string.Empty;
+    }
+
+    private AddressDto? BuildBillingAddress()
+    {
+        if (string.IsNullOrWhiteSpace(_billingStreet))
         {
-            _name = _customer.Name;
+            return null;
         }
-        ClearFeedback();
+
+        return new AddressDto
+        {
+            Id = _customer?.BillingAddress?.Id ?? Guid.Empty,
+            Label = string.IsNullOrWhiteSpace(_billingLabel) ? null : _billingLabel.Trim(),
+            Street = _billingStreet.Trim(),
+            HouseNumber = string.IsNullOrWhiteSpace(_billingHouseNumber) ? null : _billingHouseNumber.Trim(),
+            ZipCode = _billingZipCode.Trim(),
+            City = _billingCity.Trim(),
+            Country = _billingCountry.Trim(),
+        };
+    }
+
+    private async Task SaveBillingAsync()
+    {
+        _billingError = null;
+        _billingSuccess = null;
+
+        bool hasStreet = !string.IsNullOrWhiteSpace(_billingStreet);
+        if (hasStreet && (string.IsNullOrWhiteSpace(_billingZipCode) || string.IsNullOrWhiteSpace(_billingCity) || string.IsNullOrWhiteSpace(_billingCountry)))
+        {
+            _billingError = IncompleteAddressMessage;
+            return;
+        }
+
+        AddressDto? address = BuildBillingAddress();
+        CustomerDto? updated = await CustomerService.SetBillingAddressAsync(Id, address);
+        if (updated == null)
+        {
+            _billingError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _billingError = CustomerGoneMessage;
+            return;
+        }
+
+        _billingSuccess = address == null ? "Billing address removed!" : "Billing address saved!";
+    }
+
+    private async Task ClearBillingAsync()
+    {
+        _billingError = null;
+        _billingSuccess = null;
+
+        CustomerDto? updated = await CustomerService.SetBillingAddressAsync(Id, null);
+        if (updated == null)
+        {
+            _billingError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _billingError = CustomerGoneMessage;
+            return;
+        }
+
+        _billingSuccess = "Billing address removed!";
+    }
+
+    private void CancelBillingEdit()
+    {
+        ResetBillingFields();
+        _billingError = null;
+        _billingSuccess = null;
+    }
+
+    private void ShowAddDeliveryForm()
+    {
+        _showAddDeliveryForm = true;
+        ClearNewDeliveryFields();
+        _deliveryError = null;
+        _deliverySuccess = null;
+    }
+
+    private void HideAddDeliveryForm()
+    {
+        _showAddDeliveryForm = false;
+        ClearNewDeliveryFields();
+    }
+
+    private void ResetDeliveryState()
+    {
+        _showAddDeliveryForm = false;
+        ClearNewDeliveryFields();
+        _editingDeliveryAddressId = null;
+        ClearEditFields();
+    }
+
+    private void ClearNewDeliveryFields()
+    {
+        _newDeliveryLabel = string.Empty;
+        _newDeliveryStreet = string.Empty;
+        _newDeliveryHouseNumber = string.Empty;
+        _newDeliveryZipCode = string.Empty;
+        _newDeliveryCity = string.Empty;
+        _newDeliveryCountry = string.Empty;
+    }
+
+    private void ClearEditFields()
+    {
+        _editLabel = string.Empty;
+        _editStreet = string.Empty;
+        _editHouseNumber = string.Empty;
+        _editZipCode = string.Empty;
+        _editCity = string.Empty;
+        _editCountry = string.Empty;
+    }
+
+    private void StartEditingDelivery(AddressDto address)
+    {
+        _editingDeliveryAddressId = address.Id;
+        _editLabel = address.Label ?? string.Empty;
+        _editStreet = address.Street;
+        _editHouseNumber = address.HouseNumber ?? string.Empty;
+        _editZipCode = address.ZipCode;
+        _editCity = address.City;
+        _editCountry = address.Country;
+        _deliveryError = null;
+        _deliverySuccess = null;
+    }
+
+    private void CancelDeliveryEdit()
+    {
+        _editingDeliveryAddressId = null;
+        ClearEditFields();
+    }
+
+    private static bool HasRequiredAddressFields(string street, string zipCode, string city, string country)
+        => !string.IsNullOrWhiteSpace(street) && !string.IsNullOrWhiteSpace(zipCode) && !string.IsNullOrWhiteSpace(city) && !string.IsNullOrWhiteSpace(country);
+
+    private async Task AddDeliveryAsync()
+    {
+        _deliveryError = null;
+        _deliverySuccess = null;
+
+        if (!HasRequiredAddressFields(_newDeliveryStreet, _newDeliveryZipCode, _newDeliveryCity, _newDeliveryCountry))
+        {
+            _deliveryError = IncompleteAddressMessage;
+            return;
+        }
+
+        AddressDto address = new()
+        {
+            Id = Guid.Empty,
+            Label = string.IsNullOrWhiteSpace(_newDeliveryLabel) ? null : _newDeliveryLabel.Trim(),
+            Street = _newDeliveryStreet.Trim(),
+            HouseNumber = string.IsNullOrWhiteSpace(_newDeliveryHouseNumber) ? null : _newDeliveryHouseNumber.Trim(),
+            ZipCode = _newDeliveryZipCode.Trim(),
+            City = _newDeliveryCity.Trim(),
+            Country = _newDeliveryCountry.Trim(),
+        };
+
+        CustomerDto? updated = await CustomerService.AddDeliveryAddressAsync(Id, address);
+        if (updated == null)
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        _deliverySuccess = "Delivery address added!";
+    }
+
+    private async Task SaveDeliveryEditAsync(Guid addressId)
+    {
+        _deliveryError = null;
+        _deliverySuccess = null;
+
+        if (!HasRequiredAddressFields(_editStreet, _editZipCode, _editCity, _editCountry))
+        {
+            _deliveryError = IncompleteAddressMessage;
+            return;
+        }
+
+        AddressDto address = new()
+        {
+            Id = addressId,
+            Label = string.IsNullOrWhiteSpace(_editLabel) ? null : _editLabel.Trim(),
+            Street = _editStreet.Trim(),
+            HouseNumber = string.IsNullOrWhiteSpace(_editHouseNumber) ? null : _editHouseNumber.Trim(),
+            ZipCode = _editZipCode.Trim(),
+            City = _editCity.Trim(),
+            Country = _editCountry.Trim(),
+        };
+
+        CustomerDto? updated = await CustomerService.UpdateAddressAsync(addressId, address);
+        if (updated == null)
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        _deliverySuccess = "Delivery address saved!";
+    }
+
+    private async Task RemoveDeliveryAsync(Guid addressId)
+    {
+        _deliveryError = null;
+        _deliverySuccess = null;
+
+        CustomerDto? updated = await CustomerService.RemoveDeliveryAddressAsync(addressId);
+        if (updated == null)
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        _deliverySuccess = "Delivery address removed!";
+    }
+
+    private async Task ToggleDefaultDeliveryAsync(Guid customerId, Guid? addressId)
+    {
+        _deliveryError = null;
+        _deliverySuccess = null;
+
+        CustomerDto? updated = await CustomerService.SetDefaultDeliveryAddressAsync(customerId, addressId);
+        if (updated == null)
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        if (!await RefreshAsync())
+        {
+            _deliveryError = CustomerGoneMessage;
+            return;
+        }
+
+        _deliverySuccess = addressId == null ? "Default delivery address cleared!" : "Default delivery address set!";
     }
 }
 
@@ -105,7 +449,7 @@ else
             <button type="button" class="customer-back-btn" title="Back to customers" aria-label="Back to customers" @onclick="@(() => NavigationManager.NavigateToRoute<CustomersPage>())">
                 <span class="material-symbols-rounded">arrow_back</span>
             </button>
-            <h3 class="customer-page-title mb-0">@_customer.Name</h3>
+            <h3 class="customer-page-title mb-0" title="@_customer.CanonicalName">@_customer.ShortName</h3>
             <span class="badge text-bg-primary customer-abbrev-badge">
                 <span class="material-symbols-rounded customer-badge-icon" aria-hidden="true">tag</span>@_customer.Abbreviation
             </span>
@@ -117,8 +461,11 @@ else
                     <div class="card-header">Details</div>
                     <div class="card-body">
                         <dl class="customer-details mb-0">
-                            <dt>Name</dt>
-                            <dd>@_customer.Name</dd>
+                            <dt>Canonical name</dt>
+                            <dd>@_customer.CanonicalName</dd>
+
+                            <dt>Short name</dt>
+                            <dd>@_customer.ShortName</dd>
 
                             <dt>Abbreviation</dt>
                             <dd><span class="badge text-bg-light customer-abbrev-badge">@_customer.Abbreviation</span></dd>
@@ -134,7 +481,7 @@ else
                 <div class="card h-100">
                     <div class="card-header d-flex align-items-center justify-content-between">
                         <span>Edit customer</span>
-                        @if (HasChanges)
+                        @if (HasNameChanges)
                         {
                             <span class="badge text-bg-warning customer-dirty-badge">Unsaved changes</span>
                         }
@@ -142,8 +489,14 @@ else
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="form-label">Name</label>
-                                <HxInputText Value="@_name" ValueChanged="OnNameChanged" ValueExpression="() => _name" Placeholder="e.g. Acme GmbH" />
+                                <label class="form-label">Canonical name</label>
+                                <HxInputText @bind-Value="_canonicalName" Placeholder="e.g. Acme Trading Co. GmbH" />
+                                <div class="form-text">Full legal company name.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Short name</label>
+                                <HxInputText @bind-Value="_shortName" Placeholder="e.g. Acme Trading" />
+                                <div class="form-text">Display name without legal suffixes.</div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Abbreviation</label>
@@ -162,11 +515,233 @@ else
                         }
 
                         <div class="d-flex gap-2 customer-form-actions">
-                            <HxButton Color="ThemeColor.Primary" OnClick="SaveAsync">
+                            <HxButton Color="ThemeColor.Primary" OnClick="SaveNamesAsync">
                                 <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">save</span>Save Changes
                             </HxButton>
-                            <HxButton Color="ThemeColor.Secondary" OnClick="CancelAsync">Cancel</HxButton>
+                            <HxButton Color="ThemeColor.Secondary" OnClick="CancelNameEdit">Cancel</HxButton>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Billing address</span>
+                        @if (HasBillingChanges)
+                        {
+                            <span class="badge text-bg-warning customer-dirty-badge">Unsaved changes</span>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (_customer.BillingAddress == null)
+                        {
+                            <p class="text-muted mb-3">No billing address is set.</p>
+                        }
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Label</label>
+                                <HxInputText @bind-Value="_billingLabel" Placeholder="e.g. HQ" />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Street</label>
+                                <HxInputText @bind-Value="_billingStreet" Placeholder="e.g. Industriestraße" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">House number</label>
+                                <HxInputText @bind-Value="_billingHouseNumber" Placeholder="e.g. 12" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Zip code</label>
+                                <HxInputText @bind-Value="_billingZipCode" Placeholder="e.g. 10115" />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">City</label>
+                                <HxInputText @bind-Value="_billingCity" Placeholder="e.g. Berlin" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Country</label>
+                                <HxInputText @bind-Value="_billingCountry" Placeholder="e.g. Germany" />
+                            </div>
+                        </div>
+
+                        @if (_billingError != null)
+                        {
+                            <div class="alert alert-danger customer-feedback mt-3" role="alert">@_billingError</div>
+                        }
+                        else if (_billingSuccess != null)
+                        {
+                            <div class="alert alert-success customer-feedback mt-3" role="alert">@_billingSuccess</div>
+                        }
+
+                        <div class="d-flex gap-2 customer-form-actions">
+                            <HxButton Color="ThemeColor.Primary" Disabled="@(!HasBillingChanges)" OnClick="SaveBillingAsync">
+                                <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">save</span>Save Billing Address
+                            </HxButton>
+                            <HxButton Color="ThemeColor.Secondary" OnClick="CancelBillingEdit">Cancel</HxButton>
+                            @if (_customer.BillingAddress != null)
+                            {
+                                <HxButton Color="ThemeColor.Danger" OnClick="ClearBillingAsync">
+                                    <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">delete</span>Remove
+                                </HxButton>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <div class="card h-100">
+                    <div class="card-header d-flex align-items-center justify-content-between">
+                        <span>Delivery addresses</span>
+                        <div class="d-flex align-items-center gap-2">
+                            @if (_customer.DeliveryAddresses.Count > 0)
+                            {
+                                <span class="badge text-bg-secondary" title="Total number of delivery addresses">@_customer.DeliveryAddresses.Count</span>
+                            }
+                            @if (!_showAddDeliveryForm)
+                            {
+                                <HxButton Color="ThemeColor.Secondary" OnClick="ShowAddDeliveryForm">
+                                    <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">add</span>Add Address
+                                </HxButton>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (_showAddDeliveryForm)
+                        {
+                            <div class="delivery-address-form mb-3">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Label</label>
+                                        <HxInputText @bind-Value="_newDeliveryLabel" Placeholder="e.g. Warehouse North" />
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Street</label>
+                                        <HxInputText @bind-Value="_newDeliveryStreet" Placeholder="e.g. Lagerstraße" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">House number</label>
+                                        <HxInputText @bind-Value="_newDeliveryHouseNumber" Placeholder="e.g. 7" />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Zip code</label>
+                                        <HxInputText @bind-Value="_newDeliveryZipCode" Placeholder="e.g. 10115" />
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">City</label>
+                                        <HxInputText @bind-Value="_newDeliveryCity" Placeholder="e.g. Berlin" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Country</label>
+                                        <HxInputText @bind-Value="_newDeliveryCountry" Placeholder="e.g. Germany" />
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2 customer-form-actions mt-3">
+                                    <HxButton Color="ThemeColor.Primary" OnClick="AddDeliveryAsync">
+                                        <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">add</span>Add Address
+                                    </HxButton>
+                                    <HxButton Color="ThemeColor.Secondary" OnClick="HideAddDeliveryForm">Cancel</HxButton>
+                                </div>
+                            </div>
+                        }
+
+                        @if (_deliveryError != null)
+                        {
+                            <div class="alert alert-danger customer-feedback mt-3" role="alert">@_deliveryError</div>
+                        }
+                        else if (_deliverySuccess != null)
+                        {
+                            <div class="alert alert-success customer-feedback mt-3" role="alert">@_deliverySuccess</div>
+                        }
+
+                        @if (_customer.DeliveryAddresses.Count == 0 && !_showAddDeliveryForm)
+                        {
+                            <p class="text-muted mb-0">No delivery addresses yet. Use “Add Address” to create one.</p>
+                        }
+
+                        @foreach (AddressDto address in _customer.DeliveryAddresses)
+                        {
+                            if (_editingDeliveryAddressId == address.Id)
+                            {
+                                <div class="delivery-address-form mb-3">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Label</label>
+                                            <HxInputText @bind-Value="_editLabel" Placeholder="e.g. Warehouse North" />
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label">Street</label>
+                                            <HxInputText @bind-Value="_editStreet" Placeholder="e.g. Lagerstraße" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">House number</label>
+                                            <HxInputText @bind-Value="_editHouseNumber" Placeholder="e.g. 7" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Zip code</label>
+                                            <HxInputText @bind-Value="_editZipCode" Placeholder="e.g. 10115" />
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="form-label">City</label>
+                                            <HxInputText @bind-Value="_editCity" Placeholder="e.g. Berlin" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Country</label>
+                                            <HxInputText @bind-Value="_editCountry" Placeholder="e.g. Germany" />
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 customer-form-actions mt-3">
+                                        <HxButton Color="ThemeColor.Primary" OnClick="@(() => SaveDeliveryEditAsync(address.Id))">
+                                            <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">save</span>Save Changes
+                                        </HxButton>
+                                        <HxButton Color="ThemeColor.Secondary" OnClick="CancelDeliveryEdit">Cancel</HxButton>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="delivery-address mb-3">
+                                    <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+                                        <div>
+                                            @if (!string.IsNullOrWhiteSpace(address.Label))
+                                            {
+                                                <span class="badge text-bg-light me-2">@address.Label</span>
+                                            }
+                                            @if (address.IsDefaultDeliveryAddress)
+                                            {
+                                                <span class="badge text-bg-primary me-2">Default</span>
+                                            }
+                                            <span>@address.Street@(string.IsNullOrWhiteSpace(address.HouseNumber) ? string.Empty : " " + address.HouseNumber)</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <HxButton Color="ThemeColor.Secondary" OnClick="@(() => StartEditingDelivery(address))">
+                                                <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">edit</span>Edit
+                                            </HxButton>
+                                            @if (address.IsDefaultDeliveryAddress)
+                                            {
+                                                <HxButton Color="ThemeColor.Secondary" OnClick="@(() => ToggleDefaultDeliveryAsync(Id, null))">
+                                                    <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">star_off</span>Clear default
+                                                </HxButton>
+                                            }
+                                            else
+                                            {
+                                                <HxButton Color="ThemeColor.Secondary" OnClick="@(() => ToggleDefaultDeliveryAsync(Id, address.Id))">
+                                                    <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">star</span>Set as default
+                                                </HxButton>
+                                            }
+                                            <HxButton Color="ThemeColor.Danger" OnClick="@(() => RemoveDeliveryAsync(address.Id))">
+                                                <span class="material-symbols-rounded customer-btn-icon" aria-hidden="true">delete</span>Remove
+                                            </HxButton>
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small mt-1">@address.ZipCode @address.City, @address.Country</div>
+                                </div>
+                            }
+                        }
                     </div>
                 </div>
             </div>

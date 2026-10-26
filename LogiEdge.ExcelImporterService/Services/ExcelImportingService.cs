@@ -112,12 +112,13 @@ namespace LogiEdge.ExcelImporterService.Services
                 // create customers associated with this schema if they don't exist already
                 foreach (string customerName in schema.Customers)
                 {
-                    Customer? customer = customerDbContext.Customers.FirstOrDefault(x => x.Name == customerName);
+                    Customer? customer = customerDbContext.Customers.FirstOrDefault(x => x.CanonicalName == customerName);
                     if (customer == null)
                     {
                         customer = customerDbContext.Customers.Add(new Customer()
                         {
-                            Name = customerName,
+                            CanonicalName = customerName,
+                            ShortName = customerName,
                             Abbreviation = customerName.Substring(0, 2).ToUpper()
                         }).Entity;
 
@@ -137,7 +138,7 @@ namespace LogiEdge.ExcelImporterService.Services
             foreach (InventoryFileMatchingOptions options in config.InventoryFileMatchingOptions)
             {
                 // get or create the customer entry for this import
-                Customer? customer = customerDbContext.Customers.FirstOrDefault(x => x.Name == options.CustomerName);
+                Customer? customer = customerDbContext.Customers.FirstOrDefault(x => x.CanonicalName == options.CustomerName);
                 if (customer == null)
                 {
                     throw new Exception("Could not find defined customer with the given name " + options.CustomerName);
