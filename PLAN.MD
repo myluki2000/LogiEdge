@@ -348,6 +348,7 @@ migrations, and the UI is a static stub.
 | `/tmp/{id:guid}` | Minimal API | cached file serving (PDF previews) |
 | `/api/attachments/{attachmentId:guid}/download` | MVC controller | attachment download |
 | `/RunExcelImport` | Minimal API | triggers Excel import |
+| `/api/customers`, `/api/customers/{id:guid}` | MVC controller | customer data incl. addresses (cookie or API token) |
 
 ## 8. Conventions & Patterns to Follow
 

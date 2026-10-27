@@ -24,6 +24,7 @@ namespace LogiEdge.CustomerService
         {
             builder.Services.AddDbContextFactory<CustomerDbContext>();
             builder.Services.AddSingleton<CustomerManagementService>();
+            builder.Services.AddControllers().AddApplicationPart(Assembly);
         }
     }
 }
