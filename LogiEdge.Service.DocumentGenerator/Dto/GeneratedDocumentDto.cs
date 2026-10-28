@@ -9,5 +9,6 @@ namespace LogiEdge.Service.DocumentGenerator.Dto
         public required string ContentType { get; set; }
         public required string FileName { get; set; }
         public required byte[] Data { get; set; }
+        public string? UserInputJson { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 ﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Dto
 @using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
@@ -83,6 +84,19 @@
 
         await _attachmentManager.SaveGeneratedDocument(doc);
     }
+
+    private async Task<string?> GetPreFilledUserInputAsync()
+    {
+        try
+        {
+            List<FileAttachmentDto> attachments = await TransactionService.GetAttachments(TransactionId);
+            return attachments.LastOrDefault(a => a.UserInputJson != null)?.UserInputJson;
+        }
+        catch
+        {
+            return null; // pre-fill is best-effort — never break generation
+        }
+    }
 }
 
 @if (_transaction == null)
@@ -117,6 +131,7 @@
             <div class="d-flex align-items-center gap-2 flex-wrap tx-actions">
                 <DebouncerComponent @ref="_debouncer" DelayMilliseconds="1000" class="tx-save-status" />
                 <DocumentGeneratorComponent InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
+                                            PreFilledUserInputFunc="GetPreFilledUserInputAsync"
                                             OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnSaveRequested" />
             </div>
         </div>

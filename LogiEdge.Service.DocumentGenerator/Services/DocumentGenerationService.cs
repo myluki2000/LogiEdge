@@ -21,14 +21,17 @@ namespace LogiEdge.Service.DocumentGenerator.Services
         /// <summary>
         /// Generates a document using the specified generator and input data.
         /// </summary>
-        public async Task<GeneratedDocumentDto> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
+        public async Task<GeneratedDocumentDto> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData, string? userInputJson = null)
         {
-            byte[] doc = await generator.GenerateDocumentAsync(inputData);
+            UserInputJson.Validate(userInputJson);
+
+            byte[] doc = await generator.GenerateDocumentAsync(inputData, userInputJson);
             return new GeneratedDocumentDto()
             {
                 ContentType = "application/pdf", // TODO: Must depend on the generator used
                 Data = doc,
-                FileName = $"{generator.GetType().Name}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf"
+                FileName = $"{generator.GetType().Name}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf",
+                UserInputJson = userInputJson
             };
         }
 
@@ -122,6 +125,7 @@ namespace LogiEdge.Service.DocumentGenerator.Services
             template.Html = htmlDto.Html;
             template.HeaderHtml = htmlDto.HeaderHtml;
             template.FooterHtml = htmlDto.FooterHtml;
+            template.InputFormHtml = htmlDto.InputFormHtml;
             await ctx.SaveChangesAsync();
 
             return DocumentGenerationTemplateToDto(template);
@@ -139,6 +143,7 @@ namespace LogiEdge.Service.DocumentGenerator.Services
                     Html = html.Html,
                     HeaderHtml = html.HeaderHtml,
                     FooterHtml = html.FooterHtml,
+                    InputFormHtml = html.InputFormHtml,
                 };
             }
 

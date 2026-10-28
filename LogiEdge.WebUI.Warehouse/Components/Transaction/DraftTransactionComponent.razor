@@ -1,4 +1,5 @@
 ﻿@using LogiEdge.BaseService.Data
+@using LogiEdge.BaseService.Dto
 @using LogiEdge.Service.DocumentGenerator.Dto
 @using LogiEdge.WarehouseService.Data.Transactions
 @using LogiEdge.WarehouseService.Dto
@@ -126,6 +127,19 @@
 
         await _attachmentManager.SaveGeneratedDocument(doc);
     }
+
+    private async Task<string?> GetPreFilledUserInputAsync()
+    {
+        try
+        {
+            List<FileAttachmentDto> attachments = await TransactionService.GetAttachments(TransactionId);
+            return attachments.LastOrDefault(a => a.UserInputJson != null)?.UserInputJson;
+        }
+        catch
+        {
+            return null; // pre-fill is best-effort — never break generation
+        }
+    }
 }
 
 @if (!_initialLoadComplete)
@@ -179,6 +193,7 @@
 
                 <DocumentGeneratorComponent TInputType="InventoryTransactionFullInfoDto"
                                             InputDataFunc="async () => await TransactionService.GetTransactionFullInfo(TransactionId)"
+                                            PreFilledUserInputFunc="GetPreFilledUserInputAsync"
                                             OnFileAttachmentSaveRequested="DocumentGeneratorComponentOnFileAttachmentSaveRequested" />
 
                 <button type="button" class="tx-icon-btn tx-delete-btn" title="Delete transaction" aria-label="Delete transaction" @onclick="DeleteTransaction">

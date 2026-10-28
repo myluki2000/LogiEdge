@@ -17,6 +17,7 @@ namespace LogiEdge.BaseService.Data
         public required string ContentType { get; set; }
         [AutoInclude(false)]
         public required BinaryData Data { get; set; }
+        public string? UserInputJson { get; set; }
     }
 
     [Owned]

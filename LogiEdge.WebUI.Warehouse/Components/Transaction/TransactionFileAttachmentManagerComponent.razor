@@ -23,7 +23,7 @@
     public async Task SaveGeneratedDocument(GeneratedDocumentDto doc)
     {
         // TODO: Need to do this in a transaction, so that no orphaned attachments are left behind if the transaction fails
-        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data);
+        FileAttachmentDto att = await FileAttachmentService.CreateAttachment(doc.FileName, doc.ContentType, doc.Data, doc.UserInputJson);
         await TransactionService.AddAttachment(TransactionId, att.Id);
 
         _attachments = [.. _attachments, att];

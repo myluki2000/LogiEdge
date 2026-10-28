@@ -16,9 +16,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LogiEdge.CustomerService\LogiEdge.CustomerService.csproj" />
     <ProjectReference Include="..\LogiEdge.Service.DocumentGenerator\LogiEdge.Service.DocumentGenerator.csproj" />
     <ProjectReference Include="..\LogiEdge.Shared\LogiEdge.Shared.csproj" />
     <ProjectReference Include="..\LogiEdge.WebUI.Shared\LogiEdge.WebUI.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Js\**\*.js" />
   </ItemGroup>
 
 
