@@ -65,11 +65,13 @@
         }
 
         window.addEventListener('message', event => {
-            let msg;
-            try {
-                msg = JSON.parse(event.data);
-            } catch (err) {
-                return; // not a bridge message
+            let msg = event.data;
+            if (typeof msg === 'string') {
+                try {
+                    msg = JSON.parse(msg);
+                } catch (err) {
+                    return; // not a bridge message
+                }
             }
             if (!msg || typeof msg !== 'object' || msg.v !== 1 || typeof msg.type !== 'string') return;
 

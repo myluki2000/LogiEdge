@@ -118,7 +118,8 @@ namespace LogiEdge.WebUI.DocumentGenerator.Components
             return await tcs.Task;
         }
 
-        private async Task OnFormMessage(string rawJson)
+        [JSInvokable]
+        public async Task OnFormMessage(string rawJson)
         {
             JsonElement message;
             try

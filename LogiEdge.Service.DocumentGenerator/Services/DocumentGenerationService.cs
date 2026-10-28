@@ -131,6 +131,52 @@ namespace LogiEdge.Service.DocumentGenerator.Services
             return DocumentGenerationTemplateToDto(template);
         }
 
+        /// <summary>
+        /// Exports an HTML document template as a zip file (see TemplateZip) and returns the zip data.
+        /// </summary>
+        public async Task<byte[]> ExportTemplateAsync(Guid templateId)
+        {
+            await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
+
+            DocumentGenerationTemplate? template = await ctx.DocumentTemplates.FirstOrDefaultAsync(t => t.Id == templateId);
+            if (template is not HtmlDocumentGenerationTemplate htmlTemplate)
+            {
+                throw new NotSupportedException($"Unsupported template type: {template?.GetType().Name}.");
+            }
+
+            return TemplateZip.CreateZip(htmlTemplate.Html, htmlTemplate.HeaderHtml, htmlTemplate.FooterHtml, htmlTemplate.InputFormHtml);
+        }
+
+        /// <summary>
+        /// Imports a document template from the given zip data (see TemplateZip) and returns the created template as a DTO.
+        /// </summary>
+        public async Task<DocumentGenerationTemplateDto> ImportTemplate(string templateName, Type inputType, byte[] zipData)
+        {
+            if (!typeof(IDocumentGeneratorInput).IsAssignableFrom(inputType))
+            {
+                throw new ArgumentException($"The input type must implement IDocumentGeneratorInput: {inputType.FullName}.", nameof(inputType));
+            }
+
+            (string html, string headerHtml, string footerHtml, string? inputFormHtml) = TemplateZip.ParseZip(zipData);
+
+            await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
+
+            HtmlDocumentGenerationTemplate template = new()
+            {
+                Name = templateName,
+                InputTypeName = inputType.FullName!,
+                Html = html,
+                HeaderHtml = headerHtml,
+                FooterHtml = footerHtml,
+                InputFormHtml = string.IsNullOrWhiteSpace(inputFormHtml) ? null : inputFormHtml,
+            };
+
+            ctx.DocumentTemplates.Add(template);
+            await ctx.SaveChangesAsync();
+
+            return DocumentGenerationTemplateToDto(template);
+        }
+
         private static DocumentGenerationTemplateDto DocumentGenerationTemplateToDto(DocumentGenerationTemplate template)
         {
             if (template is HtmlDocumentGenerationTemplate html)

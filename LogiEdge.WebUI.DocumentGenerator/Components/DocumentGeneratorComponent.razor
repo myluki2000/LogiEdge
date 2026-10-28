@@ -199,12 +199,18 @@
                 <p>Only document templates which are compatible with the currently selected data are shown.</p>
 
                 <HxButton Text="Generate" Color="ThemeColor.Primary" OnClick="ModalBtnGenerateOnClick" />
+                
+                <HxCheckbox @bind-Value="_showCollectedValues" Text="Show collected values (debug)" CssClass="small text-muted" />
+                @if (_showCollectedValues && _lastCollectedValues != null)
+                {
+                    <pre class="small bg-light border rounded p-2 mb-2" style="max-height: 160px; overflow: auto;">@PrettyPrintJson(_lastCollectedValues)</pre>
+                }
 
                 @if (HasInputForm)
                 {
                     <InputFormIframeComponent @ref="_inputForm"
-                                              FormHtml="_inputFormTemplate!.InputFormHtml"
-                                              ContextJson="_formContextJson"
+                                              FormHtml="@_inputFormTemplate!.InputFormHtml"
+                                              ContextJson="@_formContextJson"
                                               OnReady="() => { _formError = null; StateHasChanged(); }"
                                               OnError="error => { _formError = error; StateHasChanged(); }" />
                     <p class="text-muted small">Switching templates discards entered form values.</p>
@@ -218,15 +224,6 @@
                 @if (_formError != null)
                 {
                     <div class="text-danger small">@_formError</div>
-                }
-
-                <label class="form-check">
-                    <input type="checkbox" class="form-check-input" checked="@_showCollectedValues" @onchange="e => _showCollectedValues = (bool)(e.Value ?? false)" />
-                    <span class="form-check-label small text-muted">Show collected values (debug)</span>
-                </label>
-                @if (_showCollectedValues && _lastCollectedValues != null)
-                {
-                    <pre class="small bg-light border rounded p-2 mb-0" style="max-height: 160px; overflow: auto;">@PrettyPrintJson(_lastCollectedValues)</pre>
                 }
             </div>
             <div class="col">

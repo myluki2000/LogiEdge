@@ -8,8 +8,13 @@
 @using LogiEdge.Shared
 @using LogiEdge.WebUI.DocumentGenerator.Components
 
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+
 @inject DocumentGenerationService DocumentGenerationService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IHxMessageBoxService MessageBox
 
 @code {
     private List<DocumentGenerationTemplateDto> _documentTemplates = [];
@@ -17,6 +22,10 @@
     private List<Type> _inputTypesOfDocumentGeneratorComponent = [];
 
     private HxModal _modalCreateTemplate = null!;
+
+    private HxModal _modalImportTemplate = null!;
+
+    private IJSObjectReference? _templateExportJs;
 
     protected override async Task OnInitializedAsync()
     {
@@ -29,6 +38,34 @@
     private async Task BtnNewTemplateOnClick()
     {
         await _modalCreateTemplate.ShowAsync();
+    }
+
+    private async Task BtnImportTemplateOnClick()
+    {
+        _importError = null;
+        await _modalImportTemplate.ShowAsync();
+    }
+
+    private async Task BtnExportTemplateOnClick(DocumentGenerationTemplateDto template)
+    {
+        try
+        {
+            byte[] zipBytes = await DocumentGenerationService.ExportTemplateAsync(template.Id);
+
+            IJSObjectReference jsModule = _templateExportJs ??=
+                await JSRuntime.InvokeAsync<IJSObjectReference>("import", "/_content/LogiEdge.WebUI.DocumentGenerator/js/templateExport.js");
+            await jsModule.InvokeVoidAsync("downloadFile", Convert.ToBase64String(zipBytes), $"{SanitizeFileName(template.Name)}.zip", "application/zip");
+        }
+        catch (Exception exception)
+        {
+            await MessageBox.ShowAsync("Export Template", $"Failed to export template: {exception.Message}");
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        char[] invalidCharacters = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
+        return new string(name.Select(c => invalidCharacters.Contains(c) ? '_' : c).ToArray());
     }
 
     private static IEnumerable<Type> GetAllInputTypesOfDocumentGeneratorComponent()
@@ -48,6 +85,7 @@
 <h3>Document Templates</h3>
 
 <HxButton Text="New Template" OnClick="BtnNewTemplateOnClick" Color="ThemeColor.Primary" Icon="@BootstrapIcon.Plus" />
+<HxButton Text="Import Template" OnClick="BtnImportTemplateOnClick" Color="ThemeColor.Primary" Icon="@BootstrapIcon.Upload" />
 
 <div class="m-3">
     <table class="table">
@@ -67,6 +105,11 @@
                 <td>@template.InputTypeName</td>
                 <td>@template.GetType().Name</td>
                 <td>
+                    <HxButton Icon="BootstrapIcon.Download"
+                              Outline="true"
+                              Color="ThemeColor.Primary"
+                              Size="ButtonSize.Small"
+                              OnClick="@(() => BtnExportTemplateOnClick(template))"/>
                     <HxButton Icon="BootstrapIcon.PencilSquare"
                               Outline="true"
                               Color="ThemeColor.Primary"
@@ -123,5 +166,77 @@
 <FooterTemplate>
     <HxButton Text="Create" OnClick="ModalCreateTemplateBtnCreateOnClick" />
     <HxButton Text="Cancel" OnClick="ModalCreateTemplateBtnCancelOnClick" />
+</FooterTemplate>
+</HxModal>
+
+<HxModal Title="Import Template" @ref="_modalImportTemplate">
+@code
+{
+    private IBrowserFile? _importFile;
+    private string _importTemplateName = "Untitled template";
+    private Type? _importSelectedInputType;
+    private string? _importError;
+
+    private void ImportFileOnChange(InputFileChangeEventArgs e)
+    {
+        _importFile = e.File;
+        _importError = null;
+    }
+
+    private async Task ModalImportTemplateBtnImportOnClick()
+    {
+        _importError = null;
+
+        if (_importFile == null || _importSelectedInputType == null)
+            return;
+
+        try
+        {
+            byte[] zipData;
+            await using Stream stream = _importFile.OpenReadStream(5 * 1024 * 1024);
+            using MemoryStream memoryStream = new();
+            await stream.CopyToAsync(memoryStream);
+            zipData = memoryStream.ToArray();
+
+            await DocumentGenerationService.ImportTemplate(_importTemplateName, _importSelectedInputType, zipData);
+
+            _documentTemplates = (await DocumentGenerationService.GetTemplates()).ToList();
+            await _modalImportTemplate.HideAsync();
+        }
+        catch (Exception exception)
+        {
+            _importError = exception.Message;
+        }
+    }
+
+    private async Task ModalImportTemplateBtnCancelOnClick()
+    {
+        await _modalImportTemplate.HideAsync();
+    }
+}
+<BodyTemplate>
+    <InputFile OnChange="ImportFileOnChange" accept=".zip" />
+    @if (_importFile != null)
+    {
+        <div class="mb-2">Selected file: @_importFile.Name</div>
+    }
+    <HxInputText Label="Template Name" @bind-Value="_importTemplateName" />
+    <HxSelect TItem="Type"
+              TValue="Type?"
+              @bind-Value="_importSelectedInputType" Data="_inputTypesOfDocumentGeneratorComponent"
+              Label="Input Data"
+              TextSelector="t => t.FullName"
+              Nullable="true"
+              NullText="- select input data type -"
+              NullDataText="Loading types..." />
+    <div class="mb-2">The zip must contain body.html; optionally header.html, footer.html and input-form.html.</div>
+    @if (_importError != null)
+    {
+        <div class="text-danger">@_importError</div>
+    }
+</BodyTemplate>
+<FooterTemplate>
+    <HxButton Text="Import" OnClick="ModalImportTemplateBtnImportOnClick" />
+    <HxButton Text="Cancel" OnClick="ModalImportTemplateBtnCancelOnClick" />
 </FooterTemplate>
 </HxModal>

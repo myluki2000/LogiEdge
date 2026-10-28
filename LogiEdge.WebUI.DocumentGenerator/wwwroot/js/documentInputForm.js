@@ -29,8 +29,13 @@ export function initBridge(dotNetRef, iframeId) {
 }
 
 export function postToIframe(iframeId, messageJsonString) {
+    // Post the raw JSON string: the bridge protocol is versioned JSON strings in both directions.
     const el = document.getElementById(iframeId);
-    el?.contentWindow?.postMessage(JSON.parse(messageJsonString), '*');
+    if (!el || !el.contentWindow) {
+        console.warn('LogiEdge input form bridge: iframe not found for id', iframeId);
+        return;
+    }
+    el.contentWindow.postMessage(messageJsonString, '*');
 }
 
 export function disposeBridge() {
