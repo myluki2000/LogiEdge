@@ -188,7 +188,7 @@
             <tr>
                 <td>@(data.group.Count())x</td>
 
-                // a table cell per property to display
+                @* a table cell per property to display *@
                 @foreach (string propertyName in data.propertiesToDisplay)
                 {
                     // firstly we need to create a grouping of the items by the property value, because for this specific property, it may be that either
