@@ -16,5 +16,6 @@ namespace LogiEdge.Service.DocumentGenerator.Data
         public required string Html { get; set; }
         public string HeaderHtml { get; set; } = string.Empty;
         public string FooterHtml { get; set; } = string.Empty;
+        public string? InputFormHtml { get; set; }
     }
 }

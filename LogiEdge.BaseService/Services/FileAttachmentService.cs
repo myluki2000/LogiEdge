@@ -53,7 +53,7 @@ namespace LogiEdge.BaseService.Services
             return q.AsEnumerable().Select(FileAttachmentToDto).ToList();
         }
 
-        public async Task<FileAttachmentDto> CreateAttachment(string fileName, string contentType, byte[] data)
+        public async Task<FileAttachmentDto> CreateAttachment(string fileName, string contentType, byte[] data, string? userInputJson = null)
         {
             await using ApplicationDbContext context = await _applicationDbContextFactory.CreateDbContextAsync();
             EntityEntry<FileAttachment> saved = await context.Attachments.AddAsync(new FileAttachment()
@@ -61,6 +61,7 @@ namespace LogiEdge.BaseService.Services
                 FileName = fileName,
                 ContentType = contentType,
                 Data = new BinaryData(data),
+                UserInputJson = userInputJson,
             });
             await context.SaveChangesAsync();
             return FileAttachmentToDto(saved.Entity);
@@ -94,6 +95,7 @@ namespace LogiEdge.BaseService.Services
                 ContentType = a.ContentType,
                 FileName = a.FileName,
                 Data = a.Data?.Data,
+                UserInputJson = a.UserInputJson,
             };
         }
     }

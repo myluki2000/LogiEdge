@@ -17,7 +17,7 @@ namespace LogiEdge.Service.DocumentGenerator.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.1")
+                .HasAnnotation("ProductVersion", "10.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -45,7 +45,7 @@ namespace LogiEdge.Service.DocumentGenerator.Migrations
 
                     b.ToTable("DocumentTemplates");
 
-                    b.HasDiscriminator().HasValue("DocumentGenerationTemplate");
+                    b.HasDiscriminator<string>("Discriminator").HasValue("DocumentGenerationTemplate");
 
                     b.UseTphMappingStrategy();
                 });
@@ -64,6 +64,9 @@ namespace LogiEdge.Service.DocumentGenerator.Migrations
 
                     b.Property<string>("Html")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("InputFormHtml")
                         .HasColumnType("text");
 
                     b.HasDiscriminator().HasValue("HtmlDocumentGenerationTemplate");

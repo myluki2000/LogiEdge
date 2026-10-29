@@ -1,0 +1,9 @@
+﻿@using LogiEdge.CustomerService.Services
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@inject CustomerManagementService CustomerManagementService
+
+@if (!string.IsNullOrWhiteSpace(FormHtml) && _srcDoc != null)
+{
+    <iframe id="@_iframeId" sandbox="allow-scripts" srcdoc="@_srcDoc" style="width: 100%; height: 420px; border: none; overflow: auto; background: white;" />
+}

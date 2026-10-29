@@ -21,14 +21,17 @@ namespace LogiEdge.Service.DocumentGenerator.Services
         /// <summary>
         /// Generates a document using the specified generator and input data.
         /// </summary>
-        public async Task<GeneratedDocumentDto> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData)
+        public async Task<GeneratedDocumentDto> GenerateDocument<T>(IDocumentGenerator<T> generator, T inputData, string? userInputJson = null)
         {
-            byte[] doc = await generator.GenerateDocumentAsync(inputData);
+            UserInputJson.Validate(userInputJson);
+
+            byte[] doc = await generator.GenerateDocumentAsync(inputData, userInputJson);
             return new GeneratedDocumentDto()
             {
                 ContentType = "application/pdf", // TODO: Must depend on the generator used
                 Data = doc,
-                FileName = $"{generator.GetType().Name}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf"
+                FileName = $"{generator.GetType().Name}_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf",
+                UserInputJson = userInputJson
             };
         }
 
@@ -122,6 +125,53 @@ namespace LogiEdge.Service.DocumentGenerator.Services
             template.Html = htmlDto.Html;
             template.HeaderHtml = htmlDto.HeaderHtml;
             template.FooterHtml = htmlDto.FooterHtml;
+            template.InputFormHtml = htmlDto.InputFormHtml;
+            await ctx.SaveChangesAsync();
+
+            return DocumentGenerationTemplateToDto(template);
+        }
+
+        /// <summary>
+        /// Exports an HTML document template as a zip file (see TemplateZip) and returns the zip data.
+        /// </summary>
+        public async Task<byte[]> ExportTemplateAsync(Guid templateId)
+        {
+            await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
+
+            DocumentGenerationTemplate? template = await ctx.DocumentTemplates.FirstOrDefaultAsync(t => t.Id == templateId);
+            if (template is not HtmlDocumentGenerationTemplate htmlTemplate)
+            {
+                throw new NotSupportedException($"Unsupported template type: {template?.GetType().Name}.");
+            }
+
+            return TemplateZip.CreateZip(htmlTemplate.Html, htmlTemplate.HeaderHtml, htmlTemplate.FooterHtml, htmlTemplate.InputFormHtml);
+        }
+
+        /// <summary>
+        /// Imports a document template from the given zip data (see TemplateZip) and returns the created template as a DTO.
+        /// </summary>
+        public async Task<DocumentGenerationTemplateDto> ImportTemplate(string templateName, Type inputType, byte[] zipData)
+        {
+            if (!typeof(IDocumentGeneratorInput).IsAssignableFrom(inputType))
+            {
+                throw new ArgumentException($"The input type must implement IDocumentGeneratorInput: {inputType.FullName}.", nameof(inputType));
+            }
+
+            (string html, string headerHtml, string footerHtml, string? inputFormHtml) = TemplateZip.ParseZip(zipData);
+
+            await using DocumentGeneratorDbContext ctx = await _dbContextFactory.CreateDbContextAsync();
+
+            HtmlDocumentGenerationTemplate template = new()
+            {
+                Name = templateName,
+                InputTypeName = inputType.FullName!,
+                Html = html,
+                HeaderHtml = headerHtml,
+                FooterHtml = footerHtml,
+                InputFormHtml = string.IsNullOrWhiteSpace(inputFormHtml) ? null : inputFormHtml,
+            };
+
+            ctx.DocumentTemplates.Add(template);
             await ctx.SaveChangesAsync();
 
             return DocumentGenerationTemplateToDto(template);
@@ -139,6 +189,7 @@ namespace LogiEdge.Service.DocumentGenerator.Services
                     Html = html.Html,
                     HeaderHtml = html.HeaderHtml,
                     FooterHtml = html.FooterHtml,
+                    InputFormHtml = html.InputFormHtml,
                 };
             }
 

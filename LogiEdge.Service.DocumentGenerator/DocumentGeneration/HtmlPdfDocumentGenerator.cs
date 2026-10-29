@@ -14,14 +14,18 @@ namespace LogiEdge.Service.DocumentGenerator.DocumentGeneration
 
         private GotenbergSharpClient _gotenbergClient = serviceProvider.GetRequiredService<GotenbergSharpClient>();
 
-        public async Task<byte[]> GenerateDocumentAsync(T input)
+        public async Task<byte[]> GenerateDocumentAsync(T input, string? userInputJson)
         {
             string dataJson = JsonSerializer.Serialize(input, new JsonSerializerOptions()
             {
                 ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
             });
 
-            string htmlContent = $"<script>const data = {dataJson};</script>{template.Html}";
+            string userInputScript = userInputJson is null
+                ? string.Empty
+                : $"<script>const userInput = {UserInputJson.EscapeForScriptInjection(userInputJson)};</script>";
+
+            string htmlContent = $"<script>const data = {dataJson};</script>{userInputScript}{template.Html}";
 
             HtmlRequestBuilder builder = new HtmlRequestBuilder()
                 .AddDocument(doc => doc

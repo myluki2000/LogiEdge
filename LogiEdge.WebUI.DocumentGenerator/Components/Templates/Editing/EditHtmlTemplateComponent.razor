@@ -7,6 +7,12 @@
 
     [Parameter]
     public string Css { get; set; } = string.Empty;
+
+    private string InputFormHtml
+    {
+        get => Template.InputFormHtml ?? string.Empty;
+        set => Template.InputFormHtml = string.IsNullOrWhiteSpace(value) ? null : value;
+    }
 }
 
 <div id="tab-wrapper" style="display: flex; flex-direction: column; @Css">
@@ -41,6 +47,23 @@
                         </a>.
                     </p>
                     <HxInputTextArea @bind-Value="Template.FooterHtml" Label="Footer HTML" InputCssClass="flex-grow-1" CssClass="d-flex flex-column h-100"/>
+                </div>
+            </Content>
+        </HxTab>
+        <HxTab Title="Input Form HTML" ContentCssClass="h-100 p-3">
+            <Content>
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                    <p>
+                        Optional — leave empty for no input form. On generation the form is shown next to the PDF preview and its values are
+                        available in the document HTML as <code>userInput</code>. Named inputs (<code>name</code> attribute) are collected
+                        automatically without JavaScript.
+                    </p>
+                    <ul>
+                        <li>Templates may add a <code>&lt;script&gt;</code> using <code>logiedge.putOutputValue(key, value)</code> and <code>logiedge.rpc('getCustomers')</code>.</li>
+                        <li>Optional hooks: <code>window.validateInputs()</code> (return null when valid, else an error string that blocks Generate) and <code>window.computeUserInput(collected)</code> (final transformation of the collected object).</li>
+                        <li>A <code>context</code> object is injected with <code>documentData</code>, <code>preFilled</code> and <code>rpcAvailable</code>.</li>
+                    </ul>
+                    <HxInputTextArea @bind-Value="InputFormHtml" Label="Input form HTML" InputCssClass="flex-grow-1" CssClass="d-flex flex-column h-100"/>
                 </div>
             </Content>
         </HxTab>
