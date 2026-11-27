@@ -258,6 +258,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
                 not null when propertyType == typeof(decimal) => decimal.Parse(propertyValue),
                 not null when propertyType == typeof(DateTime) => DateTime.SpecifyKind(DateTime.Parse(propertyValue), DateTimeKind.Utc),
                 not null when propertyType == typeof(Guid) => Guid.Parse(propertyValue),
+                not null when propertyType == typeof(bool) => bool.Parse(propertyValue),
                 _ => propertyValue
             };
         }

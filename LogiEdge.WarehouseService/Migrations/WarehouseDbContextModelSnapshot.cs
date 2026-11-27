@@ -19,7 +19,7 @@ namespace LogiEdge.WarehouseService.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.1")
+                .HasAnnotation("ProductVersion", "10.0.2")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
@@ -40,6 +40,64 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.ToTable("CustomerItemSchema");
                 });
 
+            modelBuilder.Entity("LogiEdge.CustomerService.Data.Address", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BillingCustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("DeliveryCustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HouseNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("IsDefaultDeliveryAddress")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Street")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ZipCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BillingCustomerId")
+                        .IsUnique();
+
+                    b.HasIndex("DeliveryCustomerId");
+
+                    b.ToTable("Addresses", null, t =>
+                        {
+                            t.ExcludeFromMigrations();
+
+                            t.HasCheckConstraint("CK_Addresses_SingleRole", "\"BillingCustomerId\" IS NULL OR \"DeliveryCustomerId\" IS NULL");
+                        });
+                });
+
             modelBuilder.Entity("LogiEdge.CustomerService.Data.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -50,11 +108,20 @@ namespace LogiEdge.WarehouseService.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Name")
+                    b.Property<string>("CanonicalName")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("ShortName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Abbreviation")
+                        .IsUnique();
 
                     b.ToTable("Customers", null, t =>
                         {
@@ -248,6 +315,37 @@ namespace LogiEdge.WarehouseService.Migrations
                     b.HasIndex("WarehouseId");
 
                     b.ToTable("ItemsStates");
+                });
+
+            modelBuilder.Entity("LogiEdge.WarehouseService.Data.ItemsTableView", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ViewState")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsDefault");
+
+                    b.HasIndex("UserId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ItemTableViews");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Transactions.InboundDraftItem", b =>
@@ -456,6 +554,17 @@ namespace LogiEdge.WarehouseService.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("LogiEdge.CustomerService.Data.Address", b =>
+                {
+                    b.HasOne("LogiEdge.CustomerService.Data.Customer", null)
+                        .WithOne("BillingAddress")
+                        .HasForeignKey("LogiEdge.CustomerService.Data.Address", "BillingCustomerId");
+
+                    b.HasOne("LogiEdge.CustomerService.Data.Customer", null)
+                        .WithMany("DeliveryAddresses")
+                        .HasForeignKey("DeliveryCustomerId");
+                });
+
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Comment", b =>
                 {
                     b.HasOne("LogiEdge.WarehouseService.Data.Transactions.InventoryTransaction", null)
@@ -652,6 +761,13 @@ namespace LogiEdge.WarehouseService.Migrations
                         .IsRequired();
 
                     b.Navigation("Transaction");
+                });
+
+            modelBuilder.Entity("LogiEdge.CustomerService.Data.Customer", b =>
+                {
+                    b.Navigation("BillingAddress");
+
+                    b.Navigation("DeliveryAddresses");
                 });
 
             modelBuilder.Entity("LogiEdge.WarehouseService.Data.Item", b =>

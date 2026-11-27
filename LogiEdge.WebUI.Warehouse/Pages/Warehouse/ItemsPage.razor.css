@@ -25,3 +25,14 @@
 ::deep .form-control {
     font-size: 0.8125rem;
 }
+
+/* Inline warnings (saved view not found, failed view action) */
+
+.items-page-alerts {
+    padding: 0 1rem;
+    margin-bottom: 8px;
+}
+
+.items-page-alerts ::deep .alert {
+    font-size: 0.8125rem;
+}

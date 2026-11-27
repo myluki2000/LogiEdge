@@ -3,7 +3,7 @@ using LogiEdge.WarehouseService.Data;
 using LogiEdge.WarehouseService.Dto;
 using Microsoft.Extensions.Primitives;
 
-namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+namespace LogiEdge.WarehouseService.Services.ItemsTable
 {
     public record ItemsTableColumnDisplayParameters()
     {
@@ -22,6 +22,19 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
         }
 
         /// <summary>
+        /// The built-in default column set — used when no explicit col query parameters are present.
+        /// </summary>
+        public static IReadOnlyList<string> DefaultColumns { get; } =
+        [
+            nameof(ItemAtStateDto.Id),
+            nameof(ItemAtStateDto.Customer),
+            nameof(ItemAtStateDto.ItemNumber),
+            nameof(ItemAtStateDto.Warehouse),
+            nameof(ItemAtStateDto.Location),
+            nameof(ItemAtStateDto.EntryDate)
+        ];
+
+        /// <summary>
         /// Returns the columns to display according to the query parameters, or a default selection of columns if none were specified.
         /// </summary>
         /// <param name="itemSchemas">The item schemas of the items.</param>
@@ -31,16 +44,7 @@ namespace LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
             if (ColumnsToDisplay.Count > 0)
                 return ColumnsToDisplay;
             
-            return
-                new List<string>
-                {
-                    nameof(ItemAtStateDto.Id),
-                    nameof(ItemAtStateDto.Customer),
-                    nameof(ItemAtStateDto.ItemNumber),
-                    nameof(ItemAtStateDto.Warehouse),
-                    nameof(ItemAtStateDto.Location),
-                    nameof(ItemAtStateDto.EntryDate)
-                }.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name));
+            return DefaultColumns.Concat(itemSchemas.SelectMany(sch => sch.AdditionalProperties).Select(pr => pr.Name));
 
         }
 

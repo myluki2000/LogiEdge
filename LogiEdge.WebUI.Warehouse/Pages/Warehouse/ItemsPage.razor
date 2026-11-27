@@ -1,32 +1,54 @@
 ﻿@page "/warehouse/items"
+@using LogiEdge.Shared.Utility
 @using LogiEdge.WarehouseService.Dto
 @using LogiEdge.WarehouseService.Services.ItemsTable
 @using LogiEdge.WebUI.Shared.Shared
 @using LogiEdge.WebUI.Warehouse.Components.WarehouseItemTable
+@using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.WebUtilities
 @using Microsoft.Extensions.Primitives
 
 @inject NavigationManager NavigationManager
 @inject ItemsTableService ItemsTableService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ItemsTableViewService ItemsTableViewService
 
 @code {
     [CascadingParameter]
     public required MainLayout Layout { get; set; }
 
-    private ItemsTableSortParameters? SortParameters { get; set; }
+    private ItemsTableSortParameters SortParameters { get; set; } = ItemsTableSortParameters.FromQueryParameters([]);
 
-    private ItemsTableFilterParameters? FilterParameters { get; set; }
+    private ItemsTableFilterParameters FilterParameters { get; set; } = ItemsTableFilterParameters.FromQueryParameters([]);
 
-    private ItemsTableStateParameters? StateParameters { get; set; }
+    private ItemsTableStateParameters StateParameters { get; set; } = ItemsTableStateParameters.FromQueryParameters([]);
 
-    private ItemsTableColumnDisplayParameters? ColumnDisplayParameters { get; set; }
+    private ItemsTableColumnDisplayParameters ColumnDisplayParameters { get; set; } = ItemsTableColumnDisplayParameters.FromQueryParameters([]);
 
     private ItemsTableResultDto? _items;
+
+    // the saved view this session was started from (null when the state comes from raw URL params)
+    // retained after manual edits so the Update button can persist them back to the view
+    private Guid? _activeViewId;
+
+    private IReadOnlyList<ItemsTableViewDto> Views { get; set; } = [];
+
+    private string? _loadWarning;
+    private string? _actionError;
+
+    private HxModal _saveViewModal = null!;
+    private string _newViewName = string.Empty;
+    private string? _saveViewError;
+
+    private HxModal _deleteViewModal = null!;
+    private ItemsTableViewDto? _viewToDelete;
 
     public override async Task SetParametersAsync(ParameterView parameters)
     {
         await base.SetParametersAsync(parameters);
+
+        Guid userId = await AuthenticationStateProvider.GetUserIdAsync();
 
         // get the query parameters
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -34,14 +56,61 @@
             .Where(x => x.Value.Count > 0)
             .ToDictionary();
 
-        SortParameters = ItemsTableSortParameters.FromQueryParameters(queryParameters);
-        ColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters(queryParameters);
-        // ItemsTableStateParameters must be parsed before ItemsTableFilterParameters, as the latter interprets all
-        // remaining query params as additional item properties (and would swallow the state params like "at")
-        StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
-        FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
+        Guid? requestedViewId = null;
+        if (queryParameters.Remove("view", out StringValues viewParam) &&
+            Guid.TryParse(viewParam.ToString(), out Guid parsedViewId))
+        {
+            requestedViewId = parsedViewId;
+        }
+
+        _loadWarning = null;
+        _actionError = null;
+
+        ItemsTableViewState? viewState = null;
+        if (requestedViewId != null)
+        {
+            // 1. an explicit ?view=<id> wins over everything else
+            viewState = await ItemsTableViewService.GetViewAsync(userId, requestedViewId.Value);
+            _activeViewId = viewState == null ? null : requestedViewId.Value;
+            if (viewState == null)
+                _loadWarning = "Saved view not found. Falling back to the URL parameters.";
+        }
+        else if (queryParameters.Count == 0)
+        {
+            // 2. clean URL -> apply the user's default view, if they have one
+            ItemsTableViewDto? defaultView = (await ItemsTableViewService.GetViewsAsync(userId))
+                .FirstOrDefault(v => v.IsDefault);
+            if (defaultView != null)
+            {
+                viewState = await ItemsTableViewService.GetViewAsync(userId, defaultView.Id);
+                _activeViewId = viewState == null ? null : defaultView.Id;
+            }
+        }
+        // 3. raw URL parameters: keep _activeViewId as-is — manual edits stay associated with the view they were made in
+
+        if (viewState != null)
+        {
+            FilterParameters = viewState.Filter;
+            SortParameters = viewState.Sort;
+            ColumnDisplayParameters = viewState.Columns;
+            StateParameters = viewState.State;
+        }
+        else
+        {
+            // 4. raw URL parameters (also the fallback after a failed ?view= load)
+            SortParameters = ItemsTableSortParameters.FromQueryParameters(queryParameters);
+            ColumnDisplayParameters = ItemsTableColumnDisplayParameters.FromQueryParameters(queryParameters);
+            // ItemsTableStateParameters must be parsed before ItemsTableFilterParameters, as the latter interprets all
+            // remaining query params as additional item properties (and would swallow the state params like "at")
+            StateParameters = ItemsTableStateParameters.FromQueryParameters(queryParameters);
+            FilterParameters = ItemsTableFilterParameters.FromQueryParameters(queryParameters);
+        }
 
         _items = await ItemsTableService.GetAllItemsAsync(FilterParameters, StateParameters);
+
+        // the view selector needs the list of views on every page load
+        Views = await ItemsTableViewService.GetViewsAsync(userId);
+
         StateHasChanged();
     }
 
@@ -64,10 +133,16 @@
     private void UpdateUrl()
     {
         Dictionary<string, StringValues> newQueryParameters = [];
-        AddToNewQueryParameters(FilterParameters?.ToQueryParameters());
-        AddToNewQueryParameters(SortParameters?.ToQueryParameters());
-        AddToNewQueryParameters(ColumnDisplayParameters?.ToQueryParameters());
-        AddToNewQueryParameters(StateParameters?.ToQueryParameters());
+        AddToNewQueryParameters(FilterParameters.ToQueryParameters());
+        AddToNewQueryParameters(SortParameters.ToQueryParameters());
+        AddToNewQueryParameters(ColumnDisplayParameters.ToQueryParameters());
+        AddToNewQueryParameters(StateParameters.ToQueryParameters());
+
+        // if we have no query params, load the default query params
+        if (!newQueryParameters.ContainsKey("col"))
+        {
+            newQueryParameters["col"] = new StringValues(ItemsTableColumnDisplayParameters.DefaultColumns.ToArray());
+        }
 
         // get the old query parameters
         Uri uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
@@ -121,6 +196,128 @@
         StateParameters = stateParams;
         UpdateUrl();
     }
+
+    private void OnViewSelected(Guid? viewId)
+    {
+        if (viewId == null)
+            return;
+
+        NavigationManager.NavigateTo($"/warehouse/items?view={viewId.Value}", forceLoad: false);
+    }
+
+    private ItemsTableViewState GetCurrentViewState()
+    {
+        return new ItemsTableViewState()
+        {
+            Filter = FilterParameters ?? ItemsTableFilterParameters.FromQueryParameters([]),
+            Sort = SortParameters ?? ItemsTableSortParameters.FromQueryParameters([]),
+            Columns = ColumnDisplayParameters ?? ItemsTableColumnDisplayParameters.FromQueryParameters([]),
+            State = StateParameters ?? ItemsTableStateParameters.FromQueryParameters([]),
+        };
+    }
+
+    private async Task ShowSaveViewModalAsync()
+    {
+        _newViewName = string.Empty;
+        _saveViewError = null;
+        await _saveViewModal.ShowAsync();
+    }
+
+    private async Task SaveNewViewAsync()
+    {
+        string name = _newViewName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            _saveViewError = "Please enter a view name.";
+            return;
+        }
+
+        try
+        {
+            Guid userId = await AuthenticationStateProvider.GetUserIdAsync();
+            await ItemsTableViewService.SaveNewViewAsync(userId, name, GetCurrentViewState());
+            Views = await ItemsTableViewService.GetViewsAsync(userId);
+            _saveViewError = null;
+            await _saveViewModal.HideAsync();
+        }
+        catch (Exception ex)
+        {
+            _saveViewError = ex.Message;
+        }
+    }
+
+    private async Task OnNewViewNameKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await SaveNewViewAsync();
+    }
+
+    private async Task UpdateActiveViewAsync()
+    {
+        if (_activeViewId == null)
+            return;
+
+        try
+        {
+            Guid userId = await AuthenticationStateProvider.GetUserIdAsync();
+            await ItemsTableViewService.UpdateViewStateAsync(userId, _activeViewId.Value, GetCurrentViewState());
+
+            NavigationManager.NavigateTo($"/warehouse/items?view={_activeViewId.Value}", forceLoad: false);
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task OnMakeDefaultRequestedAsync(ItemsTableViewDto view)
+    {
+        try
+        {
+            Guid userId = await AuthenticationStateProvider.GetUserIdAsync();
+            await ItemsTableViewService.SetDefaultViewAsync(userId, view.Id);
+            Views = await ItemsTableViewService.GetViewsAsync(userId);
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
+
+    private async Task OnDeleteRequestedAsync(ItemsTableViewDto view)
+    {
+        _viewToDelete = view;
+        await _deleteViewModal.ShowAsync();
+    }
+
+    private async Task ConfirmDeleteViewAsync()
+    {
+        if (_viewToDelete == null)
+            return;
+
+        ItemsTableViewDto view = _viewToDelete;
+        bool wasActive = _activeViewId == view.Id;
+
+        await _deleteViewModal.HideAsync();
+        _viewToDelete = null;
+
+        try
+        {
+            Guid userId = await AuthenticationStateProvider.GetUserIdAsync();
+            await ItemsTableViewService.DeleteViewAsync(userId, view.Id);
+            Views = await ItemsTableViewService.GetViewsAsync(userId);
+
+            if (wasActive)
+            {
+                _activeViewId = null;
+                NavigationManager.NavigateTo("/warehouse/items", forceLoad: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _actionError = ex.Message;
+        }
+    }
 }
 
 @{
@@ -130,15 +327,46 @@
 <div class="items-page-header d-flex align-items-center flex-wrap gap-3">
     <h3 class="items-page-title mb-0">Items by Property</h3>
 
-    <div class="ms-auto d-flex align-items-center gap-2">
-        <span class="items-state-label">Warehouse state at</span>
-        <InputDate TValue="DateTime?"
-                   Type="InputDateType.DateTimeLocal"
-                   Value="StateParameters?.AtTime"
-                   ValueChanged="(DateTime? dt) => StateParameters = StateParameters with { AtTime = dt }"
-                   ValueExpression="() => StateParameters.AtTime" />
+    <div class="ms-auto d-flex align-items-center flex-wrap gap-3">
+        <ItemsTableViewSelectorComponent Views="Views"
+                                         ActiveViewId="_activeViewId"
+                                         ViewSelected="OnViewSelected"
+                                         MakeDefaultRequested="OnMakeDefaultRequestedAsync"
+                                         DeleteRequested="OnDeleteRequestedAsync" />
+
+        <div class="d-flex align-items-center gap-2">
+            <HxButton Color="ThemeColor.Secondary" Size="ButtonSize.Small" OnClick="ShowSaveViewModalAsync">Save as new view…</HxButton>
+            @if (_activeViewId != null)
+            {
+                <HxButton Color="ThemeColor.Primary" Size="ButtonSize.Small" OnClick="UpdateActiveViewAsync">Update</HxButton>
+            }
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="items-state-label">Warehouse state at</span>
+            <InputDate TValue="DateTime?"
+                       Type="InputDateType.DateTimeLocal"
+                       Value="StateParameters.AtTime"
+                       ValueChanged="(DateTime? dt) => StateParameters = StateParameters with { AtTime = dt }"
+                       ValueExpression="() => StateParameters.AtTime" />
+        </div>
     </div>
 </div>
+
+@if (_loadWarning != null || _actionError != null)
+{
+    <div class="items-page-alerts">
+        @if (_loadWarning != null)
+        {
+            <HxAlert Color="ThemeColor.Warning">@_loadWarning</HxAlert>
+        }
+
+        @if (_actionError != null)
+        {
+            <HxAlert Color="ThemeColor.Danger">@_actionError</HxAlert>
+        }
+    </div>
+}
 
 @if (_items != null)
 {
@@ -158,3 +386,37 @@ else
 {
     <p>Loading items...</p>
 }
+
+<HxModal @ref="_saveViewModal" Title="Save as new view">
+    <BodyTemplate>
+        <div class="d-flex flex-column gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <label for="new-view-name" class="col-form-label text-nowrap">View name:</label>
+                <input type="text" id="new-view-name" class="form-control flex-fill"
+                       placeholder="e.g. Quarantine check"
+                       value="@_newViewName"
+                       @oninput="e => _newViewName = e.Value?.ToString() ?? string.Empty"
+                       @onkeydown="OnNewViewNameKeyDown" />
+            </div>
+
+            @if (_saveViewError != null)
+            {
+                <HxAlert Color="ThemeColor.Danger">@_saveViewError</HxAlert>
+            }
+        </div>
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Save" Color="ThemeColor.Primary" Enabled="!string.IsNullOrWhiteSpace(_newViewName)" OnClick="SaveNewViewAsync" />
+        <HxButton Text="Cancel" Color="ThemeColor.Secondary" OnClick="() => _saveViewModal.HideAsync()" />
+    </FooterTemplate>
+</HxModal>
+
+<HxModal @ref="_deleteViewModal" Title="Delete view">
+    <BodyTemplate>
+        <p class="mb-0">Delete the view "<b>@_viewToDelete?.Name</b>"? This cannot be undone.</p>
+    </BodyTemplate>
+    <FooterTemplate>
+        <HxButton Text="Delete" Color="ThemeColor.Danger" OnClick="ConfirmDeleteViewAsync" />
+        <HxButton Text="Cancel" Color="ThemeColor.Secondary" OnClick="() => _deleteViewModal.HideAsync()" />
+    </FooterTemplate>
+</HxModal>

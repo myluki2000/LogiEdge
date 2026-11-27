@@ -1,0 +1,97 @@
+﻿@using LogiEdge.WarehouseService.Services.ItemsTable
+
+@code {
+    [Parameter]
+    public IReadOnlyList<ItemsTableViewDto> Views { get; set; } = [];
+
+    [Parameter]
+    public Guid? ActiveViewId { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid?> ViewSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<ItemsTableViewDto> MakeDefaultRequested { get; set; }
+
+    [Parameter]
+    public EventCallback<ItemsTableViewDto> DeleteRequested { get; set; }
+
+    private Guid? _openMenuViewId;
+
+    // the default view is always first, the remaining views are sorted by name
+    private List<ItemsTableViewDto> OrderedViews()
+    {
+        ItemsTableViewDto? defaultView = Views.FirstOrDefault(v => v.IsDefault);
+        List<ItemsTableViewDto> ordered = Views.Where(v => !v.IsDefault).OrderBy(v => v.Name).ToList();
+        if (defaultView != null)
+            ordered.Insert(0, defaultView);
+        return ordered;
+    }
+
+    private void SelectView(ItemsTableViewDto view)
+    {
+        _openMenuViewId = null;
+        ViewSelected.InvokeAsync(view.Id);
+    }
+
+    private void ToggleOptionsMenu(Guid viewId)
+    {
+        _openMenuViewId = _openMenuViewId == viewId ? null : viewId;
+    }
+
+    private async Task OnMakeDefaultClicked(ItemsTableViewDto view)
+    {
+        _openMenuViewId = null;
+        await MakeDefaultRequested.InvokeAsync(view);
+    }
+
+    private async Task OnDeleteClicked(ItemsTableViewDto view)
+    {
+        _openMenuViewId = null;
+        await DeleteRequested.InvokeAsync(view);
+    }
+}
+
+<div class="view-selector d-inline-flex align-items-center flex-wrap gap-1">
+    <span class="view-selector-label">Views</span>
+
+    @if (_openMenuViewId != null)
+    {
+        @* transparent full-screen backdrop: any click outside the open menu closes it *@
+        <div class="view-menu-backdrop" @onclick="() => _openMenuViewId = null"></div>
+    }
+
+    @foreach (ItemsTableViewDto view in OrderedViews())
+    {
+        <span class="view-badge-wrap">
+            <span class="view-badge badge rounded-pill @(ActiveViewId == view.Id ? "checked" : "")"
+                  @onclick="() => SelectView(view)">
+                @if (view.IsDefault)
+                {
+                    <span class="material-symbols-rounded view-badge-default-icon" title="Default view">star</span>
+                }
+                <span>@view.Name</span>
+                <button type="button" class="view-badge-options" title="View options"
+                        @onclick:stopPropagation="true"
+                        @onclick="() => ToggleOptionsMenu(view.Id)">
+                    <span class="material-symbols-rounded">more_vert</span>
+                </button>
+            </span>
+
+            @if (_openMenuViewId == view.Id)
+            {
+                <div class="view-menu">
+                    @if (!view.IsDefault)
+                    {
+                        <button type="button" class="view-menu-item" @onclick="() => OnMakeDefaultClicked(view)">
+                            Make default
+                        </button>
+                    }
+                    <button type="button" class="view-menu-item view-menu-item-danger" @onclick="() => OnDeleteClicked(view)">
+                        Delete
+                    </button>
+                </div>
+            }
+        </span>
+    }
+</div>
