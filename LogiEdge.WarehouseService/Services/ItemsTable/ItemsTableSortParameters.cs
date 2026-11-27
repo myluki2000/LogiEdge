@@ -36,8 +36,6 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
-            if (!ReferenceEquals(GroupByProperties, other.GroupByProperties))
-                return false;
             return GroupByProperties.SequenceEqual(other.GroupByProperties) && SortByProperty == other.SortByProperty && SortOrderDescending == other.SortOrderDescending;
         }
 

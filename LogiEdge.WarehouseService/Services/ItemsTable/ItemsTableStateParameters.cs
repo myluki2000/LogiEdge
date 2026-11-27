@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Primitives;
+﻿using System.Globalization;
+using Microsoft.Extensions.Primitives;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -42,7 +43,7 @@ namespace LogiEdge.WarehouseService.Services.ItemsTable
             {
                 AtTime = queryParameters
                     .PopWhere(param => param.Key == "at" && param.Value.Count > 0)
-                    .Select(param => DateTime.SpecifyKind(DateTime.Parse(param.Value.First()!), DateTimeKind.Utc))
+                    .Select(param => DateTime.Parse(param.Value.First()!, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal))
                     .Cast<DateTime?>()
                     .FirstOrDefault(),
                 ShowShipped = queryParameters

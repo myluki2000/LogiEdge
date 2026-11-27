@@ -259,6 +259,11 @@ system used by all item tables:
   and sorted **in memory** by `ItemsTableSorter` (any base or additional property).
 - Filter/sort/state/column-display parameters are immutable record-style parameter types
   with `With*`/`Without*` copy methods, so UI components can bind them to query strings.
+- **Saved views** (`Data/ItemsTableView.cs` + `Services/ItemsTable/ItemsTableViewService.cs`):
+  per-user named snapshots of the four items-table parameter records (filter / sort+groupBy /
+  columns / state), stored as JSON in a jsonb `ViewState` column. The items page supports a
+  reserved `?view=<guid>` query param; a URL with no query params applies the user's default view — user-edited states always carry at least `col` (always emitted by `UpdateUrl`), so a clean URL can only mean page entry, and the plain table is refresh-stable (`IsDefault`, at most one per user, set via *Make default* in the badge options menu).
+  See `.notes/warehouse-views.md` for the full design.
 
 ### 6.4 ExcelImporterService (`LogiEdge.ExcelImporterService/`)
 
@@ -341,7 +346,7 @@ migrations, and the UI is a static stub.
 | `/` | Blazor page | `LogiEdge/Pages/Index.razor` (contains debug `Component1`) |
 | `/Settings` | Blazor page | settings KV editor (`ExcelImporterConfig` etc.) |
 | `/customers`, `/customers/{id}`, `/customers/create` | Blazor pages | WebUI.Customers |
-| `/warehouse/items`, `/warehouse/item/{ItemId}`, `/warehouse/create` | Blazor pages | WebUI.Warehouse |
+| `/warehouse/items` (saved views via `?view=<guid>`), `/warehouse/item/{ItemId}`, `/warehouse/create` | Blazor pages | WebUI.Warehouse |
 | `/warehouse/transactions/`, `/warehouse/transactions/{TransactionId:guid}` | Blazor pages | WebUI.Warehouse |
 | `/planning-board` | Blazor page (stub) | WebUI.PlanningBoard |
 | `/document-generator/templates/`, `.../{TemplateId:guid}` | Blazor pages | WebUI.DocumentGenerator |
@@ -440,7 +445,8 @@ Notes:
 
 ## 10. Known Issues, TODOs & Gotchas
 
-- `WarehouseDbContextModelSnapshot.cs` is stale: it records the pre-change `Customer` shape (no `CanonicalName`/`ShortName`) and has no `Address`. Harmless at runtime and for migration generation (`Customer` and `Address` are `.ExcludeFromMigrations()` in WarehouseService — no operations are ever generated for them); the snapshot refreshes when the next real WarehouseService migration is generated.
+- The former `WarehouseDbContextModelSnapshot.cs` staleness was resolved by the `AddItemsTableView` migration (2026-10-29) — the snapshot now records the current `Customer`/`Address` shape. Gotcha found while doing so: `.ExcludeFromMigrations()` also makes model-based table creation (`CreateTablesAsync`) skip those tables while still emitting FKs to them — test fixtures must create the customer tables first (see `LogiEdge.Test.WarehouseService/DatabaseFixture.cs`).
+- The `ItemsPage` "Warehouse state at" date input updates in-memory state parameters but does not rewrite the URL or refetch (no `UpdateUrl()` call) — pre-existing; saved views still capture it via Save/Update.
 - **Test isolation**: the `LogiEdge.Test.ExcelImporterService` scenarios import into the same
   warehouse/customer names, so each test method gets its own Testcontainers database
   (per-method fixture, not a shared `IClassFixture`) — don't reintroduce sharing there.

@@ -36,6 +36,8 @@ namespace LogiEdge.WarehouseService.Persistence
 
         public DbSet<TransactionEditLogEntry> TransactionEditLogEntries { get; set; }
 
+        public DbSet<ItemsTableView> ItemTableViews { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -91,6 +93,17 @@ namespace LogiEdge.WarehouseService.Persistence
                 .HasOne(t => t.RelocationTransactionPart)
                 .WithOne(p => p.Transaction)
                 .HasForeignKey<RelocationTransactionPart>(p => p.TransactionId);
+
+            modelBuilder.Entity<ItemsTableView>()
+                .Property(v => v.ViewState)
+                .HasColumnType("jsonb");
+
+            modelBuilder.Entity<ItemsTableView>()
+                .HasIndex(v => new { v.UserId, v.Name })
+                .IsUnique();
+
+            modelBuilder.Entity<ItemsTableView>()
+                .HasIndex(v => new { v.UserId, v.IsDefault });
         }
 
         /// <summary>

@@ -1,0 +1,119 @@
+/* Same visual language as the Group by / Filter badges (BadgeCheckboxComponent) */
+
+.view-selector-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.view-badge-wrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.view-badge {
+    border-style: solid;
+    border-width: 1px;
+    border-color: #c5cdfd;
+    color: var(--bs-gray-800);
+    cursor: pointer;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    padding: 0.05rem 0.3rem 0.05rem 0.55rem;
+    margin: 2px 0;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 50px;
+    font-weight: 400;
+    user-select: none;
+}
+
+.view-badge:hover {
+    background-color: #f1f3f5;
+}
+
+.view-badge.checked {
+    color: var(--bs-gray-900);
+    border-color: transparent;
+    background: linear-gradient(135deg, rgba(222, 213, 242, 1) 0%, rgba(157, 142, 230, 1) 70%);
+}
+
+.view-badge.checked:hover {
+    background: linear-gradient(135deg, rgba(210, 200, 238, 1) 0%, rgba(146, 130, 224, 1) 70%);
+}
+
+.view-badge-default-icon {
+    font-size: 1em;
+    line-height: 1;
+    margin-right: 2px;
+    color: #c99700;
+}
+
+/* three-dots options button on the badge's right edge */
+
+.view-badge-options {
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    color: inherit;
+    opacity: 0.65;
+    padding: 1px 3px;
+    margin-left: 2px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 50%;
+}
+
+.view-badge-options:hover {
+    opacity: 1;
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+.view-badge-options .material-symbols-rounded {
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* Options menu: Blazor-toggled (no Bootstrap JS), anchored to the badge */
+
+.view-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background-color: transparent;
+}
+
+.view-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 1050;
+    min-width: 130px;
+    padding: 4px 0;
+    background-color: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.view-menu-item {
+    display: block;
+    width: 100%;
+    padding: 4px 12px;
+    font-size: 0.8125rem;
+    text-align: left;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.view-menu-item:hover {
+    background-color: #f1f3f5;
+}
+
+.view-menu-item-danger {
+    color: var(--bs-red, #dc3545);
+}
